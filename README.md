@@ -4,6 +4,34 @@
 
 元リポジトリは作業・比較用に `reference/tomari-guruguru` へ clone しています。アプリ本体はこの repo の root 側に移植・再設計しています。
 
+## 公開 URL
+
+GitHub Pages:
+
+```text
+https://nozomiidev.github.io/TomaPages/
+https://nozomiidev.github.io/TomaPages/talk.html
+https://nozomiidev.github.io/TomaPages/guruguru.html
+https://nozomiidev.github.io/TomaPages/index.html#assets
+```
+
+## 元リポジトリと方針
+
+参考・移植元:
+
+- <https://github.com/rotejin/tomari-guruguru>
+
+この repo は元リポジトリの機能をフルスクラッチで似せ直すのではなく、`reference/tomari-guruguru` に元実装を保持し、挙動を確認しながら root 側へ移植・整理したものです。
+
+主な変更点:
+
+- `talk.html` / `guruguru.html` の URL 互換を維持しつつ、React アプリ本体を単一の Studio UI に統合
+- GitHub Pages のサブパスで壊れにくい relative asset path に変更
+- GitHub Actions による build / verify / deploy を追加
+- lint / test / Pages artifact verifier を追加
+- 文字化けしていた UI 文言を整理し、制作ツールとして使える SaaS 風の画面構成に刷新
+- asset inventory 画面を追加し、6 シート / 150 フレームの読み込みを確認しやすくした
+
 ## 機能
 
 - `talk.html`: マイクまたは音声ファイルの音量に合わせた 3 段階口パク

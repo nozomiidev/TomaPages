@@ -31,13 +31,14 @@ https://nozomiidev.github.io/TomaPages/index.html#assets
 - lint / test / Pages artifact verifier を追加
 - 文字化けしていた UI 文言を整理し、制作ツールとして使える SaaS 風の画面構成に刷新
 - asset inventory 画面を追加し、6 シート / 150 フレームの読み込みを確認しやすくした
+- 髪色・瞳色を非破壊のピクセルマスクで重ねる appearance tuning を追加
 
 ## 機能
 
 - `talk.html`: マイクまたは音声ファイルの音量に合わせた 3 段階口パク
 - `guruguru.html`: ポインター位置に追従する 25 方向の視線・顔向き
 - 自然な自動まばたき、ダブル blink、長め blink
-- 調整パネル: follow range、smoothing、avatar size、mic gain、口パクしきい値、release、背景色、auto blink、debug grid
+- 調整パネル: follow range、smoothing、avatar size、mic gain、口パクしきい値、release、髪色、瞳色、背景色、auto blink、debug grid
 - `index.html#assets`: 6 シート / 150 フレームの asset inventory
 - GitHub Pages 用の relative asset path、Actions deploy、artifact verifier
 - lint/test/audit/build/Pages verify を回せる保守用スクリプト
@@ -97,6 +98,19 @@ Pages 側の Source は GitHub Actions にしてください。
 
 方向は `r0..r4` x `c0..c4` です。`r2c2` が正面、列は左から右、行は上から下の向きです。
 
+## 色カスタマイズ
+
+Tuning パネルの Appearance で髪色・瞳色と mix 強度を調整できます。元画像は書き換えず、現在表示中のフレームから髪・瞳らしいピクセルを検出し、透明な色付きレイヤーを上に重ねます。`mix` が `0` のときは元絵のままです。
+
+URL パラメーターでも初期値を指定できます。`#` は URL fragment になるため、色は `#` なしで渡すのが安全です。
+
+```text
+talk.html?hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
+guruguru.html?hair=6D5BD0&hairMix=0.45&eyeColor=2BA7E8&eyeTint=0.75
+```
+
+この方式は GitHub Pages 上でも追加サーバーなしで動きます。完全なレイヤー分けではないため、別キャラクターに差し替える場合は `src/domain/avatar-recolor.js` の色範囲条件を調整してください。
+
 ## 新しいキャラクターへ差し替える
 
 元 repo 由来の `tools/slice_character_sheets.py` を残しています。最終的には `public/slices2/{A..F}/r{0..4}c{0..4}.webp` が揃えばアプリは動きます。
@@ -118,6 +132,8 @@ Pages 側の Source は GitHub Actions にしてください。
 │  ├─ styles.css
 │  ├─ domain/
 │  │  ├─ audio-engine.js
+│  │  ├─ avatar-recolor.js
+│  │  ├─ avatar-recolor.test.js
 │  │  ├─ character.js
 │  │  └─ character.test.js
 │  ├─ hooks/

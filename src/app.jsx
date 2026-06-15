@@ -20,6 +20,7 @@ import {
   Mic,
   MicOff,
   MousePointer2,
+  Palette,
   Pause,
   Play,
   Settings2,
@@ -38,6 +39,7 @@ import {
   targetToCell,
 } from './domain/character';
 import { useAnimationFrame } from './hooks/use-animation-frame';
+import { useAvatarTintOverlay } from './hooks/use-avatar-tint-overlay';
 import { usePersistentState } from './hooks/use-persistent-state';
 import { clamp, lerp } from './lib/math';
 
@@ -58,6 +60,10 @@ const DEFAULT_TUNING = {
   release: 0.12,
   autoBlink: true,
   showDebug: false,
+  hairColor: '#6D5BD0',
+  hairTint: 0,
+  eyeColor: '#2BA7E8',
+  eyeTint: 0,
 };
 
 const BACKGROUNDS = [
@@ -66,6 +72,22 @@ const BACKGROUNDS = [
   '#ECFDF3',
   '#FDF2F8',
   '#171717',
+];
+
+const HAIR_COLORS = [
+  '#303235',
+  '#6D5BD0',
+  '#0F766E',
+  '#A85555',
+  '#B7791F',
+];
+
+const EYE_COLORS = [
+  '#F2B705',
+  '#2BA7E8',
+  '#22A06B',
+  '#A855F7',
+  '#E35D75',
 ];
 
 function detectInitialMode() {
@@ -83,6 +105,34 @@ function detectInitialMode() {
 function pathForMode(mode) {
   const target = MODES.find((item) => item.id === mode);
   return target?.path ?? 'talk.html';
+}
+
+function normalizeColorParam(value) {
+  if (!value) return '';
+
+  const normalized = value.trim().replace(/^#/, '');
+  const expanded = normalized.length === 3
+    ? normalized.split('').map((item) => `${item}${item}`).join('')
+    : normalized;
+
+  if (!/^[0-9a-f]{6}$/i.test(expanded)) return '';
+  return `#${expanded.toUpperCase()}`;
+}
+
+function readTuningParams(search = window.location.search) {
+  const params = new URLSearchParams(search);
+  const patch = {};
+  const hairColor = normalizeColorParam(params.get('hair') ?? params.get('hairColor'));
+  const eyeColor = normalizeColorParam(params.get('eyes') ?? params.get('eyeColor'));
+  const hairTint = Number(params.get('hairMix') ?? params.get('hairTint'));
+  const eyeTint = Number(params.get('eyeMix') ?? params.get('eyeTint'));
+
+  if (hairColor) patch.hairColor = hairColor;
+  if (eyeColor) patch.eyeColor = eyeColor;
+  if (Number.isFinite(hairTint)) patch.hairTint = clamp(hairTint, 0, 0.85);
+  if (Number.isFinite(eyeTint)) patch.eyeTint = clamp(eyeTint, 0, 0.95);
+
+  return patch;
 }
 
 function useModeRouter(initialMode) {
@@ -142,12 +192,23 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
 
   const engine = useMemo(() => new AudioLevelEngine(), []);
   const frames = useMemo(() => allFrames(), []);
+  const avatarTint = useMemo(() => ({
+    hairColor: tuning.hairColor,
+    hairStrength: tuning.hairTint,
+    eyeColor: tuning.eyeColor,
+    eyeStrength: tuning.eyeTint,
+  }), [tuning.eyeColor, tuning.eyeTint, tuning.hairColor, tuning.hairTint]);
   const activeSheet = sheetForPose({
     blink,
     mouth: mode === 'talk' ? mouth : 0,
   });
 
   useEffect(() => () => engine.dispose(), [engine]);
+
+  useEffect(() => {
+    const tuningParams = readTuningParams();
+    if (Object.keys(tuningParams).length > 0) patchTuning(tuningParams);
+  }, [patchTuning]);
 
   useEffect(() => {
     const onPointerMove = (event) => {
@@ -356,6 +417,7 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
             setPressed={setPressed}
             showDebug={tuning.showDebug}
             stageOnly={stageOnly}
+            tint={avatarTint}
             onExitStage={() => setStageOnly(false)}
           />
         )}
@@ -516,9 +578,13 @@ const AvatarStage = React.forwardRef(function AvatarStage(
     showDebug,
     stageOnly,
     onExitStage,
+    tint,
   },
   avatarRef,
 ) {
+  const activeFrameSrc = frameSrc(activeSheet, cell.row, cell.col);
+  const tintOverlaySrc = useAvatarTintOverlay(activeFrameSrc, tint);
+
   return (
     <section className="stage" aria-label="Avatar stage">
       {stageOnly && (
@@ -553,6 +619,16 @@ const AvatarStage = React.forwardRef(function AvatarStage(
             }}
           />
         ))}
+        {tintOverlaySrc && (
+          <img
+            alt=""
+            aria-hidden="true"
+            className="avatar__tint-layer"
+            draggable="false"
+            decoding="async"
+            src={tintOverlaySrc}
+          />
+        )}
       </div>
 
       {!stageOnly && (
@@ -657,6 +733,37 @@ function TuningPanel({ tuning, patchTuning, resetTuning, mode, cell, mouth }) {
           />
         </ControlGroup>
       )}
+
+      <ControlGroup title="Appearance" icon={Palette}>
+        <ColorSwatches
+          label="Hair"
+          value={tuning.hairColor}
+          options={HAIR_COLORS}
+          onChange={(hairColor) => patchTuning({ hairColor })}
+        />
+        <RangeControl
+          label="Hair mix"
+          value={tuning.hairTint}
+          min={0}
+          max={0.85}
+          step={0.05}
+          onChange={(hairTint) => patchTuning({ hairTint })}
+        />
+        <ColorSwatches
+          label="Eyes"
+          value={tuning.eyeColor}
+          options={EYE_COLORS}
+          onChange={(eyeColor) => patchTuning({ eyeColor })}
+        />
+        <RangeControl
+          label="Eye mix"
+          value={tuning.eyeTint}
+          min={0}
+          max={0.95}
+          step={0.05}
+          onChange={(eyeTint) => patchTuning({ eyeTint })}
+        />
+      </ControlGroup>
 
       <ControlGroup title="Stage" icon={Settings2}>
         <ColorSwatches

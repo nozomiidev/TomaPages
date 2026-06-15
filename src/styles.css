@@ -421,12 +421,21 @@ img {
   transform: scale(0.965);
 }
 
-.avatar__frame {
+.avatar__frame,
+.avatar__tint-layer {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
+}
+
+.avatar__frame {
+  z-index: 0;
+}
+
+.avatar__tint-layer {
+  z-index: 1;
 }
 
 .stage-hud {

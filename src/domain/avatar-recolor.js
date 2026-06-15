@@ -1,0 +1,98 @@
+const clamp01 = (value) => Math.min(1, Math.max(0, Number.isFinite(value) ? value : 0));
+const clampChannel = (value) => Math.min(255, Math.max(0, Math.round(value)));
+
+export function parseHexColor(value, fallback = { r: 255, g: 255, b: 255 }) {
+  if (typeof value !== 'string') return fallback;
+
+  const normalized = value.trim().replace(/^#/, '');
+  const expanded = normalized.length === 3
+    ? normalized.split('').map((item) => `${item}${item}`).join('')
+    : normalized;
+
+  if (!/^[0-9a-f]{6}$/i.test(expanded)) return fallback;
+
+  return {
+    r: Number.parseInt(expanded.slice(0, 2), 16),
+    g: Number.parseInt(expanded.slice(2, 4), 16),
+    b: Number.parseInt(expanded.slice(4, 6), 16),
+  };
+}
+
+export function classifyAvatarPixel({ r, g, b, a, x, y, width, height }) {
+  if (a < 160) return null;
+  void x;
+  void y;
+  void width;
+  void height;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const saturation = max === 0 ? 0 : (max - min) / max;
+  const luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+
+  const isGoldenRange = r > 145 && g > 82 && b < 125 && r >= g && saturation > 0.28;
+  if (isGoldenRange) return 'eye';
+
+  const isSkin = r > 135 && g > 85 && b > 60 && r > g * 1.08 && g > b * 1.06;
+  const isWhiteArea = luma > 0.78 && saturation < 0.2;
+  const isWarmAccent = r > 135 && g > 65 && b < 130 && saturation > 0.3;
+  const isDarkNeutralFill = max >= 34 && luma >= 0.12 && luma < 0.5 && saturation < 0.34;
+
+  if (!isSkin && !isWhiteArea && !isWarmAccent && isDarkNeutralFill) {
+    return 'hair';
+  }
+
+  return null;
+}
+
+export function writeAvatarTintOverlay(sourceImageData, targetImageData, options) {
+  const { width, height } = sourceImageData;
+  const source = sourceImageData.data;
+  const target = targetImageData.data;
+  const hairStrength = clamp01(options.hairStrength);
+  const eyeStrength = clamp01(options.eyeStrength);
+  const hairColor = parseHexColor(options.hairColor, { r: 109, g: 91, b: 208 });
+  const eyeColor = parseHexColor(options.eyeColor, { r: 43, g: 167, b: 232 });
+  let changedPixels = 0;
+
+  target.fill(0);
+
+  if (hairStrength === 0 && eyeStrength === 0) return changedPixels;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = (y * width + x) * 4;
+      const a = source[index + 3];
+      const type = classifyAvatarPixel({
+        r: source[index],
+        g: source[index + 1],
+        b: source[index + 2],
+        a,
+        x,
+        y,
+        width,
+        height,
+      });
+
+      if (!type) continue;
+
+      const tintStrength = type === 'hair' ? hairStrength : eyeStrength;
+      if (tintStrength === 0) continue;
+
+      const tintColor = type === 'hair' ? hairColor : eyeColor;
+      const max = Math.max(source[index], source[index + 1], source[index + 2]);
+      const min = Math.min(source[index], source[index + 1], source[index + 2]);
+      const saturation = max === 0 ? 0 : (max - min) / max;
+      const shadeBoost = type === 'hair' ? 0.7 + (1 - max / 255) * 0.3 : 0.72 + saturation * 0.28;
+      const colorBoost = type === 'hair' ? 1.12 + (1 - max / 255) * 0.58 : 1;
+
+      target[index] = clampChannel(tintColor.r * colorBoost);
+      target[index + 1] = clampChannel(tintColor.g * colorBoost);
+      target[index + 2] = clampChannel(tintColor.b * colorBoost);
+      target[index + 3] = Math.round(a * tintStrength * shadeBoost);
+      changedPixels += 1;
+    }
+  }
+
+  return changedPixels;
+}

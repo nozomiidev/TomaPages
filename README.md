@@ -1,0 +1,106 @@
+# PNGTuber Studio
+
+`tomari-guruguru` を元に、GitHub Pages へそのまま出せる静的 PNGTuber Studio として再構成したリポジトリです。Live2D ではなく、5x5 の方向差分と口・目の状態差分画像を切り替えて動かします。
+
+元リポジトリは作業・比較用に `reference/tomari-guruguru` へ clone しています。アプリ本体はこの repo の root 側に移植・再設計しています。
+
+## 機能
+
+- `talk.html`: マイクまたは音声ファイルの音量に合わせた 3 段階口パク
+- `guruguru.html`: ポインター位置に追従する 25 方向の視線・顔向き
+- 自然な自動まばたき、ダブル blink、長め blink
+- 調整パネル: follow range、smoothing、avatar size、mic gain、口パクしきい値、release、背景色、auto blink、debug grid
+- `index.html#assets`: 6 シート / 150 フレームの asset inventory
+- GitHub Pages 用の relative asset path、Actions deploy、artifact verifier
+- lint/test/audit/build/Pages verify を回せる保守用スクリプト
+
+## セットアップ
+
+Node.js 22 LTS 推奨です。Vite 8 の要件として Node.js 20.19+ または 22.12+ が必要です。
+
+```bash
+npm install
+npm run dev
+```
+
+ローカル URL:
+
+```text
+http://127.0.0.1:5173/talk.html
+http://127.0.0.1:5173/guruguru.html
+http://127.0.0.1:5173/index.html#assets
+```
+
+マイク入力はブラウザ仕様上、`localhost` / `127.0.0.1` または HTTPS で有効です。GitHub Pages は HTTPS なのでそのまま使えます。
+
+## 静的ビルド
+
+```bash
+npm run check
+npm run preview
+```
+
+`npm run check` は以下を順番に実行します。
+
+```text
+lint -> test -> build -> verify:pages
+```
+
+`vite.config.js` の `base` は `./` です。repo 名が変わっても GitHub Pages のサブパスで壊れにくい構成にしています。
+
+## GitHub Pages
+
+`.github/workflows/pages.yml` は `main` への push で `dist` を Pages artifact として deploy します。Pull request では deploy せず、lint/test/build/verify だけ実行します。
+
+Pages 側の Source は GitHub Actions にしてください。
+
+## 画像構成
+
+`public/slices2` は 6 シート、各 25 フレームです。
+
+| Sheet | Eyes | Mouth |
+| --- | --- | --- |
+| `A` | open | closed |
+| `B` | open | half |
+| `C` | open | open |
+| `D` | closed | closed |
+| `E` | closed | half |
+| `F` | closed | open |
+
+方向は `r0..r4` x `c0..c4` です。`r2c2` が正面、列は左から右、行は上から下の向きです。
+
+## 新しいキャラクターへ差し替える
+
+元 repo 由来の `tools/slice_character_sheets.py` を残しています。最終的には `public/slices2/{A..F}/r{0..4}c{0..4}.webp` が揃えばアプリは動きます。
+
+大まかな流れ:
+
+1. 6 枚の 5x5 PNG シートを用意する
+2. `tools/slice_character_sheets.py` で `public/slices2` へ切り出す
+3. `npm run build`
+4. `npm run verify:pages`
+
+## ディレクトリ
+
+```text
+.
+├─ index.html / talk.html / guruguru.html
+├─ src/
+│  ├─ app.jsx
+│  ├─ styles.css
+│  ├─ domain/
+│  │  ├─ audio-engine.js
+│  │  ├─ character.js
+│  │  └─ character.test.js
+│  ├─ hooks/
+│  └─ lib/
+├─ public/slices2/
+├─ scripts/verify-pages-build.mjs
+├─ tools/slice_character_sheets.py
+├─ reference/tomari-guruguru/
+└─ .github/workflows/pages.yml
+```
+
+## ライセンス
+
+プログラム部分は元 repo と同じ MIT License を継承します。キャラクター画像・音声などの asset は元 repo の `ASSET_LICENSE.md` の制約を引き継ぎます。商用利用や別プロジェクトへの素材流用は避け、詳細は `ASSET_LICENSE.md` と元 repo を確認してください。

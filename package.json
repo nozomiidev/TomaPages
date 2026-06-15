@@ -1,0 +1,35 @@
+{
+  "name": "pngtuber-studio",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A polished static PNGTuber studio for GitHub Pages, derived from tomari-guruguru.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "verify:pages": "node scripts/verify-pages-build.mjs",
+    "check": "npm run lint && npm run test && npm run build && npm run verify:pages"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "dependencies": {
+    "lucide-react": "^0.475.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.20.0",
+    "@vitejs/plugin-react": "^6.0.2",
+    "eslint": "^9.20.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.18",
+    "globals": "^15.15.0",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.9"
+  }
+}

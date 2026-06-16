@@ -311,4 +311,39 @@ describe('avatar recolor domain', () => {
     expect(desaturatedRubyResidue[3]).toBeGreaterThan(0);
     expect(adjacentSkinTone[3]).toBe(0);
   });
+
+  it('uses a third accessory-only residue range for translucent antialias leftovers', () => {
+    const [
+      redSeed,
+      mutedEdge,
+      translucentResidue,
+      adjacentSkinTone,
+    ] = renderPixels([
+      [236, 76, 52],
+      [132, 91, 96, 190],
+      [122, 92, 96, 112],
+      [214, 162, 139],
+    ]);
+
+    expect(redSeed[3]).toBeGreaterThan(0);
+    expect(mutedEdge[3]).toBeGreaterThan(0);
+    expect(translucentResidue[3]).toBeGreaterThan(0);
+    expect(adjacentSkinTone[3]).toBe(0);
+  });
+
+  it('does not let accessory residue jump across skin-colored pixels', () => {
+    const [
+      redSeed,
+      skinBridge,
+      isolatedResidue,
+    ] = renderPixels([
+      [236, 76, 52],
+      [214, 162, 139],
+      [122, 92, 96, 112],
+    ]);
+
+    expect(redSeed[3]).toBeGreaterThan(0);
+    expect(skinBridge[3]).toBe(0);
+    expect(isolatedResidue[3]).toBe(0);
+  });
 });

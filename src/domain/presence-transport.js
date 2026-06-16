@@ -190,16 +190,20 @@ export function createPresenceTransport({
         appId: APP_ID,
         password: roomId,
       }, `${P2P_ROOM_PREFIX}-${roomId}`, {
-        onJoinError: () => setStatus({ p2p: 'limited' }),
+        onJoinError: () => {
+          if (!disposed) setStatus({ p2p: 'limited' });
+        },
       });
       presenceAction = trysteroRoom.makeAction('presence');
 
       presenceAction.onMessage = (peer, { peerId }) => {
+        if (disposed) return;
         trysteroPeerIds.set(peerId, peer.id);
         receivePeer(peer, 'p2p');
       };
 
       trysteroRoom.onPeerJoin = (peerId) => {
+        if (disposed) return;
         setStatus({ p2p: 'connected' });
         if (currentPeer) {
           void presenceAction.send(currentPeer, { target: peerId });
@@ -207,6 +211,7 @@ export function createPresenceTransport({
       };
 
       trysteroRoom.onPeerLeave = (peerId) => {
+        if (disposed) return;
         const appPeerId = trysteroPeerIds.get(peerId);
         trysteroPeerIds.delete(peerId);
         if (appPeerId) onPeerLeave(appPeerId);
@@ -217,7 +222,7 @@ export function createPresenceTransport({
         void presenceAction.send(currentPeer);
       }
     } catch {
-      setStatus({ p2p: 'offline' });
+      if (!disposed) setStatus({ p2p: 'offline' });
     }
   }
 

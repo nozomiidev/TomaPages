@@ -1006,6 +1006,28 @@ img {
   border-color: rgba(105, 112, 119, 0.14);
 }
 
+.room-session-strip span[data-state="connected"],
+.room-session-strip span[data-state="listening"] {
+  border-color: rgba(15, 118, 110, 0.16);
+  color: #0f5f57;
+}
+
+.room-session-strip span[data-state="limited"] {
+  border-color: rgba(242, 183, 5, 0.28);
+  color: #7a5a00;
+  background:
+    linear-gradient(180deg, rgba(255, 251, 235, 0.96), rgba(255, 247, 214, 0.8)),
+    #fff8dc;
+}
+
+.room-session-strip span[data-state="offline"] {
+  border-color: rgba(180, 35, 24, 0.18);
+  color: #b42318;
+  background:
+    linear-gradient(180deg, rgba(255, 246, 245, 0.96), rgba(255, 236, 232, 0.78)),
+    #fff6f5;
+}
+
 .room-live-meter {
   min-width: 124px;
   min-height: 30px;

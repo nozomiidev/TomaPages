@@ -8,6 +8,10 @@ function readyRatio(ready, total) {
   return Math.min(1, Math.max(0, ready / total));
 }
 
+export function isRetryableMeshState(value) {
+  return ['limited', 'offline'].includes(String(value || '').toLowerCase());
+}
+
 export function makeRoomSessionStatus({
   agentBridgeStatus = 'starting',
   presenceSummary = {},
@@ -37,6 +41,8 @@ export function makeRoomSessionStatus({
   return {
     agentLabel: agent > 0 ? `${agent} agent${agent === 1 ? '' : 's'}` : `Agent ${agentState}`,
     meshLabel: p2p > 0 ? `${p2p} P2P` : tab > 0 ? `${tab} tab` : p2pState,
+    meshRetryable: isRetryableMeshState(p2pState),
+    meshState: p2pState,
     snapshotHealth: snapshotFailed > 0
       ? `${snapshotReady}/${snapshotTotal} ready, ${snapshotFailed} failed`
       : `${snapshotReady}/${snapshotTotal} ready`,

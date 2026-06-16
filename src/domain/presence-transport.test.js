@@ -256,4 +256,27 @@ describe('presence transport helpers', () => {
     transport.leave();
     expect(fakeTrystero.left).toBe(true);
   });
+
+  it('ignores late P2P startup failures after the transport has been closed', async () => {
+    let rejectStartup;
+    const status = createStatusSink();
+    const transport = createPresenceTransport({
+      channelFactory: createMemoryChannelFactory(),
+      loadTrystero: () => new Promise((resolve, reject) => {
+        void resolve;
+        rejectStartup = reject;
+      }),
+      onPeer: () => {},
+      onPeerLeave: () => {},
+      onStatus: status.onStatus,
+      roomId: 'room-a',
+      selfId: 'peer-a',
+    });
+
+    transport.leave();
+    rejectStartup(new Error('late failure'));
+    await flushMicrotasks();
+
+    expect(status.snapshots).toEqual([{ local: 'ready', p2p: 'starting' }]);
+  });
 });

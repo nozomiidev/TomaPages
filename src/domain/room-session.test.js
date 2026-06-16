@@ -88,4 +88,25 @@ describe('room session status', () => {
       state: 'live',
     });
   });
+
+  it('marks limited and offline mesh states as retryable without warning on normal listening', () => {
+    expect(makeRoomSessionStatus({
+      transportStatus: { p2p: 'limited' },
+    })).toMatchObject({
+      meshRetryable: true,
+      meshState: 'limited',
+    });
+    expect(makeRoomSessionStatus({
+      transportStatus: { p2p: 'offline' },
+    })).toMatchObject({
+      meshRetryable: true,
+      meshState: 'offline',
+    });
+    expect(makeRoomSessionStatus({
+      transportStatus: { p2p: 'listening' },
+    })).toMatchObject({
+      meshRetryable: false,
+      meshState: 'listening',
+    });
+  });
 });

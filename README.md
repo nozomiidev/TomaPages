@@ -145,6 +145,8 @@ room.html?room=codec-lobby&name=Nozomi
 
 Room の `Open peer` ボタンは同じ room を `demo=0&testPeer=1` の別タブで開くセルフテストです。新しいタブは BroadcastChannel fallback では `TAB`、WebRTC が成立した相手は `P2P` として roster / session strip / canvas に出るため、サーバーなしで複数参加者の表示、口パク、hover live layer を確認できます。
 
+P2P mesh が `limited` / `offline` になった場合は Room toolbar に `Retry mesh` が出ます。ページ全体をリロードせず transport を作り直し、`data-room-transport-p2p`、`data-room-mesh-retryable`、`data-room-mesh-retry-count` で検証できます。
+
 Room root には `data-room-live-peers`、`data-room-p2p-peers`、`data-room-tab-peers`、`data-room-agent-peers`、`data-room-speaking-peers` などの summary も出します。各 peer の口・音量・向きは `data-room-peer-states`、しゃべっている peer は `data-room-speaking-peer-ids` と `data-room-speaking-label` で確認できます。hover 中の live card は `data-room-hover-peer`、`data-room-hover-cell`、`data-room-hover-live-layer` で確認できます。html2canvas snapshot は `data-room-snapshot-ready` / `data-room-snapshot-failed` / `data-room-snapshot-total` で確認できます。UI 上の roster でも heartbeat freshness を小さく表示するため、実 peer / 同一ブラウザ検証 peer / AI agent / demo の状態を確認しやすくしています。
 
 ### Agent Bridge / MCP 窓口

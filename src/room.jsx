@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
-import { AudioLines, Bot, Check, Copy, Mic, MicOff, Radio, Shuffle, Signal, Upload, UserPlus, Users } from 'lucide-react';
+import { AudioLines, Bot, Check, Copy, Mic, MicOff, Radio, RefreshCw, Shuffle, Signal, Upload, UserPlus, Users } from 'lucide-react';
 import { frameSrc, sheetForPose } from './domain/character';
 import {
   AGENT_BRIDGE_PROTOCOL,
@@ -196,7 +196,7 @@ function drawFallbackCard(context, layout, peer) {
   context.restore();
 }
 
-function usePresenceRoom({ localPeer, roomId }) {
+function usePresenceRoom({ localPeer, retryKey = 0, roomId }) {
   const [remotePeers, setRemotePeers] = useState({});
   const [transportStatus, setTransportStatus] = useState({
     local: 'ready',
@@ -207,6 +207,7 @@ function usePresenceRoom({ localPeer, roomId }) {
   const remotePeerList = useMemo(() => Object.values(remotePeers), [remotePeers]);
 
   useEffect(() => {
+    setTransportStatus({ local: 'ready', p2p: 'starting' });
     const transport = createPresenceTransport({
       roomId,
       selfId: localPeer.id,
@@ -230,7 +231,7 @@ function usePresenceRoom({ localPeer, roomId }) {
       transport.leave();
       transportRef.current = null;
     };
-  }, [localPeer.id, roomId]);
+  }, [localPeer.id, retryKey, roomId]);
 
   useEffect(() => {
     localPeerRef.current = localPeer;
@@ -506,7 +507,7 @@ function RoomSessionStrip({ presenceSummary, roomActivity, sessionStatus }) {
         <b>{presenceSummary.live}/{presenceSummary.total}</b>
         <small>Peers</small>
       </span>
-      <span>
+      <span data-state={sessionStatus.meshState}>
         <Signal size={15} aria-hidden="true" />
         <b>{sessionStatus.meshLabel}</b>
         <small>Mesh</small>
@@ -549,6 +550,7 @@ export function RoomView({ liveControls, localState, tuning }) {
   const [hoverCells, setHoverCells] = useState({});
   const [agentPilotEnabled, setAgentPilotEnabled] = useState(false);
   const [copyState, setCopyState] = useState('idle');
+  const [meshRetryCount, setMeshRetryCount] = useState(0);
   const [testPeerOpenState, setTestPeerOpenState] = useState('idle');
   const [roomClock, setRoomClock] = useState(() => Date.now());
   const roomUrl = useMemo(() => makeRoomUrl({
@@ -575,7 +577,11 @@ export function RoomView({ liveControls, localState, tuning }) {
     colorFilter: tuning.colorFilter,
   }), [hoverCells, localPeerId, localPeerName, localState.audioLevel, localState.cell, localState.mouth, tuning.colorFilter, tuning.eyeColor, tuning.eyeTint, tuning.hairColor, tuning.hairTint]);
 
-  const { remotePeers, transportStatus } = usePresenceRoom({ localPeer, roomId });
+  const { remotePeers, transportStatus } = usePresenceRoom({
+    localPeer,
+    retryKey: meshRetryCount,
+    roomId,
+  });
   const {
     agentBridge,
     agentPeers,
@@ -911,6 +917,9 @@ export function RoomView({ liveControls, localState, tuning }) {
     }
     window.setTimeout(() => setTestPeerOpenState('idle'), 1800);
   }, [testPeerUrl]);
+  const handleRetryMesh = useCallback(() => {
+    setMeshRetryCount((value) => value + 1);
+  }, []);
   const handleAgentPilotToggle = useCallback(() => {
     if (agentPilotEnabled || agentPilotPresent) {
       leaveAgentPeer(AGENT_PILOT_ID);
@@ -958,10 +967,14 @@ export function RoomView({ liveControls, localState, tuning }) {
       data-room-session-mesh-label={sessionStatus.meshLabel}
       data-room-session-snapshot-health={sessionStatus.snapshotHealth}
       data-room-session-state={sessionStatus.state}
+      data-room-mesh-retry-count={meshRetryCount}
+      data-room-mesh-retryable={sessionStatus.meshRetryable ? 'true' : 'false'}
       data-room-tab-peers={presenceSummary.tab}
       data-room-test-peer-state={testPeerOpenState}
       data-room-test-peer-url={testPeerUrl}
       data-room-total-peers={presenceSummary.total}
+      data-room-transport-local={transportStatus.local}
+      data-room-transport-p2p={transportStatus.p2p}
       data-room-layout-cols={roomScene.cols}
       data-room-layout-rows={roomScene.rows}
       data-room-layout-scale={roomScene.scale.toFixed(3)}
@@ -1008,6 +1021,17 @@ export function RoomView({ liveControls, localState, tuning }) {
                       : 'Open peer'}
                 </span>
               </button>
+              {sessionStatus.meshRetryable && (
+                <button
+                  type="button"
+                  title="Retry P2P mesh"
+                  aria-label="Retry P2P mesh"
+                  onClick={handleRetryMesh}
+                >
+                  <RefreshCw size={15} aria-hidden="true" />
+                  <span>Retry mesh</span>
+                </button>
+              )}
               <button
                 type="button"
                 title={agentPilotEnabled || agentPilotPresent ? 'Leave agent pilot' : 'Join as agent pilot'}

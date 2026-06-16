@@ -3,6 +3,18 @@ const clampChannel = (value) => Math.min(255, Math.max(0, Math.round(value)));
 const clampRange = (value, min, max) => Math.min(max, Math.max(min, value));
 const luma01 = ({ r, g, b }) => (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 
+function colorStats({ r, g, b }) {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+
+  return {
+    luma: (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255,
+    max,
+    min,
+    saturation: max === 0 ? 0 : (max - min) / max,
+  };
+}
+
 export function parseHexColor(value, fallback = { r: 255, g: 255, b: 255 }) {
   if (typeof value !== 'string') return fallback;
 
@@ -27,17 +39,20 @@ export function classifyAvatarPixel({ r, g, b, a, x, y, width, height }) {
   void width;
   void height;
 
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const saturation = max === 0 ? 0 : (max - min) / max;
-  const luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  const {
+    luma,
+    max,
+    saturation,
+  } = colorStats({ r, g, b });
 
-  const isGoldenRange = r > 145 && g > 82 && b < 125 && r >= g && saturation > 0.28;
+  const isGoldenRange = r > 145 && g > 82 && b < 125 && r >= g && g > r * 0.52 && saturation > 0.28;
   if (isGoldenRange) return 'eye';
 
   const isRedAccentRange = r > 145 && g > 35 && g < 150 && b < 170 && r > g * 1.12 && saturation > 0.3;
+  const isDeepRedAccentRange = r > 92 && g < 96 && b < 125 && r > g * 1.22 && r >= b * 1.04 && saturation > 0.24;
+  const isOrangeAccentRange = r > 158 && g > 68 && g < 174 && b < 118 && r > g * 1.02 && g > b * 1.04 && saturation > 0.32;
   const isPinkAccentRange = r > 165 && b > 95 && g < 145 && r > g * 1.18 && saturation > 0.22;
-  if (isRedAccentRange || isPinkAccentRange) return 'accent';
+  if (isRedAccentRange || isDeepRedAccentRange || isOrangeAccentRange || isPinkAccentRange) return 'accent';
 
   const isSkin = r > 135 && g > 85 && b > 60 && r > g * 1.08 && g > b * 1.06;
   const isWhiteArea = luma > 0.78 && saturation < 0.2;
@@ -49,6 +64,93 @@ export function classifyAvatarPixel({ r, g, b, a, x, y, width, height }) {
   }
 
   return null;
+}
+
+function pixelAt(source, index) {
+  return {
+    a: source[index + 3],
+    b: source[index + 2],
+    g: source[index + 1],
+    r: source[index],
+  };
+}
+
+function isAccentSeedPixel(pixel) {
+  return classifyAvatarPixel({
+    ...pixel,
+    height: 1,
+    width: 1,
+    x: 0,
+    y: 0,
+  }) === 'accent';
+}
+
+function isAccessoryEdgeCandidate(pixel) {
+  if (pixel.a < 128) return false;
+
+  const {
+    luma,
+    saturation,
+  } = colorStats(pixel);
+  const { r, g, b } = pixel;
+  const isSkinLike = r > 145 && g > 95 && b > 80 && r > g * 1.04 && g > b * 0.92 && saturation < 0.42;
+  const isWhiteArea = luma > 0.82 && saturation < 0.28;
+  const isGoldenEyeEdge = r > 135 && g > 98 && b < 105 && r >= g && g > b * 1.18;
+  const isMutedRedEdge = r > 86 && g < 148 && b < 168 && r > g * 1.08 && r > b * 0.86 && saturation > 0.14;
+  const isMutedPinkEdge = r > 118 && b > 66 && g < 162 && r > g * 1.03 && saturation > 0.13;
+  const isMutedOrangeEdge = r > 128 && g > 56 && b < 138 && r > g * 0.98 && g > b * 0.82 && saturation > 0.16;
+
+  return !isSkinLike
+    && !isWhiteArea
+    && !isGoldenEyeEdge
+    && luma > 0.12
+    && luma < 0.82
+    && (isMutedRedEdge || isMutedPinkEdge || isMutedOrangeEdge);
+}
+
+function hasMaskNeighbor(mask, x, y, width, height) {
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+      if (mask[ny * width + nx]) return true;
+    }
+  }
+
+  return false;
+}
+
+function buildAccessoryAccentMask(sourceImageData) {
+  const { data, height, width } = sourceImageData;
+  const pixelCount = width * height;
+  const candidateMask = new Uint8Array(pixelCount);
+  const accentMask = new Uint8Array(pixelCount);
+
+  for (let pixelIndex = 0; pixelIndex < pixelCount; pixelIndex += 1) {
+    const pixel = pixelAt(data, pixelIndex * 4);
+    if (isAccentSeedPixel(pixel)) {
+      accentMask[pixelIndex] = 1;
+    } else if (isAccessoryEdgeCandidate(pixel)) {
+      candidateMask[pixelIndex] = 1;
+    }
+  }
+
+  for (let pass = 0; pass < 2; pass += 1) {
+    const previousMask = new Uint8Array(accentMask);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const pixelIndex = y * width + x;
+        if (!candidateMask[pixelIndex] || accentMask[pixelIndex]) continue;
+        if (hasMaskNeighbor(previousMask, x, y, width, height)) {
+          accentMask[pixelIndex] = 1;
+        }
+      }
+    }
+  }
+
+  return accentMask;
 }
 
 function rgbToHsl({ r, g, b }) {
@@ -255,6 +357,7 @@ export function writeAvatarTintOverlay(sourceImageData, targetImageData, options
   const filterMode = ['paint', 'silk', 'soft'].includes(options.filterMode) ? options.filterMode : 'grade';
   const hairTone = rgbToHsl(hairColor);
   const eyeTone = rgbToHsl(eyeColor);
+  const accentMask = eyeStrength > 0 ? buildAccessoryAccentMask(sourceImageData) : null;
   let changedPixels = 0;
 
   target.fill(0);
@@ -265,7 +368,9 @@ export function writeAvatarTintOverlay(sourceImageData, targetImageData, options
     for (let x = 0; x < width; x += 1) {
       const index = (y * width + x) * 4;
       const a = source[index + 3];
-      const type = classifyAvatarPixel({
+      const type = accentMask?.[y * width + x]
+        ? 'accent'
+        : classifyAvatarPixel({
         r: source[index],
         g: source[index + 1],
         b: source[index + 2],

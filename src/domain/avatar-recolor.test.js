@@ -67,6 +67,31 @@ function renderAccentPixel([r, g, b], filterMode = 'soft') {
   return Array.from(target.data);
 }
 
+function renderPixels(pixels, options = {}) {
+  const source = {
+    width: pixels.length,
+    height: 1,
+    data: new Uint8ClampedArray(pixels.flatMap(([r, g, b, a = 255]) => [r, g, b, a])),
+  };
+  const target = {
+    width: pixels.length,
+    height: 1,
+    data: new Uint8ClampedArray(pixels.length * 4),
+  };
+
+  writeAvatarTintOverlay(source, target, {
+    filterMode: options.filterMode ?? 'silk',
+    hairColor: '#0F766E',
+    hairStrength: options.hairStrength ?? 0,
+    eyeColor: '#A855F7',
+    eyeStrength: options.eyeStrength ?? 1,
+  });
+
+  return Array.from({ length: pixels.length }, (_, index) => (
+    Array.from(target.data.slice(index * 4, index * 4 + 4))
+  ));
+}
+
 describe('avatar recolor domain', () => {
   it('parses hex colors with long and short notation', () => {
     expect(parseHexColor('#2BA7E8')).toEqual({ r: 43, g: 167, b: 232 });
@@ -113,6 +138,22 @@ describe('avatar recolor domain', () => {
       r: 224,
       g: 82,
       b: 142,
+      x: 850,
+      y: 320,
+    })).toBe('accent');
+    expect(classifyAvatarPixel({
+      ...basePixel,
+      r: 118,
+      g: 52,
+      b: 65,
+      x: 850,
+      y: 320,
+    })).toBe('accent');
+    expect(classifyAvatarPixel({
+      ...basePixel,
+      r: 231,
+      g: 112,
+      b: 44,
       x: 850,
       y: 320,
     })).toBe('accent');
@@ -201,5 +242,27 @@ describe('avatar recolor domain', () => {
 
     expect(recoloredAccent[2]).toBeGreaterThan(recoloredAccent[1]);
     expect(recoloredAccent[3]).toBe(255);
+  });
+
+  it('extends accessory recolor over connected muted edge colors without flooding skin tones', () => {
+    const [
+      mutedRedEdge,
+      deepRedSeed,
+      mutedPinkEdge,
+      secondRingEdge,
+      isolatedSkinTone,
+    ] = renderPixels([
+      [128, 86, 92],
+      [236, 76, 52],
+      [160, 118, 137],
+      [132, 92, 102],
+      [214, 162, 139],
+    ]);
+
+    expect(mutedRedEdge[3]).toBeGreaterThan(0);
+    expect(deepRedSeed[3]).toBeGreaterThan(0);
+    expect(mutedPinkEdge[3]).toBeGreaterThan(0);
+    expect(secondRingEdge[3]).toBeGreaterThan(0);
+    expect(isolatedSkinTone[3]).toBe(0);
   });
 });

@@ -67,7 +67,7 @@ const DEFAULT_TUNING = {
   hairTint: 0,
   eyeColor: '#2BA7E8',
   eyeTint: 0,
-  colorFilter: 'grade',
+  colorFilter: 'silk',
 };
 
 const BACKGROUNDS = [
@@ -95,6 +95,7 @@ const EYE_COLORS = [
 ];
 
 const COLOR_FILTERS = [
+  { id: 'silk', label: 'Silk' },
   { id: 'grade', label: 'Grade' },
   { id: 'soft', label: 'Soft' },
   { id: 'paint', label: 'Paint' },
@@ -134,7 +135,8 @@ function normalizeColorFilter(value) {
   const normalized = String(value ?? '').trim().toLowerCase();
   if (['paint', 'overlay', 'tint'].includes(normalized)) return 'paint';
   if (['soft', 'tone'].includes(normalized)) return 'soft';
-  if (['grade', 'smooth', 'natural', 'luma', 'preserve'].includes(normalized)) return 'grade';
+  if (['silk', 'smooth', 'natural', 'glaze', 'blend'].includes(normalized)) return 'silk';
+  if (['grade', 'luma', 'preserve'].includes(normalized)) return 'grade';
   return '';
 }
 

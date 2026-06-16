@@ -115,6 +115,7 @@ Tuning パネルの Appearance で髪色・瞳色、変換フィルター、mix 
 URL パラメーターでも初期値を指定できます。`#` は URL fragment になるため、色は `#` なしで渡すのが安全です。
 
 ```text
+talk.html?filter=silk&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
 talk.html?filter=grade&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
 talk.html?filter=soft&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
 guruguru.html?filter=paint&hair=6D5BD0&hairMix=0.45&eyeColor=2BA7E8&eyeTint=0.75

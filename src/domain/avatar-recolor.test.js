@@ -11,6 +11,16 @@ function luma([r, g, b]) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
+function compositeOverSource(source, overlay) {
+  const alpha = overlay[3] / 255;
+  return [
+    Math.round(source[0] * (1 - alpha) + overlay[0] * alpha),
+    Math.round(source[1] * (1 - alpha) + overlay[1] * alpha),
+    Math.round(source[2] * (1 - alpha) + overlay[2] * alpha),
+    255,
+  ];
+}
+
 function renderHairPixel([r, g, b], filterMode = 'soft') {
   const source = {
     width: 1,
@@ -159,6 +169,24 @@ describe('avatar recolor domain', () => {
     expect(luma(lightHair)).toBeGreaterThan(luma(darkHair) + 30);
     expect(Math.abs(luma(darkHair) - luma(darkSource))).toBeLessThan(24);
     expect(Math.abs(luma(lightHair) - luma(lightSource))).toBeLessThan(24);
+  });
+
+  it('silk filter uses a translucent glaze so source detail keeps showing through', () => {
+    const darkSource = [58, 60, 58];
+    const lightSource = [112, 116, 112];
+    const darkOverlay = renderHairPixel(darkSource, 'silk');
+    const lightOverlay = renderHairPixel(lightSource, 'silk');
+    const darkHair = compositeOverSource(darkSource, darkOverlay);
+    const lightHair = compositeOverSource(lightSource, lightOverlay);
+
+    expect(darkOverlay[3]).toBeGreaterThan(120);
+    expect(darkOverlay[3]).toBeLessThan(255);
+    expect(lightOverlay[3]).toBeLessThan(255);
+    expect(darkHair[1]).toBeGreaterThan(darkHair[0]);
+    expect(lightHair[1]).toBeGreaterThan(lightHair[0]);
+    expect(luma(lightHair)).toBeGreaterThan(luma(darkHair) + 38);
+    expect(Math.abs(luma(darkHair) - luma(darkSource))).toBeLessThan(16);
+    expect(Math.abs(luma(lightHair) - luma(lightSource))).toBeLessThan(18);
   });
 
   it('paint filter remains available as a translucent color overlay', () => {

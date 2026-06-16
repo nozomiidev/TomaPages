@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   allFrames,
   assetManifest,
+  CHARACTER_OPTIONS,
+  frameSrc,
   mouthFromLevel,
   sheetForPose,
   targetToCell,
@@ -27,6 +29,22 @@ describe('character domain', () => {
     expect(sheetForPose({ blink: true, mouth: 0 })).toBe('D');
     expect(sheetForPose({ blink: true, mouth: 1 })).toBe('E');
     expect(sheetForPose({ blink: true, mouth: 2 })).toBe('F');
+  });
+
+  it('registers the Reimu plush character as WebP frames', () => {
+    expect(CHARACTER_OPTIONS.map((character) => character.id)).toEqual(['tomari', 'reimu']);
+    expect(allFrames({ characterId: 'reimu' })).toHaveLength(75);
+    expect(assetManifest('reimu')).toHaveLength(3);
+    expect(assetManifest('reimu').every((item) => item.frameCount === 25)).toBe(true);
+    expect(frameSrc('pl_01', 2, 2, 'reimu')).toContain('characters/reimu/pl_01/r2c2.webp');
+  });
+
+  it('maps Reimu talk and blink poses onto the plush sheet set', () => {
+    expect(sheetForPose({ blink: false, characterId: 'reimu', mouth: 0 })).toBe('pl_01');
+    expect(sheetForPose({ blink: false, characterId: 'reimu', mouth: 1 })).toBe('om_01');
+    expect(sheetForPose({ blink: false, characterId: 'reimu', mouth: 2 })).toBe('om_01');
+    expect(sheetForPose({ blink: true, characterId: 'reimu', mouth: 0 })).toBe('ce_01');
+    expect(sheetForPose({ blink: true, characterId: 'reimu', mouth: 2 })).toBe('ce_01');
   });
 
   it('uses the original half/open mouth thresholds', () => {

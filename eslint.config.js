@@ -16,7 +16,7 @@ export default [
   },
   js.configs.recommended,
   {
-    files: ['src/**/*.{js,jsx}', 'scripts/**/*.mjs'],
+    files: ['src/**/*.{js,jsx}', 'scripts/**/*.mjs', 'tools/**/*.mjs'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',

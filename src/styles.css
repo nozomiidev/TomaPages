@@ -438,6 +438,8 @@ img {
 
 .avatar__frame {
   z-index: 0;
+  object-fit: contain;
+  transition: none;
 }
 
 .avatar__tint-layer {

@@ -11,6 +11,7 @@ reference/**/dist/
 sheets/
 uploads/
 new-character-assets/
+metaassets/
 
 *.psd
 *.clip

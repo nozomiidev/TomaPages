@@ -6,6 +6,7 @@
   "description": "A polished static PNGTuber studio for GitHub Pages, derived from tomari-guruguru.",
   "scripts": {
     "dev": "vite",
+    "build:assets:fumo": "node tools/slice-fumo-assets.mjs",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1",
     "lint": "eslint .",
@@ -31,6 +32,7 @@
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.18",
     "globals": "^15.15.0",
+    "sharp": "^0.35.1",
     "vite": "^8.0.16",
     "vitest": "^4.1.9"
   }

@@ -4,6 +4,9 @@ import { join, posix } from 'node:path';
 const DIST = 'dist';
 const HTML_FILES = ['index.html', 'talk.html', 'guruguru.html'];
 const SHEETS = ['A', 'B', 'C', 'D', 'E', 'F'];
+const CHARACTER_SHEETS = {
+  reimu: ['pl_01', 'om_01', 'ce_01'],
+};
 
 function fail(message) {
   console.error(`Pages build verification failed: ${message}`);
@@ -67,6 +70,25 @@ function assertSliceImages() {
   }
 }
 
+function assertCharacterImages() {
+  for (const [characterId, sheets] of Object.entries(CHARACTER_SHEETS)) {
+    for (const sheet of sheets) {
+      const dir = join(DIST, 'characters', characterId, sheet);
+      assertFile(dir);
+      const webpFiles = readdirSync(dir).filter((name) => name.endsWith('.webp'));
+      if (webpFiles.length !== 25) {
+        fail(`${posix.join('dist', 'characters', characterId, sheet)} should contain 25 webp files, found ${webpFiles.length}`);
+      }
+
+      for (let row = 0; row < 5; row += 1) {
+        for (let col = 0; col < 5; col += 1) {
+          assertFile(join(dir, `r${row}c${col}.webp`));
+        }
+      }
+    }
+  }
+}
+
 for (const file of HTML_FILES) {
   const html = readDistHtml(file);
   assertNoAbsoluteLocalReferences(file, html);
@@ -75,5 +97,6 @@ for (const file of HTML_FILES) {
 }
 
 assertSliceImages();
+assertCharacterImages();
 
 console.log('Pages build verification passed.');

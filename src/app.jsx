@@ -32,6 +32,8 @@ import { AudioLevelEngine, smoothAudioEnvelope } from './domain/audio-engine';
 import {
   allFrames,
   assetManifest,
+  characterForId,
+  CHARACTER_OPTIONS,
   frameSrc,
   mouthFromLevel,
   MOUTH_STATES,
@@ -64,6 +66,7 @@ const DEFAULT_TUNING = {
   release: 0.12,
   autoBlink: true,
   showDebug: false,
+  characterId: 'tomari',
   hairColor: '#6D5BD0',
   hairTint: 0,
   eyeColor: '#2BA7E8',
@@ -124,6 +127,11 @@ function pathForMode(mode) {
   return target?.path ?? 'talk.html';
 }
 
+function pathWithCurrentSearch(path) {
+  const [basePath, hash = ''] = path.split('#');
+  return `${basePath}${window.location.search}${hash ? `#${hash}` : ''}`;
+}
+
 function normalizeColorParam(value) {
   if (!value) return '';
 
@@ -149,9 +157,15 @@ function normalizeColorFilter(value) {
   return '';
 }
 
+function normalizeCharacterId(value) {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return CHARACTER_OPTIONS.some((character) => character.id === normalized) ? normalized : '';
+}
+
 function readTuningParams(search = window.location.search) {
   const params = new URLSearchParams(search);
   const patch = {};
+  const characterId = normalizeCharacterId(params.get('character') ?? params.get('avatar'));
   const hairColor = normalizeColorParam(params.get('hair') ?? params.get('hairColor'));
   const eyeColor = normalizeColorParam(params.get('eyes') ?? params.get('eyeColor'));
   const hasFilterOverride = params.has('filter') || params.has('colorFilter');
@@ -160,6 +174,7 @@ function readTuningParams(search = window.location.search) {
   const eyeTint = Number(params.get('eyeMix') ?? params.get('eyeTint'));
   const hasColorOverride = Boolean(hairColor || eyeColor || Number.isFinite(hairTint) || Number.isFinite(eyeTint));
 
+  if (characterId) patch.characterId = characterId;
   if (hairColor) patch.hairColor = hairColor;
   if (eyeColor) patch.eyeColor = eyeColor;
   if (colorFilter) patch.colorFilter = colorFilter;
@@ -176,8 +191,9 @@ function useModeRouter(initialMode) {
   const setMode = useCallback((nextMode) => {
     setModeState(nextMode);
     const nextPath = pathForMode(nextMode);
+    const nextUrl = pathWithCurrentSearch(nextPath);
     if (window.location.pathname.split('/').pop() + window.location.hash !== nextPath) {
-      window.history.pushState({ mode: nextMode }, '', nextPath);
+      window.history.pushState({ mode: nextMode }, '', nextUrl);
     }
   }, []);
 
@@ -227,16 +243,20 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
   tuningRef.current = tuning;
 
   const engine = useMemo(() => new AudioLevelEngine(), []);
-  const frames = useMemo(() => allFrames(), []);
+  const activeCharacter = characterForId(tuning.characterId);
+  const frames = useMemo(() => allFrames({
+    characterId: activeCharacter.id,
+  }), [activeCharacter.id]);
   const avatarTint = useMemo(() => ({
     filterMode: tuning.colorFilter,
     hairColor: tuning.hairColor,
-    hairStrength: tuning.hairTint,
+    hairStrength: activeCharacter.supportsTint ? tuning.hairTint : 0,
     eyeColor: tuning.eyeColor,
-    eyeStrength: tuning.eyeTint,
-  }), [tuning.colorFilter, tuning.eyeColor, tuning.eyeTint, tuning.hairColor, tuning.hairTint]);
+    eyeStrength: activeCharacter.supportsTint ? tuning.eyeTint : 0,
+  }), [activeCharacter.supportsTint, tuning.colorFilter, tuning.eyeColor, tuning.eyeTint, tuning.hairColor, tuning.hairTint]);
   const activeSheet = sheetForPose({
     blink,
+    characterId: activeCharacter.id,
     mouth: mode === 'talk' ? mouth : 0,
   });
 
@@ -472,6 +492,7 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
       data-lip-sync-demo-peak={builtInSyncAudit.peakLevel}
       data-lip-sync-demo-samples={builtInSyncAudit.sampleCount}
       data-lip-sync-demo-transitions={builtInSyncAudit.transitions}
+      data-character-id={activeCharacter.id}
       data-avatar-filter={tuning.colorFilter}
     >
       {!stageOnly && (
@@ -520,6 +541,7 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
             activeSheet={activeSheet}
             audioLevel={audioLevel}
             cell={cell}
+            character={activeCharacter}
             frames={frames}
             isTalkMode={mode === 'talk'}
             mouth={mouth}
@@ -540,6 +562,7 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
             resetTuning={() => setTuning(DEFAULT_TUNING)}
             mode={mode}
             cell={cell}
+            character={activeCharacter}
             mouth={activeMouth}
           />
         )}
@@ -687,6 +710,7 @@ const AvatarStage = React.forwardRef(function AvatarStage(
     activeSheet,
     audioLevel,
     cell,
+    character,
     frames,
     isTalkMode,
     mouth,
@@ -699,7 +723,7 @@ const AvatarStage = React.forwardRef(function AvatarStage(
   },
   avatarRef,
 ) {
-  const activeFrameSrc = frameSrc(activeSheet, cell.row, cell.col);
+  const activeFrameSrc = frameSrc(activeSheet, cell.row, cell.col, character.id);
   const tintOverlaySrc = useAvatarTintOverlay(activeFrameSrc, tint);
 
   return (
@@ -726,6 +750,7 @@ const AvatarStage = React.forwardRef(function AvatarStage(
             className="avatar__frame"
             draggable="false"
             decoding="async"
+            loading="eager"
             src={frame.src}
             style={{
               opacity: frame.sheet === activeSheet
@@ -751,7 +776,7 @@ const AvatarStage = React.forwardRef(function AvatarStage(
       {!stageOnly && (
         <div className="stage-hud">
           <span>{isTalkMode ? 'Talk pose' : 'Gaze pose'}</span>
-          <strong>{activeSheet} / r{cell.row} c{cell.col}</strong>
+          <strong>{character.label} / {activeSheet} / r{cell.row} c{cell.col}</strong>
           {isTalkMode && <span>{Math.round(audioLevel * 100)}% / mouth {mouth}</span>}
         </div>
       )}
@@ -780,7 +805,7 @@ function DebugGrid({ row, col }) {
   );
 }
 
-function TuningPanel({ tuning, patchTuning, resetTuning, mode, cell, mouth }) {
+function TuningPanel({ tuning, patchTuning, resetTuning, mode, cell, character, mouth }) {
   return (
     <aside className="panel tuning-panel" aria-label="Tuning">
       <PanelTitle icon={SlidersHorizontal} title="Tuning" />
@@ -853,39 +878,49 @@ function TuningPanel({ tuning, patchTuning, resetTuning, mode, cell, mouth }) {
 
       <ControlGroup title="Appearance" icon={Palette}>
         <SegmentedControl
-          label="Filter"
-          value={tuning.colorFilter}
-          options={COLOR_FILTERS}
-          onChange={(colorFilter) => patchTuning({ colorFilter })}
+          label="Character"
+          value={character.id}
+          options={CHARACTER_OPTIONS}
+          onChange={(characterId) => patchTuning({ characterId })}
         />
-        <ColorSwatches
-          label="Hair"
-          value={tuning.hairColor}
-          options={HAIR_COLORS}
-          onChange={(hairColor) => patchTuning({ hairColor })}
-        />
-        <RangeControl
-          label="Hair mix"
-          value={tuning.hairTint}
-          min={0}
-          max={0.85}
-          step={0.05}
-          onChange={(hairTint) => patchTuning({ hairTint })}
-        />
-        <ColorSwatches
-          label="Eyes"
-          value={tuning.eyeColor}
-          options={EYE_COLORS}
-          onChange={(eyeColor) => patchTuning({ eyeColor })}
-        />
-        <RangeControl
-          label="Eye mix"
-          value={tuning.eyeTint}
-          min={0}
-          max={0.95}
-          step={0.05}
-          onChange={(eyeTint) => patchTuning({ eyeTint })}
-        />
+        {character.supportsTint && (
+          <>
+            <SegmentedControl
+              label="Filter"
+              value={tuning.colorFilter}
+              options={COLOR_FILTERS}
+              onChange={(colorFilter) => patchTuning({ colorFilter })}
+            />
+            <ColorSwatches
+              label="Hair"
+              value={tuning.hairColor}
+              options={HAIR_COLORS}
+              onChange={(hairColor) => patchTuning({ hairColor })}
+            />
+            <RangeControl
+              label="Hair mix"
+              value={tuning.hairTint}
+              min={0}
+              max={0.85}
+              step={0.05}
+              onChange={(hairTint) => patchTuning({ hairTint })}
+            />
+            <ColorSwatches
+              label="Eyes"
+              value={tuning.eyeColor}
+              options={EYE_COLORS}
+              onChange={(eyeColor) => patchTuning({ eyeColor })}
+            />
+            <RangeControl
+              label="Eye mix"
+              value={tuning.eyeTint}
+              min={0}
+              max={0.95}
+              step={0.05}
+              onChange={(eyeTint) => patchTuning({ eyeTint })}
+            />
+          </>
+        )}
       </ControlGroup>
 
       <ControlGroup title="Stage" icon={Settings2}>
@@ -924,14 +959,16 @@ function TuningPanel({ tuning, patchTuning, resetTuning, mode, cell, mouth }) {
 }
 
 function AssetInventory({ onModeChange }) {
-  const manifest = useMemo(() => assetManifest(), []);
+  const manifest = useMemo(() => (
+    CHARACTER_OPTIONS.flatMap((character) => assetManifest(character.id))
+  ), []);
 
   return (
     <section className="asset-board" aria-label="Asset inventory">
       <div className="asset-board__header">
         <div>
           <p className="eyebrow">Character frames</p>
-          <h1>6 sheets / 150 exported poses</h1>
+          <h1>{manifest.length} sheets / {manifest.reduce((total, item) => total + item.frameCount, 0)} exported poses</h1>
         </div>
         <button className="command-button command-button--compact" type="button" onClick={() => onModeChange('talk')}>
           <ChevronRight size={17} aria-hidden="true" />
@@ -946,7 +983,7 @@ function AssetInventory({ onModeChange }) {
             <div>
               <span className="asset-tile__sheet">{item.sheet}</span>
               <strong>{item.name}</strong>
-              <small>{item.frameCount} frames</small>
+              <small>{item.character} · {item.frameCount} frames</small>
             </div>
             <span className="status-dot">
               <Check size={13} aria-hidden="true" />
@@ -957,7 +994,7 @@ function AssetInventory({ onModeChange }) {
 
       <div className="asset-strip">
         {Array.from({ length: 5 }, (_, row) => (
-          <img key={row} src={frameSrc('A', row, 2)} alt="" draggable="false" />
+          <img key={row} src={frameSrc('pl_01', row, 2, 'reimu')} alt="" draggable="false" />
         ))}
       </div>
     </section>

@@ -31,8 +31,9 @@ https://nozomiidev.github.io/TomaPages/index.html#assets
 - GitHub Actions による build / verify / deploy を追加
 - lint / test / Pages artifact verifier を追加
 - 文字化けしていた UI 文言を整理し、制作ツールとして使える SaaS 風の画面構成に刷新
-- asset inventory 画面を追加し、6 シート / 150 フレームの読み込みを確認しやすくした
+- asset inventory 画面を追加し、Tomari と Reimu の 9 シート / 225 フレームの読み込みを確認しやすくした
 - 髪色・瞳色を非破壊のピクセルマスクで重ねる appearance tuning を追加
+- `avatar=reimu` / `character=reimu` で霊夢 fumo 版の WebP アセットへ切り替え可能にした
 
 ## 機能
 
@@ -42,8 +43,8 @@ https://nozomiidev.github.io/TomaPages/index.html#assets
 - `guruguru.html`: ポインター位置に追従する 25 方向の視線・顔向き
 - `room.html`: Trystero の WebRTC presence と html2canvas snapshot を使った通信ルームの第一実装 slice
 - 自然な自動まばたき、ダブル blink、長め blink
-- 調整パネル: follow range、smoothing、avatar size、mic gain、口パクしきい値、release、髪色、瞳色、背景色、auto blink、debug grid
-- `index.html#assets`: 6 シート / 150 フレームの asset inventory
+- 調整パネル: character、follow range、smoothing、avatar size、mic gain、口パクしきい値、release、髪色、瞳色、背景色、auto blink、debug grid
+- `index.html#assets`: 9 シート / 225 フレームの asset inventory
 - GitHub Pages 用の relative asset path、Actions deploy、artifact verifier
 - lint/test/audit/build/Pages verify を回せる保守用スクリプト
 
@@ -58,6 +59,12 @@ Node.js 22 LTS 推奨です。Vite 8 の要件として Node.js 20.19+ または
 ```bash
 npm install
 npm run dev
+```
+
+霊夢 fumo の元 PNG シートを `metaassets/fumo/reimu` に置いているローカル環境では、公開用 WebP を再生成できます。`metaassets` は大型の作業素材置き場なので Git 管理から外しています。
+
+```bash
+npm run build:assets:fumo
 ```
 
 ローカル URL:
@@ -106,6 +113,21 @@ Pages 側の Source は GitHub Actions にしてください。
 | `F` | closed | open |
 
 方向は `r0..r4` x `c0..c4` です。`r2c2` が正面、列は左から右、行は上から下の向きです。
+
+追加キャラクターは `public/characters/{characterId}/{sheet}/r{row}c{col}.webp` に置きます。現在は霊夢 fumo の初期対応として、以下の 3 シートを同梱しています。
+
+| Sheet | Eyes | Mouth |
+| --- | --- | --- |
+| `pl_01` | open | closed |
+| `om_01` | open | half/open |
+| `ce_01` | closed | closed/half/open |
+
+URL から直接切り替える場合は次のように指定できます。
+
+```text
+talk.html?avatar=reimu
+guruguru.html?character=reimu
+```
 
 ## 色カスタマイズ
 
@@ -191,14 +213,14 @@ Room の `Agent pilot` ボタンは同じ Agent Bridge 経路で `Codex Agent` p
 
 ## 新しいキャラクターへ差し替える
 
-元 repo 由来の `tools/slice_character_sheets.py` を残しています。最終的には `public/slices2/{A..F}/r{0..4}c{0..4}.webp` が揃えばアプリは動きます。
+元 repo 由来の `tools/slice_character_sheets.py` を残しています。Tomari の差し替えは最終的に `public/slices2/{A..F}/r{0..4}c{0..4}.webp` が揃えば動きます。霊夢 fumo 型の追加キャラクターは `tools/slice-fumo-assets.mjs` で 5x5 PNG シートから WebP を生成します。
 
 大まかな流れ:
 
-1. 6 枚の 5x5 PNG シートを用意する
-2. `tools/slice_character_sheets.py` で `public/slices2` へ切り出す
-3. `npm run build`
-4. `npm run verify:pages`
+1. 5x5 PNG シートを `metaassets/fumo/{characterId}/{characterId}_{sheet}.png` に置く
+2. `npm run build:assets:fumo` で `public/characters/{characterId}` へ WebP を生成する
+3. `src/domain/character.js` の `CHARACTER_DEFINITIONS` に sheet 対応を追加する
+4. `npm run check`
 
 ## ディレクトリ
 
@@ -220,7 +242,9 @@ Room の `Agent pilot` ボタンは同じ Agent Bridge 経路で `Codex Agent` p
 │  ├─ hooks/
 │  └─ lib/
 ├─ public/slices2/
+├─ public/characters/
 ├─ scripts/verify-pages-build.mjs
+├─ tools/slice-fumo-assets.mjs
 ├─ tools/slice_character_sheets.py
 ├─ reference/tomari-guruguru/
 └─ .github/workflows/pages.yml

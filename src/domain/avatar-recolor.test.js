@@ -265,4 +265,26 @@ describe('avatar recolor domain', () => {
     expect(secondRingEdge[3]).toBeGreaterThan(0);
     expect(isolatedSkinTone[3]).toBe(0);
   });
+
+  it('fills connected red accessory highlight, shadow, and second-ring residue without touching adjacent skin', () => {
+    const [
+      coolRubyHighlight,
+      redSeed,
+      darkRubyShadow,
+      desaturatedRubyResidue,
+      adjacentSkinTone,
+    ] = renderPixels([
+      [181, 124, 126],
+      [236, 76, 52],
+      [104, 66, 72],
+      [142, 105, 110],
+      [214, 162, 139],
+    ]);
+
+    expect(coolRubyHighlight[3]).toBeGreaterThan(0);
+    expect(redSeed[3]).toBeGreaterThan(0);
+    expect(darkRubyShadow[3]).toBeGreaterThan(0);
+    expect(desaturatedRubyResidue[3]).toBeGreaterThan(0);
+    expect(adjacentSkinTone[3]).toBe(0);
+  });
 });

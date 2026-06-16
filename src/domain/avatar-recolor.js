@@ -108,6 +108,26 @@ function isAccessoryEdgeCandidate(pixel) {
     && (isMutedRedEdge || isMutedPinkEdge || isMutedOrangeEdge);
 }
 
+function isAccessoryHighlightCandidate(pixel) {
+  if (pixel.a < 128) return false;
+
+  const {
+    luma,
+    saturation,
+  } = colorStats(pixel);
+  const { r, g, b } = pixel;
+  const isWhiteArea = luma > 0.88 && saturation < 0.24;
+  const isGoldenEyeEdge = r > 135 && g > 98 && b < 105 && r >= g && g > b * 1.18;
+  const isCoolRubyHighlight = r > 150 && g > 86 && b > 92 && b >= g * 0.96 && r > g * 1.12 && saturation > 0.18;
+  const isSoftOrangeHighlight = r > 172 && g > 92 && g < 168 && b > 64 && b < 132 && r > g * 1.2 && saturation > 0.26;
+
+  return !isWhiteArea
+    && !isGoldenEyeEdge
+    && luma > 0.22
+    && luma < 0.76
+    && (isCoolRubyHighlight || isSoftOrangeHighlight);
+}
+
 function hasMaskNeighbor(mask, x, y, width, height) {
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
@@ -125,7 +145,8 @@ function hasMaskNeighbor(mask, x, y, width, height) {
 function buildAccessoryAccentMask(sourceImageData) {
   const { data, height, width } = sourceImageData;
   const pixelCount = width * height;
-  const candidateMask = new Uint8Array(pixelCount);
+  const edgeCandidateMask = new Uint8Array(pixelCount);
+  const highlightCandidateMask = new Uint8Array(pixelCount);
   const accentMask = new Uint8Array(pixelCount);
 
   for (let pixelIndex = 0; pixelIndex < pixelCount; pixelIndex += 1) {
@@ -133,16 +154,21 @@ function buildAccessoryAccentMask(sourceImageData) {
     if (isAccentSeedPixel(pixel)) {
       accentMask[pixelIndex] = 1;
     } else if (isAccessoryEdgeCandidate(pixel)) {
-      candidateMask[pixelIndex] = 1;
+      edgeCandidateMask[pixelIndex] = 1;
+    } else if (isAccessoryHighlightCandidate(pixel)) {
+      highlightCandidateMask[pixelIndex] = 1;
     }
   }
 
-  for (let pass = 0; pass < 2; pass += 1) {
+  for (let pass = 0; pass < 3; pass += 1) {
     const previousMask = new Uint8Array(accentMask);
     for (let y = 0; y < height; y += 1) {
       for (let x = 0; x < width; x += 1) {
         const pixelIndex = y * width + x;
-        if (!candidateMask[pixelIndex] || accentMask[pixelIndex]) continue;
+        if (accentMask[pixelIndex]) continue;
+        const isCandidate = edgeCandidateMask[pixelIndex]
+          || (pass > 0 && highlightCandidateMask[pixelIndex]);
+        if (!isCandidate) continue;
         if (hasMaskNeighbor(previousMask, x, y, width, height)) {
           accentMask[pixelIndex] = 1;
         }

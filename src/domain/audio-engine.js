@@ -6,7 +6,13 @@ function createAudioContext() {
   return new AudioContextClass();
 }
 
-function rmsLevel(analyser, bufferRef) {
+const DEFAULT_ATTACK = 0.6;
+
+function clampRange(value, min, max) {
+  return Math.min(max, Math.max(min, Number.isFinite(value) ? value : min));
+}
+
+export function rmsLevel(analyser, bufferRef) {
   if (!analyser) return 0;
 
   if (!bufferRef.current || bufferRef.current.length !== analyser.fftSize) {
@@ -36,7 +42,7 @@ const DEMO_SYLLABLES = [
   [3.76, 4.1, 0.09],
 ];
 
-function demoEnvelope(elapsed) {
+export function demoEnvelope(elapsed) {
   let level = 0;
 
   for (const [start, end, peak] of DEMO_SYLLABLES) {
@@ -54,6 +60,16 @@ function demoEnvelope(elapsed) {
   }
 
   return level;
+}
+
+export function smoothAudioEnvelope(previous, raw, { attack = DEFAULT_ATTACK, release = 0.12 } = {}) {
+  const safePrevious = clampRange(previous, 0, 1);
+  const safeRaw = clampRange(raw, 0, 1);
+  const coefficient = safeRaw > safePrevious
+    ? clampRange(attack, 0, 1)
+    : clampRange(release, 0, 1);
+
+  return safePrevious + (safeRaw - safePrevious) * coefficient;
 }
 
 export class AudioLevelEngine {

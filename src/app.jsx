@@ -28,7 +28,7 @@ import {
   SlidersHorizontal,
   Upload,
 } from 'lucide-react';
-import { AudioLevelEngine } from './domain/audio-engine';
+import { AudioLevelEngine, smoothAudioEnvelope } from './domain/audio-engine';
 import {
   allFrames,
   assetManifest,
@@ -322,10 +322,9 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
 
     const isAudioMode = modeRef.current === 'talk' || modeRef.current === 'room';
     const raw = isAudioMode ? engine.level() * settings.micGain : 0;
-    const envelope = envelopeRef.current;
-    envelopeRef.current = raw > envelope
-      ? envelope + (raw - envelope) * 0.6
-      : envelope + (raw - envelope) * settings.release;
+    envelopeRef.current = smoothAudioEnvelope(envelopeRef.current, raw, {
+      release: settings.release,
+    });
 
     const nextMouth = isAudioMode
       ? mouthFromLevel(envelopeRef.current, settings)

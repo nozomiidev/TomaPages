@@ -37,7 +37,7 @@ https://nozomiidev.github.io/TomaPages/index.html#assets
 ## 機能
 
 - `talk.html`: マイクまたは音声ファイルの音量に合わせた 3 段階口パク
-- `Test sync`: マイク権限や外部音源なしで口パク挙動を検証する内蔵テスト信号
+- `Test sync`: マイク権限や外部音源なしで、閉口・半開き・開口の3状態を通る口パク挙動を検証する内蔵テスト信号
 - `guruguru.html`: ポインター位置に追従する 25 方向の視線・顔向き
 - `room.html`: Trystero の WebRTC presence と html2canvas snapshot を使った通信ルームの第一実装 slice
 - 自然な自動まばたき、ダブル blink、長め blink

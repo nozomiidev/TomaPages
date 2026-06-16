@@ -40,9 +40,11 @@ function normalizeHexColor(value, fallback) {
 
 function normalizeFilter(value) {
   const normalized = String(value || '').trim().toLowerCase();
+  if (['natural', 'smooth', 'blend', 'chroma'].includes(normalized)) return 'natural';
   if (normalized === 'paint') return 'paint';
   if (normalized === 'soft') return 'soft';
   if (normalized === 'grade') return 'grade';
+  if (normalized === 'silk') return 'silk';
   return 'silk';
 }
 

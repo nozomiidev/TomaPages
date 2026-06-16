@@ -212,6 +212,30 @@ describe('avatar recolor domain', () => {
     expect(Math.abs(luma(lightHair) - luma(lightSource))).toBeLessThan(24);
   });
 
+  it('natural filter recolors smoothly without collapsing source contrast', () => {
+    const darkSource = [58, 60, 58];
+    const midSource = [78, 82, 78];
+    const lightSource = [112, 116, 112];
+    const darkHair = renderHairPixel(darkSource, 'natural');
+    const midHair = renderHairPixel(midSource, 'natural');
+    const lightHair = renderHairPixel(lightSource, 'natural');
+    const paintedDark = compositeOverSource(darkSource, renderHairPixel(darkSource, 'paint'));
+    const paintedLight = compositeOverSource(lightSource, renderHairPixel(lightSource, 'paint'));
+
+    expect(darkHair[3]).toBe(255);
+    expect(midHair[3]).toBe(255);
+    expect(lightHair[3]).toBe(255);
+    expect(darkHair[1]).toBeGreaterThan(darkHair[0]);
+    expect(midHair[1]).toBeGreaterThan(midHair[0]);
+    expect(luma(midHair)).toBeGreaterThan(luma(darkHair) + 12);
+    expect(luma(lightHair)).toBeGreaterThan(luma(midHair) + 18);
+    expect(Math.abs(luma(darkHair) - luma(darkSource))).toBeLessThan(16);
+    expect(Math.abs(luma(lightHair) - luma(lightSource))).toBeLessThan(16);
+    expect(luma(lightHair) - luma(darkHair)).toBeGreaterThan(
+      luma(paintedLight) - luma(paintedDark) + 8,
+    );
+  });
+
   it('silk filter uses a translucent glaze so source detail keeps showing through', () => {
     const darkSource = [58, 60, 58];
     const lightSource = [112, 116, 112];

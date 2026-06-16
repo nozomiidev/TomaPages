@@ -372,6 +372,85 @@ function writeSilkPixel({ index, source, target, tintStrength, tintTone, type })
   target[index + 3] = Math.round(source[index + 3] * alpha);
 }
 
+function tintConfidenceForPixel(pixel, type) {
+  const {
+    luma,
+    max,
+    min,
+    saturation,
+  } = colorStats(pixel);
+  const { r, g, b } = pixel;
+
+  if (type === 'hair') {
+    const neutralConfidence = 1 - smoothstep(0.24, 0.4, saturation);
+    const lumaConfidence = smoothstep(0.1, 0.2, luma) * (1 - smoothstep(0.46, 0.58, luma));
+    const contrastConfidence = smoothstep(16, 44, max - min + 16);
+    return clampRange(neutralConfidence * lumaConfidence * (0.82 + contrastConfidence * 0.18), 0.18, 1);
+  }
+
+  if (type === 'eye') {
+    const hueConfidence = smoothstep(132, 196, r)
+      * smoothstep(72, 132, g)
+      * (1 - smoothstep(112, 152, b));
+    const saturationConfidence = smoothstep(0.24, 0.5, saturation);
+    return clampRange(0.5 + hueConfidence * saturationConfidence * 0.5, 0.38, 1);
+  }
+
+  const redConfidence = smoothstep(100, 178, r)
+    * (1 - smoothstep(132, 184, g))
+    * (1 - smoothstep(132, 184, b));
+  const pinkConfidence = smoothstep(102, 172, r)
+    * smoothstep(62, 118, b)
+    * (1 - smoothstep(146, 188, g));
+  const orangeConfidence = smoothstep(132, 202, r)
+    * smoothstep(56, 112, g)
+    * (1 - smoothstep(120, 164, b));
+  return clampRange(0.42 + Math.max(redConfidence, pinkConfidence, orangeConfidence) * 0.46, 0.32, 0.92);
+}
+
+function writeNaturalPixel({ index, source, target, tintStrength, tintTone, type }) {
+  const sourceColor = {
+    r: source[index],
+    g: source[index + 1],
+    b: source[index + 2],
+  };
+  const sourceTone = rgbToHsl(sourceColor);
+  const sourceLuma = luma01(sourceColor);
+  const confidence = tintConfidenceForPixel(sourceColor, type);
+  const saturation = type === 'hair'
+    ? clampRange(sourceTone.s * 0.5 + tintTone.s * 0.42, 0.08, 0.58)
+    : clampRange(sourceTone.s * 0.24 + tintTone.s * 0.68, 0.3, type === 'accent' ? 0.88 : 0.82);
+  const lightness = type === 'hair'
+    ? clampRange(sourceTone.l + (tintTone.l - 0.5) * 0.018, 0.035, 0.8)
+    : clampRange(sourceTone.l + (tintTone.l - 0.5) * 0.03, 0.08, 0.86);
+  const colorized = hslToRgb({
+    h: tintTone.h,
+    s: saturation,
+    l: lightness,
+  });
+  const colorizedLuma = Math.max(0.001, luma01(colorized));
+  const targetLuma = clampRange(
+    sourceLuma + (tintTone.l - 0.5) * (type === 'hair' ? 0.004 : 0.012),
+    0.01,
+    0.98,
+  );
+  const lumaRatio = clampRange(targetLuma / colorizedLuma, 0.5, 1.72);
+  const lumaPreserved = {
+    r: clampChannel(colorized.r * lumaRatio),
+    g: clampChannel(colorized.g * lumaRatio),
+    b: clampChannel(colorized.b * lumaRatio),
+  };
+  const shadowProtection = (type === 'hair' ? 0.32 : 0.14) * (1 - smoothstep(0.08, 0.3, sourceLuma));
+  const highlightProtection = (type === 'hair' ? 0.18 : 0.24) * smoothstep(0.64, 0.94, sourceLuma);
+  const typeAmount = type === 'hair' ? 0.78 : type === 'accent' ? 0.88 : 0.9;
+  const amount = clamp01(tintStrength * typeAmount * confidence * (1 - shadowProtection - highlightProtection));
+
+  target[index] = mixChannel(sourceColor.r, lumaPreserved.r, amount);
+  target[index + 1] = mixChannel(sourceColor.g, lumaPreserved.g, amount);
+  target[index + 2] = mixChannel(sourceColor.b, lumaPreserved.b, amount);
+  target[index + 3] = source[index + 3];
+}
+
 export function writeAvatarTintOverlay(sourceImageData, targetImageData, options) {
   const { width, height } = sourceImageData;
   const source = sourceImageData.data;
@@ -380,7 +459,9 @@ export function writeAvatarTintOverlay(sourceImageData, targetImageData, options
   const eyeStrength = clamp01(options.eyeStrength);
   const hairColor = parseHexColor(options.hairColor, { r: 109, g: 91, b: 208 });
   const eyeColor = parseHexColor(options.eyeColor, { r: 43, g: 167, b: 232 });
-  const filterMode = ['paint', 'silk', 'soft'].includes(options.filterMode) ? options.filterMode : 'grade';
+  const filterMode = ['natural', 'paint', 'silk', 'soft', 'grade'].includes(options.filterMode)
+    ? options.filterMode
+    : 'natural';
   const hairTone = rgbToHsl(hairColor);
   const eyeTone = rgbToHsl(eyeColor);
   const accentMask = eyeStrength > 0 ? buildAccessoryAccentMask(sourceImageData) : null;
@@ -417,6 +498,8 @@ export function writeAvatarTintOverlay(sourceImageData, targetImageData, options
 
       if (filterMode === 'paint') {
         writePaintPixel({ index, source, target, tintColor, tintStrength, type });
+      } else if (filterMode === 'natural') {
+        writeNaturalPixel({ index, source, target, tintStrength, tintTone, type });
       } else if (filterMode === 'silk') {
         writeSilkPixel({ index, source, target, tintStrength, tintTone, type });
       } else if (filterMode === 'soft') {

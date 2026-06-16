@@ -106,7 +106,8 @@ Pages 側の Source は GitHub Actions にしてください。
 
 Tuning パネルの Appearance で髪色・瞳色、変換フィルター、mix 強度を調整できます。元画像は書き換えず、現在表示中のフレームから髪・瞳らしい色域を検出して、透明な変換レイヤーを上に重ねます。`mix` が `0` のときは元絵のままです。
 
-- `Silk`: 元画像の線・輝度・ハイライトを残す半透明グレーズ型の標準フィルター
+- `Natural`: 元画像の明度差・影・ハイライトを保ちながら、色相だけを滑らかに寄せる自然変換フィルター
+- `Silk`: 元画像の線・輝度・ハイライトを残す半透明グレーズ型のフィルター
 - `Grade`: 元画像の輝度・影・ハイライトを優先して残し、色相だけを自然に寄せるフィルター
 - `Soft`: HSL ベースで色相を選択色へ強めに寄せるフィルター
 - `Paint`: 以前の単色 overlay 寄りのフィルター
@@ -116,6 +117,7 @@ Tuning パネルの Appearance で髪色・瞳色、変換フィルター、mix 
 URL パラメーターでも初期値を指定できます。`#` は URL fragment になるため、色は `#` なしで渡すのが安全です。
 
 ```text
+talk.html?filter=natural&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
 talk.html?filter=silk&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
 talk.html?filter=grade&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
 talk.html?filter=soft&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
@@ -161,7 +163,7 @@ channel.postMessage({
     hairMix: 0.65,
     eyes: 'A855F7',
     eyeMix: 0.85,
-    filter: 'silk'
+    filter: 'natural'
   }
 });
 ```

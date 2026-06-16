@@ -21,6 +21,7 @@ export default defineConfig({
         main: resolve(root, 'index.html'),
         talk: resolve(root, 'talk.html'),
         guruguru: resolve(root, 'guruguru.html'),
+        room: resolve(root, 'room.html'),
       },
     },
   },

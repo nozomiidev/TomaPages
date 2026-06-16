@@ -1,6 +1,7 @@
 const clamp01 = (value) => Math.min(1, Math.max(0, Number.isFinite(value) ? value : 0));
 const clampChannel = (value) => Math.min(255, Math.max(0, Math.round(value)));
 const clampRange = (value, min, max) => Math.min(max, Math.max(min, value));
+const luma01 = ({ r, g, b }) => (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 
 export function parseHexColor(value, fallback = { r: 255, g: 255, b: 255 }) {
   if (typeof value !== 'string') return fallback;
@@ -111,6 +112,12 @@ function mixChannel(source, target, amount) {
   return clampChannel(source + (target - source) * amount);
 }
 
+function smoothstep(edge0, edge1, value) {
+  if (edge0 === edge1) return value < edge0 ? 0 : 1;
+  const t = clampRange((value - edge0) / (edge1 - edge0), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
 function writePaintPixel({ index, source, target, tintColor, tintStrength, type }) {
   const max = Math.max(source[index], source[index + 1], source[index + 2]);
   const min = Math.min(source[index], source[index + 1], source[index + 2]);
@@ -151,6 +158,48 @@ function writeSoftPixel({ index, source, target, tintStrength, tintTone, type })
   target[index + 3] = source[index + 3];
 }
 
+function writeGradePixel({ index, source, target, tintStrength, tintTone, type }) {
+  const sourceColor = {
+    r: source[index],
+    g: source[index + 1],
+    b: source[index + 2],
+  };
+  const sourceTone = rgbToHsl(sourceColor);
+  const sourceLuma = luma01(sourceColor);
+  const saturation = type === 'hair'
+    ? clampRange(tintTone.s * 0.76 + sourceTone.s * 0.24, 0.2, 0.7)
+    : clampRange(tintTone.s * 0.86 + sourceTone.s * 0.16, 0.34, type === 'accent' ? 0.94 : 0.86);
+  const lightness = type === 'hair'
+    ? clampRange(sourceTone.l + (tintTone.l - 0.5) * 0.07, 0.05, 0.72)
+    : clampRange(sourceTone.l + (tintTone.l - 0.5) * 0.045, 0.1, 0.78);
+  const colorized = hslToRgb({
+    h: tintTone.h,
+    s: saturation,
+    l: lightness,
+  });
+  const colorizedLuma = Math.max(0.001, luma01(colorized));
+  const targetLuma = clampRange(
+    sourceLuma * (0.96 + tintTone.l * 0.08) + (tintTone.l - 0.5) * 0.025,
+    0.015,
+    0.96,
+  );
+  const lumaRatio = clampRange(targetLuma / colorizedLuma, 0.45, 1.75);
+  const lumaPreserved = {
+    r: clampChannel(colorized.r * lumaRatio),
+    g: clampChannel(colorized.g * lumaRatio),
+    b: clampChannel(colorized.b * lumaRatio),
+  };
+  const shadowProtection = 0.18 * (1 - smoothstep(0.08, 0.36, sourceLuma));
+  const highlightProtection = 0.08 * smoothstep(0.72, 0.94, sourceLuma);
+  const typeAmount = type === 'hair' ? 0.82 : type === 'accent' ? 1 : 0.98;
+  const amount = clamp01(tintStrength * typeAmount * (1 - shadowProtection - highlightProtection));
+
+  target[index] = mixChannel(sourceColor.r, lumaPreserved.r, amount);
+  target[index + 1] = mixChannel(sourceColor.g, lumaPreserved.g, amount);
+  target[index + 2] = mixChannel(sourceColor.b, lumaPreserved.b, amount);
+  target[index + 3] = source[index + 3];
+}
+
 export function writeAvatarTintOverlay(sourceImageData, targetImageData, options) {
   const { width, height } = sourceImageData;
   const source = sourceImageData.data;
@@ -159,7 +208,7 @@ export function writeAvatarTintOverlay(sourceImageData, targetImageData, options
   const eyeStrength = clamp01(options.eyeStrength);
   const hairColor = parseHexColor(options.hairColor, { r: 109, g: 91, b: 208 });
   const eyeColor = parseHexColor(options.eyeColor, { r: 43, g: 167, b: 232 });
-  const filterMode = options.filterMode === 'paint' ? 'paint' : 'soft';
+  const filterMode = ['paint', 'soft'].includes(options.filterMode) ? options.filterMode : 'grade';
   const hairTone = rgbToHsl(hairColor);
   const eyeTone = rgbToHsl(eyeColor);
   let changedPixels = 0;
@@ -193,8 +242,10 @@ export function writeAvatarTintOverlay(sourceImageData, targetImageData, options
 
       if (filterMode === 'paint') {
         writePaintPixel({ index, source, target, tintColor, tintStrength, type });
-      } else {
+      } else if (filterMode === 'soft') {
         writeSoftPixel({ index, source, target, tintStrength, tintTone, type });
+      } else {
+        writeGradePixel({ index, source, target, tintStrength, tintTone, type });
       }
 
       changedPixels += 1;

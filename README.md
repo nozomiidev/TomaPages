@@ -12,6 +12,7 @@ GitHub Pages:
 https://nozomiidev.github.io/TomaPages/
 https://nozomiidev.github.io/TomaPages/talk.html
 https://nozomiidev.github.io/TomaPages/guruguru.html
+https://nozomiidev.github.io/TomaPages/room.html
 https://nozomiidev.github.io/TomaPages/index.html#assets
 ```
 
@@ -38,6 +39,7 @@ https://nozomiidev.github.io/TomaPages/index.html#assets
 - `talk.html`: マイクまたは音声ファイルの音量に合わせた 3 段階口パク
 - `Test sync`: マイク権限や外部音源なしで口パク挙動を検証する内蔵テスト信号
 - `guruguru.html`: ポインター位置に追従する 25 方向の視線・顔向き
+- `room.html`: Trystero の WebRTC presence と html2canvas snapshot を使った通信ルームの第一実装 slice
 - 自然な自動まばたき、ダブル blink、長め blink
 - 調整パネル: follow range、smoothing、avatar size、mic gain、口パクしきい値、release、髪色、瞳色、背景色、auto blink、debug grid
 - `index.html#assets`: 6 シート / 150 フレームの asset inventory
@@ -58,6 +60,7 @@ npm run dev
 ```text
 http://127.0.0.1:5173/talk.html
 http://127.0.0.1:5173/guruguru.html
+http://127.0.0.1:5173/room.html
 http://127.0.0.1:5173/index.html#assets
 ```
 
@@ -103,7 +106,8 @@ Pages 側の Source は GitHub Actions にしてください。
 
 Tuning パネルの Appearance で髪色・瞳色、変換フィルター、mix 強度を調整できます。元画像は書き換えず、現在表示中のフレームから髪・瞳らしい色域を検出して、透明な変換レイヤーを上に重ねます。`mix` が `0` のときは元絵のままです。
 
-- `Soft`: 元画像の明暗・陰影を保ちながら、色相を選択色へ滑らかに寄せる標準フィルター
+- `Grade`: 元画像の輝度・影・ハイライトを優先して残し、色相だけを自然に寄せる標準フィルター
+- `Soft`: HSL ベースで色相を選択色へ強めに寄せるフィルター
 - `Paint`: 以前の単色 overlay 寄りのフィルター
 
 赤・橙・ピンク系のアクセサリ塗り残しは、髪・瞳とは別の accent 色域として検出し、瞳色側の変換に追従します。
@@ -111,11 +115,18 @@ Tuning パネルの Appearance で髪色・瞳色、変換フィルター、mix 
 URL パラメーターでも初期値を指定できます。`#` は URL fragment になるため、色は `#` なしで渡すのが安全です。
 
 ```text
+talk.html?filter=grade&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
 talk.html?filter=soft&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
 guruguru.html?filter=paint&hair=6D5BD0&hairMix=0.45&eyeColor=2BA7E8&eyeTint=0.75
 ```
 
 この方式は GitHub Pages 上でも追加サーバーなしで動きます。完全なレイヤー分けではないため、別キャラクターに差し替える場合は `src/domain/avatar-recolor.js` の色範囲条件を調整してください。
+
+## Room / P2P
+
+`room.html` は追加サーバーなしで動く静的ページです。Trystero を WebRTC room discovery / data-channel presence に使い、同じブラウザ内では BroadcastChannel / storage fallback で検証できます。各 peer は画像フレームではなく、pose cell、mouth、audio level、appearance tuning などの軽い presence state だけを送ります。
+
+カードの通常表示は html2canvas で DOM から canvas snapshot 化し、hover 中のカードだけ live DOM として前面に出します。詳しい設計メモは `docs/multiplayer-architecture.md` にあります。
 
 ## 新しいキャラクターへ差し替える
 
@@ -132,16 +143,18 @@ guruguru.html?filter=paint&hair=6D5BD0&hairMix=0.45&eyeColor=2BA7E8&eyeTint=0.75
 
 ```text
 .
-├─ index.html / talk.html / guruguru.html
+├─ index.html / talk.html / guruguru.html / room.html
 ├─ src/
 │  ├─ app.jsx
+│  ├─ room.jsx
 │  ├─ styles.css
 │  ├─ domain/
 │  │  ├─ audio-engine.js
 │  │  ├─ avatar-recolor.js
 │  │  ├─ avatar-recolor.test.js
 │  │  ├─ character.js
-│  │  └─ character.test.js
+│  │  ├─ character.test.js
+│  │  └─ presence-transport.js
 │  ├─ hooks/
 │  └─ lib/
 ├─ public/slices2/

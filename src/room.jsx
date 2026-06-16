@@ -1,0 +1,434 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import html2canvas from 'html2canvas';
+import { Radio, Signal, Users } from 'lucide-react';
+import { frameSrc, sheetForPose, targetToCell } from './domain/character';
+import { createPresenceTransport, getTabPeerId, readRoomId } from './domain/presence-transport';
+import { useAvatarTintOverlay } from './hooks/use-avatar-tint-overlay';
+import { clamp } from './lib/math';
+
+const ROOM_NAME = 'Codec Lobby';
+const CARD_WIDTH = 286;
+const CARD_HEIGHT = 184;
+const CARD_GAP = 18;
+
+const DEMO_PEERS = [
+  {
+    id: 'demo-meryl',
+    name: 'Meryl',
+    role: 'Signal Scout',
+    source: 'demo',
+    cell: { row: 2, col: 1 },
+    mouth: 1,
+    audioLevel: 0.34,
+    hairColor: '#854D0E',
+    hairTint: 0.38,
+    eyeColor: '#E35D75',
+    eyeTint: 0.62,
+    colorFilter: 'grade',
+  },
+  {
+    id: 'demo-otacon',
+    name: 'Otacon',
+    role: 'Support Feed',
+    source: 'demo',
+    cell: { row: 1, col: 3 },
+    mouth: 0,
+    audioLevel: 0.08,
+    hairColor: '#0F766E',
+    hairTint: 0.52,
+    eyeColor: '#2BA7E8',
+    eyeTint: 0.72,
+    colorFilter: 'grade',
+  },
+  {
+    id: 'demo-naomi',
+    name: 'Naomi',
+    role: 'Bio Link',
+    source: 'demo',
+    cell: { row: 3, col: 2 },
+    mouth: 2,
+    audioLevel: 0.56,
+    hairColor: '#6D5BD0',
+    hairTint: 0.46,
+    eyeColor: '#A855F7',
+    eyeTint: 0.66,
+    colorFilter: 'grade',
+  },
+];
+
+function createLocalPeerId() {
+  return getTabPeerId();
+}
+
+function peerSort(left, right) {
+  if (left.source === 'local') return -1;
+  if (right.source === 'local') return 1;
+  if (left.source === 'p2p' && right.source !== 'p2p') return -1;
+  if (right.source === 'p2p' && left.source !== 'p2p') return 1;
+  return left.name.localeCompare(right.name);
+}
+
+function computeLayouts(width, height, count) {
+  const cols = width > 1020 ? 3 : width > 660 ? 2 : 1;
+  const rows = Math.ceil(count / cols);
+  const totalWidth = cols * CARD_WIDTH + (cols - 1) * CARD_GAP;
+  const totalHeight = rows * CARD_HEIGHT + (rows - 1) * CARD_GAP;
+  const startX = Math.max(20, (width - totalWidth) / 2);
+  const startY = Math.max(22, (height - totalHeight) / 2);
+
+  return Array.from({ length: count }, (_, index) => {
+    const col = index % cols;
+    const row = Math.floor(index / cols);
+    return {
+      x: startX + col * (CARD_WIDTH + CARD_GAP),
+      y: startY + row * (CARD_HEIGHT + CARD_GAP),
+      width: CARD_WIDTH,
+      height: CARD_HEIGHT,
+    };
+  });
+}
+
+function pointerToCardCell(event, layout, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const localX = event.clientX - rect.left - layout.x;
+  const localY = event.clientY - rect.top - layout.y;
+  const centerX = layout.width * 0.5;
+  const centerY = layout.height * 0.48;
+
+  return targetToCell({
+    x: clamp((localX - centerX) / (layout.width * 0.38), -1, 1),
+    y: clamp((localY - centerY) / (layout.height * 0.32), -1, 1),
+  });
+}
+
+function usePresenceRoom({ localPeer, roomId }) {
+  const [remotePeers, setRemotePeers] = useState({});
+  const [transportStatus, setTransportStatus] = useState({
+    local: 'ready',
+    p2p: 'starting',
+  });
+  const transportRef = useRef(null);
+
+  useEffect(() => {
+    const transport = createPresenceTransport({
+      roomId,
+      selfId: localPeer.id,
+      onPeer: (peer) => {
+        setRemotePeers((current) => ({
+          ...current,
+          [peer.id]: peer,
+        }));
+      },
+      onPeerLeave: (peerId) => {
+        setRemotePeers((current) => {
+          const next = { ...current };
+          delete next[peerId];
+          return next;
+        });
+      },
+      onStatus: setTransportStatus,
+    });
+    transportRef.current = transport;
+    return () => {
+      transport.leave();
+      transportRef.current = null;
+    };
+  }, [localPeer.id, roomId]);
+
+  useEffect(() => {
+    transportRef.current?.publish(localPeer);
+  }, [localPeer]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      const now = Date.now();
+      setRemotePeers((current) => Object.fromEntries(
+        Object.entries(current).filter(([, peer]) => now - peer.receivedAt < 18000),
+      ));
+    }, 5000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  return {
+    remotePeers: Object.values(remotePeers),
+    transportStatus,
+  };
+}
+
+function RoomAvatar({ peer }) {
+  const activeSheet = sheetForPose({ blink: false, mouth: peer.mouth ?? 0 });
+  const src = frameSrc(activeSheet, peer.cell?.row ?? 2, peer.cell?.col ?? 2);
+  const overlay = useAvatarTintOverlay(src, {
+    filterMode: peer.colorFilter,
+    hairColor: peer.hairColor,
+    hairStrength: peer.hairTint,
+    eyeColor: peer.eyeColor,
+    eyeStrength: peer.eyeTint,
+  });
+
+  return (
+    <div className="room-avatar">
+      <img alt="" draggable="false" src={src} />
+      {overlay && <img alt="" className="room-avatar__tint" draggable="false" src={overlay} />}
+    </div>
+  );
+}
+
+function RoomCard({ peer, live = false }) {
+  return (
+    <article className={live ? 'room-card room-card--live' : 'room-card'}>
+      <div className="room-card__signal">
+        <span>{peer.source === 'local' ? 'YOU' : peer.source === 'p2p' ? 'P2P' : 'SIM'}</span>
+        <i style={{ width: `${Math.round((peer.audioLevel ?? 0) * 100)}%` }} />
+      </div>
+      <RoomAvatar peer={peer} />
+      <div className="room-card__copy">
+        <strong>{peer.name}</strong>
+        <span>{peer.role}</span>
+      </div>
+    </article>
+  );
+}
+
+export function RoomView({ localState, tuning }) {
+  const roomId = useMemo(() => readRoomId(), []);
+  const localPeerId = useMemo(createLocalPeerId, []);
+  const canvasRef = useRef(null);
+  const snapshotNodesRef = useRef(new Map());
+  const snapshotsRef = useRef(new Map());
+  const layoutsRef = useRef(new Map());
+  const [snapshotVersion, setSnapshotVersion] = useState(0);
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const [hoveredPeerId, setHoveredPeerId] = useState('');
+  const [hoverCells, setHoverCells] = useState({});
+
+  const localPeer = useMemo(() => ({
+    id: localPeerId,
+    name: 'You',
+    role: 'Live uplink',
+    source: 'local',
+    cell: hoverCells[localPeerId] ?? localState.cell,
+    mouth: localState.mouth,
+    audioLevel: localState.audioLevel,
+    hairColor: tuning.hairColor,
+    hairTint: tuning.hairTint,
+    eyeColor: tuning.eyeColor,
+    eyeTint: tuning.eyeTint,
+    colorFilter: tuning.colorFilter,
+  }), [hoverCells, localPeerId, localState.audioLevel, localState.cell, localState.mouth, tuning.colorFilter, tuning.eyeColor, tuning.eyeTint, tuning.hairColor, tuning.hairTint]);
+
+  const { remotePeers, transportStatus } = usePresenceRoom({ localPeer, roomId });
+  const peers = useMemo(() => (
+    [localPeer, ...remotePeers, ...DEMO_PEERS]
+      .map((peer) => ({
+        ...peer,
+        cell: hoverCells[peer.id] ?? peer.cell,
+      }))
+      .sort(peerSort)
+  ), [hoverCells, localPeer, remotePeers]);
+  const hoveredPeer = peers.find((peer) => peer.id === hoveredPeerId);
+  const peerSnapshotKey = peers.map((peer) => [
+    peer.id,
+    peer.cell?.row,
+    peer.cell?.col,
+    peer.mouth,
+    peer.audioLevel,
+    peer.hairColor,
+    peer.hairTint,
+    peer.eyeColor,
+    peer.eyeTint,
+    peer.colorFilter,
+  ].join(':')).join('|');
+
+  const setSnapshotNode = useCallback((peerId, node) => {
+    if (node) snapshotNodesRef.current.set(peerId, node);
+    else snapshotNodesRef.current.delete(peerId);
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return undefined;
+
+    const resize = () => {
+      const rect = canvas.getBoundingClientRect();
+      setCanvasSize({
+        width: rect.width,
+        height: rect.height,
+      });
+    };
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timerId = window.setTimeout(async () => {
+      const nextSnapshots = new Map();
+      for (const peer of peers) {
+        const node = snapshotNodesRef.current.get(peer.id);
+        if (!node) continue;
+        const snapshot = await html2canvas(node, {
+          backgroundColor: null,
+          logging: false,
+          scale: 2,
+          useCORS: true,
+        });
+        nextSnapshots.set(peer.id, snapshot);
+      }
+
+      if (!cancelled) {
+        snapshotsRef.current = nextSnapshots;
+        setSnapshotVersion((value) => value + 1);
+      }
+    }, 220);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timerId);
+    };
+  }, [peerSnapshotKey, peers]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || canvasSize.width === 0 || canvasSize.height === 0) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(canvasSize.width * dpr);
+    canvas.height = Math.round(canvasSize.height * dpr);
+    const context = canvas.getContext('2d');
+    if (!context) return;
+
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    context.clearRect(0, 0, canvasSize.width, canvasSize.height);
+    context.fillStyle = '#111418';
+    context.fillRect(0, 0, canvasSize.width, canvasSize.height);
+
+    const layouts = computeLayouts(canvasSize.width, canvasSize.height, peers.length);
+    const nextLayoutMap = new Map();
+
+    context.save();
+    context.strokeStyle = 'rgba(89, 205, 187, 0.2)';
+    context.lineWidth = 1;
+    layouts.forEach((layout, index) => {
+      if (index === 0) return;
+      context.beginPath();
+      context.moveTo(layouts[0].x + layouts[0].width / 2, layouts[0].y + layouts[0].height / 2);
+      context.lineTo(layout.x + layout.width / 2, layout.y + layout.height / 2);
+      context.stroke();
+    });
+    context.restore();
+
+    peers.forEach((peer, index) => {
+      const layout = layouts[index];
+      nextLayoutMap.set(peer.id, layout);
+      const snapshot = snapshotsRef.current.get(peer.id);
+
+      context.save();
+      context.shadowColor = 'rgba(0, 0, 0, 0.35)';
+      context.shadowBlur = hoveredPeerId === peer.id ? 24 : 14;
+      context.shadowOffsetY = 12;
+      if (snapshot) {
+        context.drawImage(snapshot, layout.x, layout.y, layout.width, layout.height);
+      } else {
+        context.fillStyle = '#1f242a';
+        context.fillRect(layout.x, layout.y, layout.width, layout.height);
+      }
+      context.restore();
+
+      if (hoveredPeerId === peer.id) {
+        context.strokeStyle = '#59cdbb';
+        context.lineWidth = 2;
+        context.strokeRect(layout.x + 1, layout.y + 1, layout.width - 2, layout.height - 2);
+      }
+    });
+
+    layoutsRef.current = nextLayoutMap;
+  }, [canvasSize.height, canvasSize.width, hoveredPeerId, peers, snapshotVersion]);
+
+  const updateHover = useCallback((event) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const match = [...layoutsRef.current.entries()].find(([, layout]) => (
+      x >= layout.x
+      && x <= layout.x + layout.width
+      && y >= layout.y
+      && y <= layout.y + layout.height
+    ));
+
+    const nextPeerId = match?.[0] ?? '';
+    setHoveredPeerId(nextPeerId);
+
+    if (match) {
+      const [peerId, layout] = match;
+      const nextCell = pointerToCardCell(event, layout, canvas);
+      setHoverCells((current) => {
+        const previous = current[peerId];
+        if (previous?.row === nextCell.row && previous?.col === nextCell.col) return current;
+        return {
+          ...current,
+          [peerId]: nextCell,
+        };
+      });
+    }
+  }, []);
+
+  const clearHover = useCallback(() => setHoveredPeerId(''), []);
+  const hoveredLayout = hoveredPeerId ? layoutsRef.current.get(hoveredPeerId) : null;
+
+  return (
+    <section className="room-shell" aria-label="Codec room">
+      <div className="room-toolbar">
+        <div>
+          <p className="eyebrow">Room / {roomId}</p>
+          <h1>{ROOM_NAME}</h1>
+        </div>
+        <div className="room-status">
+          <span><Signal size={15} aria-hidden="true" /> {transportStatus.p2p}</span>
+          <span><Users size={15} aria-hidden="true" /> {peers.length}</span>
+          <span><Radio size={15} aria-hidden="true" /> html2canvas</span>
+        </div>
+      </div>
+
+      <div className="room-stage">
+        <canvas
+          ref={canvasRef}
+          className="room-canvas"
+          aria-label="Peer communication canvas"
+          onPointerMove={updateHover}
+          onPointerLeave={clearHover}
+        />
+        {hoveredPeer && hoveredLayout && (
+          <div
+            className="room-live-layer"
+            style={{
+              left: hoveredLayout.x,
+              top: hoveredLayout.y,
+              width: hoveredLayout.width,
+              height: hoveredLayout.height,
+            }}
+          >
+            <RoomCard peer={hoveredPeer} live />
+          </div>
+        )}
+      </div>
+
+      <div className="room-snapshot-source" aria-hidden="true">
+        {peers.map((peer) => (
+          <div
+            key={peer.id}
+            ref={(node) => setSnapshotNode(peer.id, node)}
+            className="room-snapshot-card"
+          >
+            <RoomCard peer={peer} />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}

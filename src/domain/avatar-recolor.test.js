@@ -146,6 +146,21 @@ describe('avatar recolor domain', () => {
     expect(luma(lightHair)).toBeGreaterThan(luma(darkHair));
   });
 
+  it('grade filter preserves luminance while shifting the color smoothly', () => {
+    const darkSource = [58, 60, 58];
+    const lightSource = [112, 116, 112];
+    const darkHair = renderHairPixel(darkSource, 'grade');
+    const lightHair = renderHairPixel(lightSource, 'grade');
+
+    expect(darkHair[3]).toBe(255);
+    expect(lightHair[3]).toBe(255);
+    expect(darkHair[1]).toBeGreaterThan(darkHair[0]);
+    expect(lightHair[1]).toBeGreaterThan(lightHair[0]);
+    expect(luma(lightHair)).toBeGreaterThan(luma(darkHair) + 30);
+    expect(Math.abs(luma(darkHair) - luma(darkSource))).toBeLessThan(24);
+    expect(Math.abs(luma(lightHair) - luma(lightSource))).toBeLessThan(24);
+  });
+
   it('paint filter remains available as a translucent color overlay', () => {
     const paintedHair = renderHairPixel([58, 60, 58], 'paint');
 

@@ -23,6 +23,7 @@ import {
   Palette,
   Pause,
   Play,
+  Radio,
   Settings2,
   SlidersHorizontal,
   Upload,
@@ -42,10 +43,12 @@ import { useAnimationFrame } from './hooks/use-animation-frame';
 import { useAvatarTintOverlay } from './hooks/use-avatar-tint-overlay';
 import { usePersistentState } from './hooks/use-persistent-state';
 import { clamp, lerp } from './lib/math';
+import { RoomView } from './room';
 
 const MODES = [
   { id: 'talk', label: 'Talk', icon: AudioLines, path: 'talk.html' },
   { id: 'gaze', label: 'Gaze', icon: MousePointer2, path: 'guruguru.html' },
+  { id: 'room', label: 'Room', icon: Radio, path: 'room.html' },
   { id: 'assets', label: 'Assets', icon: Boxes, path: 'index.html#assets' },
 ];
 
@@ -64,7 +67,7 @@ const DEFAULT_TUNING = {
   hairTint: 0,
   eyeColor: '#2BA7E8',
   eyeTint: 0,
-  colorFilter: 'soft',
+  colorFilter: 'grade',
 };
 
 const BACKGROUNDS = [
@@ -92,6 +95,7 @@ const EYE_COLORS = [
 ];
 
 const COLOR_FILTERS = [
+  { id: 'grade', label: 'Grade' },
   { id: 'soft', label: 'Soft' },
   { id: 'paint', label: 'Paint' },
 ];
@@ -102,6 +106,7 @@ function detectInitialMode() {
   const hash = window.location.hash.toLowerCase();
 
   if (hash === '#assets') return 'assets';
+  if (path.endsWith('/room.html')) return 'room';
   if (path.endsWith('/guruguru.html')) return 'gaze';
   if (path.endsWith('/talk.html')) return 'talk';
   if (MODES.some((mode) => mode.id === bodyMode)) return bodyMode;
@@ -128,7 +133,8 @@ function normalizeColorParam(value) {
 function normalizeColorFilter(value) {
   const normalized = String(value ?? '').trim().toLowerCase();
   if (['paint', 'overlay', 'tint'].includes(normalized)) return 'paint';
-  if (['soft', 'tone', 'smooth', 'natural'].includes(normalized)) return 'soft';
+  if (['soft', 'tone'].includes(normalized)) return 'soft';
+  if (['grade', 'smooth', 'natural', 'luma', 'preserve'].includes(normalized)) return 'grade';
   return '';
 }
 
@@ -168,7 +174,7 @@ function useModeRouter(initialMode) {
   }, []);
 
   useEffect(() => {
-    const labels = { talk: 'Talk', gaze: 'Gaze', assets: 'Assets' };
+    const labels = { talk: 'Talk', gaze: 'Gaze', room: 'Room', assets: 'Assets' };
     document.title = `Tomari Studio - ${labels[mode] ?? 'Talk'}`;
   }, [mode]);
 
@@ -446,7 +452,16 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
           />
         )}
 
-        {mode === 'assets' && !stageOnly ? (
+        {mode === 'room' && !stageOnly ? (
+          <RoomView
+            localState={{
+              audioLevel,
+              cell,
+              mouth,
+            }}
+            tuning={tuning}
+          />
+        ) : mode === 'assets' && !stageOnly ? (
           <AssetInventory onModeChange={setMode} />
         ) : (
           <AvatarStage
@@ -466,7 +481,7 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
           />
         )}
 
-        {!stageOnly && (
+        {!stageOnly && mode !== 'room' && (
           <TuningPanel
             tuning={tuning}
             patchTuning={patchTuning}
@@ -556,9 +571,9 @@ function InputPanel({
       <PanelTitle icon={Activity} title="Live Input" />
 
       <div className="metric">
-        <span className="metric__label">Mode</span>
-        <strong>{mode === 'talk' ? 'Audio lip sync' : mode === 'gaze' ? 'Pointer tracking' : 'Asset check'}</strong>
-      </div>
+          <span className="metric__label">Mode</span>
+          <strong>{mode === 'talk' ? 'Audio lip sync' : mode === 'gaze' ? 'Pointer tracking' : mode === 'room' ? 'Room presence' : 'Asset check'}</strong>
+        </div>
 
       <button
         className={micOn ? 'command-button command-button--danger' : 'command-button'}

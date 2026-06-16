@@ -10,6 +10,7 @@ export function summarizeRoomPresence(peers = []) {
     else summary.live += 1;
     if (isAgent) summary.agent += 1;
     if (source === 'p2p') summary.p2p += 1;
+    if (source === 'tab') summary.tab += 1;
     if (source === 'local') summary.local += 1;
     if (isSpeaking) summary.speaking += 1;
 
@@ -21,6 +22,7 @@ export function summarizeRoomPresence(peers = []) {
     local: 0,
     p2p: 0,
     speaking: 0,
+    tab: 0,
     total: 0,
   });
 }

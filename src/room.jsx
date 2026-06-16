@@ -33,6 +33,7 @@ const SOURCE_LABELS = {
   demo: 'SIM',
   local: 'YOU',
   p2p: 'P2P',
+  tab: 'TAB',
 };
 
 const DEMO_PEERS = [
@@ -85,7 +86,7 @@ function createLocalPeerId() {
 }
 
 function peerSort(left, right) {
-  const rank = { local: 0, p2p: 1, agent: 2, demo: 3 };
+  const rank = { local: 0, p2p: 1, tab: 2, agent: 3, demo: 4 };
   const leftRank = rank[left.source] ?? 9;
   const rightRank = rank[right.source] ?? 9;
   if (leftRank !== rightRank) return leftRank - rightRank;
@@ -98,6 +99,7 @@ function sourceLabel(source) {
 
 function sourceAccent(source) {
   if (source === 'local' || source === 'p2p') return '#0f766e';
+  if (source === 'tab') return '#2563eb';
   if (source === 'agent') return '#8b5cf6';
   return '#aeb5bc';
 }
@@ -744,6 +746,7 @@ export function RoomView({ liveControls, localState, tuning }) {
       data-room-local-peers={presenceSummary.local}
       data-room-p2p-peers={presenceSummary.p2p}
       data-room-speaking-peers={presenceSummary.speaking}
+      data-room-tab-peers={presenceSummary.tab}
       data-room-total-peers={presenceSummary.total}
       data-room-layout-cols={roomScene.cols}
       data-room-layout-rows={roomScene.rows}
@@ -760,6 +763,7 @@ export function RoomView({ liveControls, localState, tuning }) {
             <div className="room-status">
               <span data-state={transportStatus.p2p}><Signal size={15} aria-hidden="true" /> {transportStatus.p2p}</span>
               <span title="Live / total peers"><Users size={15} aria-hidden="true" /> {presenceSummary.live}/{presenceSummary.total}</span>
+              <span title="Remote P2P / same-browser test peers">P{presenceSummary.p2p} / T{presenceSummary.tab}</span>
               <span title="Speaking peers"><AudioLines size={15} aria-hidden="true" /> {presenceSummary.speaking}</span>
               <span title={agentBridge.channelName} data-state={agentBridge.status}><Bot size={15} aria-hidden="true" /> Agent {agentBridge.status}</span>
               <span><Radio size={15} aria-hidden="true" /> canvas</span>

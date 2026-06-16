@@ -164,7 +164,7 @@ export function createPresenceTransport({
 
   const localChannel = channelFactory(roomId, (message) => {
     if (!message || message.roomId !== roomId) return;
-    if (message.type === 'presence') receivePeer(message.peer, 'local');
+    if (message.type === 'presence') receivePeer(message.peer, 'tab');
     if (message.type === 'leave' && message.peerId !== selfId) onPeerLeave(message.peerId);
   });
 

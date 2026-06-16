@@ -163,8 +163,8 @@ describe('presence transport helpers', () => {
     transportB.publish({ id: 'peer-b', name: 'Beta' });
     await flushMicrotasks();
 
-    expect(peersA).toMatchObject([{ id: 'peer-b', name: 'Beta', source: 'local', receivedAt: 1000 }]);
-    expect(peersB).toMatchObject([{ id: 'peer-a', name: 'Alpha', source: 'local', receivedAt: 1005 }]);
+    expect(peersA).toMatchObject([{ id: 'peer-b', name: 'Beta', source: 'tab', receivedAt: 1000 }]);
+    expect(peersB).toMatchObject([{ id: 'peer-a', name: 'Alpha', source: 'tab', receivedAt: 1005 }]);
     expect(statusA.snapshots.at(-1).p2p).toBe('disabled');
     expect(statusB.snapshots.at(-1).p2p).toBe('disabled');
 

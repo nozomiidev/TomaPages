@@ -1033,6 +1033,10 @@ img {
   background: #0f766e;
 }
 
+.room-roster__peer--tab::before {
+  background: #2563eb;
+}
+
 .room-roster__peer--agent::before {
   background: #8b5cf6;
 }
@@ -1138,6 +1142,10 @@ img {
   background: #0f766e;
 }
 
+.room-card--source-tab::before {
+  background: #2563eb;
+}
+
 .room-card--source-agent::before {
   background: #8b5cf6;
 }
@@ -1184,6 +1192,12 @@ img {
   border-color: rgba(168, 85, 247, 0.22);
   color: #6f3bb1;
   background: rgba(250, 245, 255, 0.9);
+}
+
+.room-card__badge--tab {
+  border-color: rgba(37, 99, 235, 0.2);
+  color: #1d4ed8;
+  background: rgba(239, 246, 255, 0.92);
 }
 
 .room-card__badge--demo {

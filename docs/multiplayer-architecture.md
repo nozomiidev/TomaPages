@@ -8,6 +8,7 @@ This is the working architecture for the planned multi-user PNGTuber room.
 - Keep avatar rendering deterministic and local: each peer sends compact presence state, not image frames.
 - Presence payload: peer id, display name, selected colors, pose cell, mouth state, audio level, pointer target, speaking flag, and last-seen timestamp.
 - Presence is sent on state changes and on a lightweight heartbeat so late joiners can discover already-open tabs without waiting for the current user to move or speak.
+- Same-browser BroadcastChannel peers are labeled as `tab`, not `local`, so local fallback tests do not look like duplicate self cards.
 - Render the room as a canvas-backed scene with live DOM overlays only for focused/hovered cards. Ambient cards can be rendered from HTML to canvas snapshots when they are not interactive.
 - Use html2canvas only for card snapshotting. The live, hovered card should remain DOM so pointer tracking, focus states, and accessibility do not get flattened.
 - Compute card layout in a pure domain helper. The scene should scale cards and column counts to the canvas size so crowded mobile rooms do not clip participant cards.

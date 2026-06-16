@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   classifyLipSyncSource,
   lipSyncMode,
+  makeBuiltInSyncAudit,
   makeLipSyncSnapshot,
 } from './lip-sync-diagnostics';
 
@@ -47,6 +48,29 @@ describe('lip sync diagnostics', () => {
       mouth: '0',
       mouthLabel: 'Closed',
       source: 'idle',
+    });
+  });
+
+  it('audits the built-in sync test for readable mouth coverage', () => {
+    expect(makeBuiltInSyncAudit()).toEqual({
+      status: 'pass',
+      sampleCount: 295,
+      transitions: 22,
+      closedFrames: 72,
+      halfFrames: 141,
+      openFrames: 82,
+      lastMouth: '0',
+      peakLevel: '0.320',
+      coverage: 'closed:72,half:141,open:82',
+    });
+  });
+
+  it('fails the built-in sync audit when thresholds prevent open-mouth frames', () => {
+    expect(makeBuiltInSyncAudit({
+      thresholdFull: 0.95,
+    })).toMatchObject({
+      status: 'fail',
+      openFrames: 0,
     });
   });
 });

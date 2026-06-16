@@ -42,6 +42,7 @@ function normalizeHexColor(value, fallback) {
 
 function normalizeFilter(value) {
   const normalized = String(value || '').trim().toLowerCase();
+  if (['shade', 'shaded', 'tonal', 'detail', 'texture'].includes(normalized)) return 'shade';
   if (['smooth', 'dye', 'perceptual'].includes(normalized)) return 'smooth';
   if (['glaze', 'blend', 'chroma', 'color'].includes(normalized)) return 'glaze';
   if (normalized === 'natural') return 'natural';
@@ -49,7 +50,7 @@ function normalizeFilter(value) {
   if (normalized === 'soft') return 'soft';
   if (normalized === 'grade') return 'grade';
   if (normalized === 'silk') return 'silk';
-  return 'glaze';
+  return 'shade';
 }
 
 function normalizeCell(cell = {}) {

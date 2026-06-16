@@ -92,7 +92,7 @@ bridge.publish({
   hairMix: 0.65,
   eyes: 'A855F7',
   eyeMix: 0.85,
-  filter: 'smooth'
+  filter: 'shade'
 });
 
 console.log(ready.channelName);
@@ -123,7 +123,7 @@ The `Agent pilot` button in `room.html` publishes a local `Codex Agent` peer thr
     hairMix: 0.65,
     eyes: 'A855F7',
     eyeMix: 0.85,
-    filter: 'smooth'
+    filter: 'shade'
   }
 }
 ```

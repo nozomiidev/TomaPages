@@ -66,7 +66,7 @@ const DEMO_PEERS = [
     hairTint: 0.38,
     eyeColor: '#E35D75',
     eyeTint: 0.62,
-    colorFilter: 'smooth',
+    colorFilter: 'shade',
   },
   {
     id: 'demo-otacon',
@@ -80,7 +80,7 @@ const DEMO_PEERS = [
     hairTint: 0.52,
     eyeColor: '#2BA7E8',
     eyeTint: 0.72,
-    colorFilter: 'smooth',
+    colorFilter: 'shade',
   },
   {
     id: 'demo-naomi',
@@ -94,7 +94,7 @@ const DEMO_PEERS = [
     hairTint: 0.46,
     eyeColor: '#A855F7',
     eyeTint: 0.66,
-    colorFilter: 'smooth',
+    colorFilter: 'shade',
   },
 ];
 

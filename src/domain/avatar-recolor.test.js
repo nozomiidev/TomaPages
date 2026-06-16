@@ -236,6 +236,31 @@ describe('avatar recolor domain', () => {
     );
   });
 
+  it('shade filter preserves source texture without a flat color overlay', () => {
+    const darkSource = [58, 60, 58];
+    const midSource = [78, 82, 78];
+    const lightSource = [112, 116, 112];
+    const darkHair = renderHairPixel(darkSource, 'shade');
+    const midHair = renderHairPixel(midSource, 'shade');
+    const lightHair = renderHairPixel(lightSource, 'shade');
+    const paintedDark = compositeOverSource(darkSource, renderHairPixel(darkSource, 'paint'));
+    const paintedLight = compositeOverSource(lightSource, renderHairPixel(lightSource, 'paint'));
+
+    expect(darkHair[3]).toBe(255);
+    expect(midHair[3]).toBe(255);
+    expect(lightHair[3]).toBe(255);
+    expect(darkHair[1]).toBeGreaterThan(darkHair[0]);
+    expect(midHair[1]).toBeGreaterThan(midHair[0]);
+    expect(lightHair[1]).toBeGreaterThan(lightHair[0]);
+    expect(luma(midHair)).toBeGreaterThan(luma(darkHair) + 16);
+    expect(luma(lightHair)).toBeGreaterThan(luma(midHair) + 24);
+    expect(Math.abs(luma(darkHair) - luma(darkSource))).toBeLessThan(11);
+    expect(Math.abs(luma(lightHair) - luma(lightSource))).toBeLessThan(11);
+    expect(luma(lightHair) - luma(darkHair)).toBeGreaterThan(
+      luma(paintedLight) - luma(paintedDark) + 14,
+    );
+  });
+
   it('smooth filter dyes through a translucent luma-preserving overlay', () => {
     const darkSource = [58, 60, 58];
     const midSource = [78, 82, 78];

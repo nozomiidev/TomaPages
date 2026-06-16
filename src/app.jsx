@@ -39,7 +39,7 @@ import {
   sheetForPose,
   targetToCell,
 } from './domain/character';
-import { makeLipSyncSnapshot } from './domain/lip-sync-diagnostics';
+import { makeBuiltInSyncAudit, makeLipSyncSnapshot } from './domain/lip-sync-diagnostics';
 import { useAnimationFrame } from './hooks/use-animation-frame';
 import { useAvatarTintOverlay } from './hooks/use-avatar-tint-overlay';
 import { usePersistentState } from './hooks/use-persistent-state';
@@ -68,7 +68,7 @@ const DEFAULT_TUNING = {
   hairTint: 0,
   eyeColor: '#2BA7E8',
   eyeTint: 0,
-  colorFilter: 'smooth',
+  colorFilter: 'shade',
 };
 
 const BACKGROUNDS = [
@@ -96,6 +96,7 @@ const EYE_COLORS = [
 ];
 
 const COLOR_FILTERS = [
+  { id: 'shade', label: 'Shade' },
   { id: 'smooth', label: 'Smooth' },
   { id: 'glaze', label: 'Glaze' },
   { id: 'natural', label: 'Natural' },
@@ -139,6 +140,7 @@ function normalizeColorFilter(value) {
   const normalized = String(value ?? '').trim().toLowerCase();
   if (['paint', 'overlay', 'tint'].includes(normalized)) return 'paint';
   if (['soft', 'tone'].includes(normalized)) return 'soft';
+  if (['shade', 'shaded', 'tonal', 'detail', 'texture'].includes(normalized)) return 'shade';
   if (['smooth', 'dye', 'perceptual'].includes(normalized)) return 'smooth';
   if (['glaze', 'blend', 'chroma', 'color'].includes(normalized)) return 'glaze';
   if (normalized === 'natural') return 'natural';
@@ -161,7 +163,7 @@ function readTuningParams(search = window.location.search) {
   if (hairColor) patch.hairColor = hairColor;
   if (eyeColor) patch.eyeColor = eyeColor;
   if (colorFilter) patch.colorFilter = colorFilter;
-  if (!colorFilter && !hasFilterOverride && hasColorOverride) patch.colorFilter = 'smooth';
+  if (!colorFilter && !hasFilterOverride && hasColorOverride) patch.colorFilter = 'shade';
   if (Number.isFinite(hairTint)) patch.hairTint = clamp(hairTint, 0, 0.85);
   if (Number.isFinite(eyeTint)) patch.eyeTint = clamp(eyeTint, 0, 0.95);
 
@@ -438,6 +440,12 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
     mode,
     mouth,
   }), [activeMouth, audioLevel, fileName, micOn, mode, mouth]);
+  const builtInSyncAudit = useMemo(() => makeBuiltInSyncAudit({
+    micGain: tuning.micGain,
+    release: tuning.release,
+    thresholdFull: tuning.thresholdFull,
+    thresholdHalf: tuning.thresholdHalf,
+  }), [tuning.micGain, tuning.release, tuning.thresholdFull, tuning.thresholdHalf]);
   const isDarkStage = tuning.background === '#171717';
 
   return (
@@ -457,6 +465,13 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
       data-lip-sync-mouth={lipSyncSnapshot.mouth}
       data-lip-sync-mouth-label={lipSyncSnapshot.mouthLabel}
       data-lip-sync-source={lipSyncSnapshot.source}
+      data-lip-sync-demo-audit={builtInSyncAudit.status}
+      data-lip-sync-demo-coverage={builtInSyncAudit.coverage}
+      data-lip-sync-demo-last-mouth={builtInSyncAudit.lastMouth}
+      data-lip-sync-demo-open-frames={builtInSyncAudit.openFrames}
+      data-lip-sync-demo-peak={builtInSyncAudit.peakLevel}
+      data-lip-sync-demo-samples={builtInSyncAudit.sampleCount}
+      data-lip-sync-demo-transitions={builtInSyncAudit.transitions}
       data-avatar-filter={tuning.colorFilter}
     >
       {!stageOnly && (

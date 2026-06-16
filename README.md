@@ -47,6 +47,10 @@ https://nozomiidev.github.io/TomaPages/index.html#assets
 - GitHub Pages 用の relative asset path、Actions deploy、artifact verifier
 - lint/test/audit/build/Pages verify を回せる保守用スクリプト
 
+### 口パク検証
+
+内蔵の `Test sync` 信号は app root に `data-lip-sync-demo-audit`、`data-lip-sync-demo-transitions`、`data-lip-sync-demo-coverage` を出します。既定チューニングで閉じ口、半開き、開き口をすべて通り、最後に閉じ口へ戻ることをテストしています。
+
 ## セットアップ
 
 Node.js 22 LTS 推奨です。Vite 8 の要件として Node.js 20.19+ または 22.12+ が必要です。
@@ -107,7 +111,8 @@ Pages 側の Source は GitHub Actions にしてください。
 
 Tuning パネルの Appearance で髪色・瞳色、変換フィルター、mix 強度を調整できます。元画像は書き換えず、現在表示中のフレームから髪・瞳らしい色域を検出して、透明な変換レイヤーを上に重ねます。`mix` が `0` のときは元絵のままです。
 
-- `Glaze`: 元画像の明暗、線、ハイライトを透かして残す半透明の色ガラス型フィルター。URL で色だけ指定した場合の既定です。
+- `Shade`: 元画像の明暗、線、ハイライトを優先し、色相だけを滑らかに寄せる質感保持型フィルター。URL で色だけ指定した場合の既定です。
+- `Glaze`: 元画像の明暗、線、ハイライトを透かして残す半透明の色ガラス型フィルター。
 - `Natural`: 元画像の明度差・影・ハイライトを保ちながら、色相だけを滑らかに寄せる自然変換フィルター
 - `Silk`: 元画像の線・輝度・ハイライトを残す半透明グレーズ型のフィルター
 - `Grade`: 元画像の輝度・影・ハイライトを優先して残し、色相だけを自然に寄せるフィルター
@@ -117,9 +122,10 @@ Tuning パネルの Appearance で髪色・瞳色、変換フィルター、mix 
 赤・橙・ピンク系のアクセサリ塗り残しは、髪・瞳とは別の accent 色域として検出し、瞳色側の変換に追従します。強い赤を seed、暗い縁を edge、淡いピンク/橙の残りを connected highlight として3段階で拾い、アクセサリー周辺の塗り残しを抑えつつ肌色へ広がりにくくしています。
 
 URL パラメーターでも初期値を指定できます。`#` は URL fragment になるため、色は `#` なしで渡すのが安全です。
-色指定だけを渡した場合は `smooth` が選ばれます。`smooth` は元絵の明暗と線の質感を残す半透明の染色フィルターで、従来の `paint` は比較用の強い色乗せとして残しています。
+色指定だけを渡した場合は `shade` が選ばれます。`shade` は元絵の明暗差と線の質感を保ったまま色相を寄せる変換で、従来の `smooth` と `paint` は比較用として残しています。
 
 ```text
+talk.html?filter=shade&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
 talk.html?filter=smooth&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
 talk.html?filter=glaze&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
 talk.html?filter=natural&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
@@ -172,7 +178,7 @@ channel.postMessage({
     hairMix: 0.65,
     eyes: 'A855F7',
     eyeMix: 0.85,
-    filter: 'smooth'
+    filter: 'shade'
   }
 });
 ```

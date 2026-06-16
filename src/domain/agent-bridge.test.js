@@ -175,6 +175,16 @@ describe('agent bridge', () => {
     });
   });
 
+  it('defaults external agent colors to the texture-preserving shade filter', () => {
+    expect(normalizeAgentPeer({
+      id: 'Codex 02',
+      name: 'Codex Agent',
+    }, { now: () => 4096 })).toMatchObject({
+      id: 'agent:codex-02',
+      colorFilter: 'shade',
+    });
+  });
+
   it('exchanges agent presence and leave messages through a static browser channel', async () => {
     const channelFactory = createMemoryChannelFactory();
     const peersA = [];

@@ -23,14 +23,18 @@ import {
   isPointInLayout,
 } from './domain/room-layout';
 import {
-  formatHoverCell,
   isPointerInsideRect,
   makeRoomHoverSnapshot,
   nextSingleHoverCells,
   pointerToRoomCardCell,
 } from './domain/room-hover';
 import { readDemoPeerPreference, shouldIncludeDemoPeers } from './domain/room-peers';
-import { getPeerFreshness, summarizeRoomPresence } from './domain/room-presence';
+import {
+  getPeerFreshness,
+  normalizeRoomPeerState,
+  summarizeRoomPeerStates,
+  summarizeRoomPresence,
+} from './domain/room-presence';
 import { useAvatarTintOverlay } from './hooks/use-avatar-tint-overlay';
 
 const ROOM_NAME = 'Codec Lobby';
@@ -358,8 +362,8 @@ function RoomAvatar({ peer }) {
 
 function RoomCard({ peer, live = false }) {
   const source = peer.source || 'peer';
-  const isSpeaking = (peer.audioLevel ?? 0) > 0.2;
-  const cell = peer.cell ?? { row: 2, col: 2 };
+  const peerState = normalizeRoomPeerState(peer);
+  const isSpeaking = peerState.speaking;
   const className = [
     'room-card',
     live ? 'room-card--live' : '',
@@ -370,10 +374,13 @@ function RoomCard({ peer, live = false }) {
   return (
     <article
       className={className}
-      data-room-card-cell={formatHoverCell(cell)}
+      data-room-card-cell={peerState.cell}
+      data-room-card-audio={peerState.audioLevel}
+      data-room-card-audio-percent={peerState.audioPercent}
       data-room-card-live={live ? 'true' : 'false'}
-      data-room-card-mouth={peer.mouth ?? 0}
+      data-room-card-mouth={peerState.mouth}
       data-room-card-peer-id={peer.id}
+      data-room-card-speaking={peerState.speaking ? 'true' : 'false'}
       data-room-card-source={source}
     >
       <div className="room-card__signal">
@@ -519,6 +526,7 @@ export function RoomView({ liveControls, localState, tuning }) {
       }))
       .sort(peerSort)
   ), [agentPeers, demoPeers, hoverCells, localPeer, remotePeers]);
+  const peerDiagnostics = useMemo(() => summarizeRoomPeerStates(peers), [peers]);
   const presenceSummary = useMemo(() => summarizeRoomPresence(peers), [peers]);
   const hoveredPeer = peers.find((peer) => peer.id === hoveredPeerId);
   const hoveredCell = hoveredPeerId ? hoverCells[hoveredPeerId] : null;
@@ -790,7 +798,11 @@ export function RoomView({ liveControls, localState, tuning }) {
       data-room-hover-source={hoverSnapshot.source}
       data-room-live-peers={presenceSummary.live}
       data-room-local-peers={presenceSummary.local}
+      data-room-open-mouth-peer-ids={peerDiagnostics.openMouthIds}
+      data-room-peer-ids={peerDiagnostics.ids}
+      data-room-peer-states={peerDiagnostics.states}
       data-room-p2p-peers={presenceSummary.p2p}
+      data-room-speaking-peer-ids={peerDiagnostics.speakingIds}
       data-room-speaking-peers={presenceSummary.speaking}
       data-room-tab-peers={presenceSummary.tab}
       data-room-total-peers={presenceSummary.total}

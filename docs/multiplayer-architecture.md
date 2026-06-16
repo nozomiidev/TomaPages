@@ -7,6 +7,7 @@ This is the working architecture for the planned multi-user PNGTuber room.
 - Use Trystero for WebRTC room discovery and data-channel messaging. It gives the app room-level peer discovery without building a signaling server first.
 - Keep avatar rendering deterministic and local: each peer sends compact presence state, not image frames.
 - Presence payload: peer id, display name, selected colors, pose cell, mouth state, audio level, pointer target, speaking flag, and last-seen timestamp.
+- Room diagnostics expose the same per-peer payload as compact `data-room-peer-states`, `data-room-speaking-peer-ids`, and `data-room-open-mouth-peer-ids` attributes so browser checks can verify mouth/audio propagation without scraping canvas pixels.
 - Presence is sent on state changes and on a lightweight heartbeat so late joiners can discover already-open tabs without waiting for the current user to move or speak.
 - Same-browser BroadcastChannel peers are labeled as `tab`, not `local`, so local fallback tests do not look like duplicate self cards.
 - Render the room as a canvas-backed scene with live DOM overlays only for focused/hovered cards. Ambient cards can be rendered from HTML to canvas snapshots when they are not interactive.

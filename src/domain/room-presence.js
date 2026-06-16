@@ -1,9 +1,69 @@
+const SPEAKING_THRESHOLD = 0.2;
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizeNumber(value, fallback = 0) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function encodePeerToken(value) {
+  return encodeURIComponent(String(value || 'peer')).replace(/%20/g, '+');
+}
+
+export function formatRoomPeerCell(cell = {}) {
+  const row = clamp(Math.round(normalizeNumber(cell.row, 2)), 0, 4);
+  const col = clamp(Math.round(normalizeNumber(cell.col, 2)), 0, 4);
+  return `${row}:${col}`;
+}
+
+export function normalizeRoomPeerState(peer = {}) {
+  const audioLevel = clamp(normalizeNumber(peer.audioLevel, 0), 0, 1);
+
+  return {
+    audioLevel: audioLevel.toFixed(3),
+    audioPercent: String(Math.round(audioLevel * 100)),
+    cell: formatRoomPeerCell(peer.cell),
+    id: String(peer.id || 'peer'),
+    mouth: String(clamp(Math.round(normalizeNumber(peer.mouth, 0)), 0, 2)),
+    source: String(peer.source || 'peer'),
+    speaking: audioLevel > SPEAKING_THRESHOLD,
+  };
+}
+
+export function summarizeRoomPeerStates(peers = []) {
+  const states = peers.map(normalizeRoomPeerState);
+
+  return {
+    ids: states.map((peer) => encodePeerToken(peer.id)).join(' '),
+    openMouthIds: states
+      .filter((peer) => peer.mouth === '2')
+      .map((peer) => encodePeerToken(peer.id))
+      .join(' '),
+    speakingIds: states
+      .filter((peer) => peer.speaking)
+      .map((peer) => encodePeerToken(peer.id))
+      .join(' '),
+    states: states
+      .map((peer) => [
+        encodePeerToken(peer.id),
+        peer.source,
+        peer.cell,
+        `m${peer.mouth}`,
+        `a${peer.audioPercent}`,
+      ].join(','))
+      .join('|'),
+  };
+}
+
 export function summarizeRoomPresence(peers = []) {
   return peers.reduce((summary, peer) => {
     const source = peer?.source || 'peer';
     const isDemo = source === 'demo';
     const isAgent = source === 'agent';
-    const isSpeaking = Number(peer?.audioLevel) > 0.2;
+    const isSpeaking = normalizeRoomPeerState(peer).speaking;
 
     summary.total += 1;
     if (isDemo) summary.demo += 1;

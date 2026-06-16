@@ -2,6 +2,24 @@ import { clamp } from '../lib/math';
 
 const BASE_URL = import.meta.env.BASE_URL;
 
+const DEFAULT_VIDEO_FILTERS = [
+  { id: 'none', label: 'None', filter: 'none' },
+  { id: 'warm', label: 'Warm', filter: 'contrast(1.05) saturate(1.1) brightness(1.02)' },
+  { id: 'cool', label: 'Cool', filter: 'contrast(1.03) saturate(1.01) brightness(1.01) hue-rotate(-8deg)' },
+  { id: 'soft', label: 'Soft', filter: 'contrast(0.94) saturate(1.02) brightness(1.04)' },
+  { id: 'clear', label: 'Crisp', filter: 'contrast(1.11) saturate(1.06) brightness(0.98)' },
+];
+
+const REIMU_VIDEO_FILTERS = [
+  ...DEFAULT_VIDEO_FILTERS,
+  { id: 'vivid', label: 'Vivid', filter: 'saturate(1.28) contrast(1.12) brightness(1.05)' },
+];
+
+const CIRNO_VIDEO_FILTERS = [
+  ...DEFAULT_VIDEO_FILTERS,
+  { id: 'icy', label: 'Icy', filter: 'hue-rotate(165deg) saturate(1.12) brightness(1.08)' },
+];
+
 export const CHARACTER = {
   rows: 5,
   cols: 5,
@@ -156,6 +174,132 @@ const REIMU_POSE_SETS = {
   },
 };
 
+const CIRNO_POSE_SETS = {
+  1: {
+    eyesOpen: {
+      closedMouth: 'pl_01',
+      halfMouth: 'om_01',
+      openMouth: 'om_01',
+    },
+    eyesClosed: {
+      closedMouth: 'ce_01',
+      halfMouth: 'ce_01',
+      openMouth: 'ce_01',
+    },
+  },
+  2: {
+    eyesOpen: {
+      closedMouth: 'pl_02',
+      halfMouth: 'om_02',
+      openMouth: 'om_02',
+    },
+    eyesClosed: {
+      closedMouth: 'ce_02',
+      halfMouth: 'ce_02',
+      openMouth: 'ce_02',
+    },
+  },
+  3: {
+    eyesOpen: {
+      closedMouth: 'pl_03',
+      halfMouth: 'om_03',
+      openMouth: 'om_03',
+    },
+    eyesClosed: {
+      closedMouth: 'ce_03',
+      halfMouth: 'ce_03',
+      openMouth: 'ce_03',
+    },
+  },
+  4: {
+    eyesOpen: {
+      closedMouth: 'pl_04',
+      halfMouth: 'om_04',
+      openMouth: 'om_04',
+    },
+    eyesClosed: {
+      closedMouth: 'ce_04',
+      halfMouth: 'ce_04',
+      openMouth: 'ce_04',
+    },
+  },
+};
+
+const CIRNO_SHEETS = [
+  {
+    sheet: 'pl_01',
+    name: 'Cirno plush / Pose 01',
+    eyes: 'open',
+    mouth: 'closed',
+  },
+  {
+    sheet: 'om_01',
+    name: 'Cirno plush / Pose 01 open mouth',
+    eyes: 'open',
+    mouth: 'open',
+  },
+  {
+    sheet: 'ce_01',
+    name: 'Cirno plush / Pose 01 closed eyes',
+    eyes: 'closed',
+    mouth: 'closed',
+  },
+  {
+    sheet: 'pl_02',
+    name: 'Cirno plush / Pose 02',
+    eyes: 'open',
+    mouth: 'closed',
+  },
+  {
+    sheet: 'om_02',
+    name: 'Cirno plush / Pose 02 open mouth',
+    eyes: 'open',
+    mouth: 'open',
+  },
+  {
+    sheet: 'ce_02',
+    name: 'Cirno plush / Pose 02 closed eyes',
+    eyes: 'closed',
+    mouth: 'closed',
+  },
+  {
+    sheet: 'pl_03',
+    name: 'Cirno plush / Pose 03',
+    eyes: 'open',
+    mouth: 'closed',
+  },
+  {
+    sheet: 'om_03',
+    name: 'Cirno plush / Pose 03 open mouth',
+    eyes: 'open',
+    mouth: 'open',
+  },
+  {
+    sheet: 'ce_03',
+    name: 'Cirno plush / Pose 03 closed eyes',
+    eyes: 'closed',
+    mouth: 'closed',
+  },
+  {
+    sheet: 'pl_04',
+    name: 'Cirno plush / Pose 04',
+    eyes: 'open',
+    mouth: 'closed',
+  },
+  {
+    sheet: 'om_04',
+    name: 'Cirno plush / Pose 04 open mouth',
+    eyes: 'open',
+    mouth: 'open',
+  },
+  {
+    sheet: 'ce_04',
+    name: 'Cirno plush / Pose 04 closed eyes',
+    eyes: 'closed',
+    mouth: 'closed',
+  },
+];
+
 export const CHARACTER_DEFINITIONS = {
   tomari: {
     id: 'tomari',
@@ -183,10 +327,32 @@ export const CHARACTER_DEFINITIONS = {
     sheets: REIMU_POSE_SETS.plain,
     sheetDefinitions: REIMU_SHEETS,
     poseSets: REIMU_POSE_SETS,
+    videoFilters: REIMU_VIDEO_FILTERS,
     poseVariants: [
       { id: 'plain', label: 'Plain', shortcut: 'p' },
       { id: 't', label: 'T-pose', shortcut: 't' },
       { id: 'y', label: 'Y-pose', shortcut: 'y' },
+    ],
+  },
+  cirno: {
+    id: 'cirno',
+    label: 'Cirno Fumo',
+    kind: 'full-body plush',
+    rows: 5,
+    cols: 5,
+    basePath: `${BASE_URL}characters/cirno`,
+    ext: 'webp',
+    supportsTint: false,
+    defaultPoseVariant: '1',
+    sheets: CIRNO_POSE_SETS[1],
+    sheetDefinitions: CIRNO_SHEETS,
+    poseSets: CIRNO_POSE_SETS,
+    videoFilters: CIRNO_VIDEO_FILTERS,
+    poseVariants: [
+      { id: '1', label: 'Pose 01', shortcut: '1' },
+      { id: '2', label: 'Pose 02', shortcut: '2' },
+      { id: '3', label: 'Pose 03', shortcut: '3' },
+      { id: '4', label: 'Pose 04', shortcut: '4' },
     ],
   },
 };
@@ -206,6 +372,11 @@ export const SHEET_DEFINITIONS = TOMARI_SHEETS;
 
 export function characterForId(characterId = 'tomari') {
   return CHARACTER_DEFINITIONS[characterId] ?? CHARACTER_DEFINITIONS.tomari;
+}
+
+export function videoFiltersForCharacter(character = 'tomari') {
+  const resolved = typeof character === 'string' ? characterForId(character) : character;
+  return resolved.videoFilters ?? DEFAULT_VIDEO_FILTERS;
 }
 
 export function poseVariantForCharacter(character, poseVariant) {
@@ -298,6 +469,7 @@ export function assetManifest(characterId = 'tomari') {
   const character = characterForId(characterId);
   return character.sheetDefinitions.map((definition) => ({
     ...definition,
+    characterId: character.id,
     character: character.label,
     frameCount: character.rows * character.cols,
     preview: frameSrc(definition.sheet, 2, 2, character.id),

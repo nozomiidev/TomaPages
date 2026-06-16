@@ -1,5 +1,6 @@
-import { mkdir, readdir, rm } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import sharp from 'sharp';
 
 const DEFAULT_CHARACTER_SHEETS = {
@@ -33,13 +34,45 @@ const DEFAULT_CHARACTER_SHEETS = {
 const DEFAULTS = {
   sourceRoot: 'metaassets/fumo',
   outputRoot: 'public/characters',
-  characters: ['reimu'],
+  characters: ['reimu', 'cirno'],
   rows: 5,
   cols: 5,
   outputSize: 512,
   quality: 94,
   windowScale: 1.55,
   gravityBlend: 0.68,
+};
+
+const REIMU_SLEEVE_FLARE_SHEETS = {
+  ct_01: 'ce_01',
+  cy_01: 'ce_01',
+  ot_01: 'om_01',
+  oy_01: 'om_01',
+  pt_01: 'pl_01',
+  py_01: 'pl_01',
+};
+
+const REIMU_SLEEVE_STYLE = {
+  t: {
+    outputHeightFromSource: 1.92,
+    outputHeightFromTarget: 2.46,
+    outputHeightMin: 134,
+    outputWidthFromSource: 2.08,
+    outputWidthFromTarget: 1.98,
+    outputWidthMin: 166,
+    sideOffsetX: 44,
+    topOffsetY: 24,
+  },
+  y: {
+    outputHeightFromSource: 2,
+    outputHeightFromTarget: 2.3,
+    outputHeightMin: 150,
+    outputWidthFromSource: 2.14,
+    outputWidthFromTarget: 2,
+    outputWidthMin: 178,
+    sideOffsetX: 50,
+    topOffsetY: 20,
+  },
 };
 
 function readOption(args, name, fallback) {
@@ -158,6 +191,10 @@ function findForegroundComponents(foreground, width, height) {
 
     const queue = [start];
     const pixels = [];
+    let maxX = 0;
+    let maxY = 0;
+    let minX = width;
+    let minY = height;
     let sumX = 0;
     let sumY = 0;
     visited[start] = 1;
@@ -167,6 +204,10 @@ function findForegroundComponents(foreground, width, height) {
       const x = index % width;
       const y = Math.floor(index / width);
       pixels.push(index);
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
       sumX += x;
       sumY += y;
 
@@ -192,11 +233,316 @@ function findForegroundComponents(foreground, width, height) {
     components.push({
       centerX: sumX / pixels.length,
       centerY: sumY / pixels.length,
+      height: maxY - minY + 1,
+      maxX,
+      maxY,
+      minX,
+      minY,
       pixels,
+      width: maxX - minX + 1,
     });
   }
 
   return components;
+}
+
+function alphaBounds(data, width, height) {
+  const bounds = {
+    maxX: 0,
+    maxY: 0,
+    minX: width,
+    minY: height,
+  };
+
+  for (let offset = 0; offset < data.length; offset += 4) {
+    if (data[offset + 3] <= 32) continue;
+
+    const index = offset / 4;
+    const x = index % width;
+    const y = Math.floor(index / width);
+    bounds.minX = Math.min(bounds.minX, x);
+    bounds.minY = Math.min(bounds.minY, y);
+    bounds.maxX = Math.max(bounds.maxX, x);
+    bounds.maxY = Math.max(bounds.maxY, y);
+  }
+
+  return bounds;
+}
+
+function isReimuSleevePixel(data, index, width, bounds, centerX) {
+  const offset = index * 4;
+  const red = data[offset];
+  const green = data[offset + 1];
+  const blue = data[offset + 2];
+  const alpha = data[offset + 3];
+  if (alpha < 32) return false;
+
+  const x = index % width;
+  const y = Math.floor(index / width);
+  const yNorm = (y - bounds.minY) / (bounds.maxY - bounds.minY + 1);
+  if (yNorm < 0.22 || yNorm > 0.78) return false;
+  if (Math.abs(x - centerX) < 35) return false;
+
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  const whiteCloth = red > 184 && green > 174 && blue > 166 && max - min < 82;
+  const redTrim = red > 145 && green < 122 && blue < 122;
+  const pinkEdge = red > 180 && green > 95 && green < 190 && blue > 95 && blue < 190;
+
+  return whiteCloth || redTrim || pinkEdge;
+}
+
+function reimuSleeveComponents(data, width, height) {
+  const bounds = alphaBounds(data, width, height);
+  const centerX = (bounds.minX + bounds.maxX) / 2;
+  const boundsHeight = bounds.maxY - bounds.minY + 1;
+  const mask = new Uint8Array(width * height);
+
+  for (let index = 0; index < mask.length; index += 1) {
+    mask[index] = isReimuSleevePixel(data, index, width, bounds, centerX) ? 1 : 0;
+  }
+
+  return findForegroundComponents(mask, width, height).map((component) => ({
+    ...component,
+    xDist: component.centerX - centerX,
+    yNorm: (component.centerY - bounds.minY) / boundsHeight,
+  }));
+}
+
+function strongestReimuSleeveComponent(components, side, poseKind) {
+  return components
+    .filter((component) => Math.sign(component.xDist) === side)
+    .filter((component) => Math.abs(component.xDist) > 58)
+    .filter((component) => component.pixels.length > 200)
+    .filter((component) => component.width > 16 && component.height > 15)
+    .filter((component) => (poseKind === 't'
+      ? component.yNorm >= 0.50 && component.yNorm <= 0.77
+      : component.yNorm >= 0.38 && component.yNorm <= 0.68))
+    .sort((a, b) => b.pixels.length - a.pixels.length)[0];
+}
+
+function sourceReimuSleeveComponent(components, side) {
+  return components
+    .filter((component) => Math.sign(component.xDist) === side)
+    .filter((component) => Math.abs(component.xDist) > 55)
+    .filter((component) => component.pixels.length > 1200)
+    .filter((component) => component.yNorm >= 0.60 && component.yNorm <= 0.73)
+    .sort((a, b) => b.pixels.length - a.pixels.length)[0];
+}
+
+function dilatedPixelMask(pixels, width, height, radius) {
+  const mask = new Uint8Array(width * height);
+
+  for (const index of pixels) {
+    const x = index % width;
+    const y = Math.floor(index / width);
+
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        if (dx * dx + dy * dy > radius * radius) continue;
+
+        const candidateX = x + dx;
+        const candidateY = y + dy;
+        if (candidateX < 0 || candidateY < 0 || candidateX >= width || candidateY >= height) continue;
+
+        mask[candidateY * width + candidateX] = 1;
+      }
+    }
+  }
+
+  return mask;
+}
+
+function reimuSleeveCrop({ component, data, height, width }) {
+  const pad = 8;
+  const left = Math.max(0, component.minX - pad);
+  const top = Math.max(0, component.minY - pad);
+  const right = Math.min(width - 1, component.maxX + pad);
+  const bottom = Math.min(height - 1, component.maxY + pad);
+  const cropWidth = right - left + 1;
+  const cropHeight = bottom - top + 1;
+  const dilated = dilatedPixelMask(component.pixels, width, height, 3);
+  const crop = Buffer.alloc(cropWidth * cropHeight * 4);
+
+  for (let y = 0; y < cropHeight; y += 1) {
+    for (let x = 0; x < cropWidth; x += 1) {
+      const sourceIndex = (top + y) * width + left + x;
+      const sourceOffset = sourceIndex * 4;
+      if (!dilated[sourceIndex] || data[sourceOffset + 3] < 20) continue;
+
+      const targetOffset = (y * cropWidth + x) * 4;
+      crop[targetOffset] = data[sourceOffset];
+      crop[targetOffset + 1] = data[sourceOffset + 1];
+      crop[targetOffset + 2] = data[sourceOffset + 2];
+      crop[targetOffset + 3] = Math.min(245, data[sourceOffset + 3]);
+    }
+  }
+
+  return {
+    crop,
+    height: cropHeight,
+    width: cropWidth,
+  };
+}
+
+async function canvasOverlay(input, left, top, canvasWidth, canvasHeight) {
+  const metadata = await sharp(input).metadata();
+  const sourceLeft = Math.max(0, -left);
+  const sourceTop = Math.max(0, -top);
+  const targetLeft = Math.max(0, left);
+  const targetTop = Math.max(0, top);
+  const width = Math.min((metadata.width ?? 0) - sourceLeft, canvasWidth - targetLeft);
+  const height = Math.min((metadata.height ?? 0) - sourceTop, canvasHeight - targetTop);
+
+  if (width <= 0 || height <= 0) return null;
+
+  const cropped = sourceLeft || sourceTop || width !== metadata.width || height !== metadata.height
+    ? await sharp(input).extract({
+      height,
+      left: sourceLeft,
+      top: sourceTop,
+      width,
+    }).png().toBuffer()
+    : input;
+
+  return {
+    input: cropped,
+    left: targetLeft,
+    top: targetTop,
+  };
+}
+
+async function replaceFileWithRetry(sourceFile, targetFile) {
+  let lastError;
+
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    try {
+      await rm(targetFile, {
+        force: true,
+        maxRetries: 5,
+        retryDelay: 100,
+      });
+      await rename(sourceFile, targetFile);
+      return;
+    } catch (error) {
+      lastError = error;
+      await delay(120 * (attempt + 1));
+    }
+  }
+
+  throw lastError;
+}
+
+async function readRgbaFrame(file) {
+  const input = await readFile(file);
+  const { data, info } = await sharp(input, { animated: false })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  return {
+    data,
+    height: info.height,
+    width: info.width,
+  };
+}
+
+async function addReimuSleeveFlares({ outputFile, quality, sourceFile, targetFile }) {
+  const poseKind = path.basename(path.dirname(targetFile)).includes('y') ? 'y' : 't';
+  const target = await readRgbaFrame(targetFile);
+  const source = await readRgbaFrame(sourceFile);
+  const targetComponents = reimuSleeveComponents(target.data, target.width, target.height);
+  const sourceComponents = reimuSleeveComponents(source.data, source.width, source.height);
+  const overlays = [];
+  const sleeveStyle = REIMU_SLEEVE_STYLE[poseKind];
+
+  for (const side of [-1, 1]) {
+    const targetComponent = strongestReimuSleeveComponent(targetComponents, side, poseKind);
+    const sourceComponent = sourceReimuSleeveComponent(sourceComponents, side);
+    if (!targetComponent || !sourceComponent) continue;
+
+    const sleeve = reimuSleeveCrop({
+      component: sourceComponent,
+      data: source.data,
+      height: source.height,
+      width: source.width,
+    });
+    const outputWidth = Math.round(Math.max(
+      targetComponent.width * sleeveStyle.outputWidthFromTarget,
+      sleeveStyle.outputWidthMin,
+      sleeve.width * sleeveStyle.outputWidthFromSource,
+    ));
+    const outputHeight = Math.round(Math.max(
+      targetComponent.height * sleeveStyle.outputHeightFromTarget,
+      sleeveStyle.outputHeightMin,
+      sleeve.height * sleeveStyle.outputHeightFromSource,
+    ));
+    const sleeveImage = await sharp(sleeve.crop, {
+      raw: {
+        channels: 4,
+        height: sleeve.height,
+        width: sleeve.width,
+      },
+    })
+      .resize(outputWidth, outputHeight, { fit: 'fill', kernel: 'cubic' })
+      .png()
+      .toBuffer();
+    const left = Math.round(
+      targetComponent.centerX - outputWidth / 2 + side * sleeveStyle.sideOffsetX,
+    );
+    const top = Math.round(
+      targetComponent.centerY - outputHeight / 2 + sleeveStyle.topOffsetY,
+    );
+    const overlay = await canvasOverlay(sleeveImage, left, top, target.width, target.height);
+
+    if (overlay) overlays.push(overlay);
+  }
+
+  const original = await sharp(target.data, {
+    raw: {
+      channels: 4,
+      height: target.height,
+      width: target.width,
+    },
+  }).png().toBuffer();
+
+  const tempOutputFile = `${outputFile}.${process.pid}.tmp.webp`;
+
+  await sharp({
+    create: {
+      background: { alpha: 0, b: 0, g: 0, r: 0 },
+      channels: 4,
+      height: target.height,
+      width: target.width,
+    },
+  })
+    .composite([{ input: original, left: 0, top: 0 }, ...overlays])
+    .webp({
+      alphaQuality: quality,
+      effort: 5,
+      quality,
+      smartSubsample: true,
+    })
+    .toFile(tempOutputFile);
+  await replaceFileWithRetry(tempOutputFile, outputFile);
+}
+
+async function addReimuPoseSleeveFlares({ characterOutputDir, quality, rows, cols }) {
+  for (const [targetSheet, sourceSheet] of Object.entries(REIMU_SLEEVE_FLARE_SHEETS)) {
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        const targetFile = path.join(characterOutputDir, targetSheet, `r${row}c${col}.webp`);
+        const sourceFile = path.join(characterOutputDir, sourceSheet, `r${row}c${col}.webp`);
+
+        await addReimuSleeveFlares({
+          outputFile: targetFile,
+          quality,
+          sourceFile,
+          targetFile,
+        });
+      }
+    }
+  }
 }
 
 function cellIndexForPoint(x, y, width, height, rows, cols) {
@@ -435,6 +781,16 @@ async function main() {
 
       written += options.rows * options.cols;
       console.log(`${characterId}/${sheetId}: ${options.rows * options.cols} webp frames`);
+    }
+
+    if (characterId === 'reimu') {
+      await addReimuPoseSleeveFlares({
+        characterOutputDir,
+        cols: options.cols,
+        quality: options.quality,
+        rows: options.rows,
+      });
+      console.log('reimu: added default-sleeve flares for T/Y pose sheets');
     }
   }
 

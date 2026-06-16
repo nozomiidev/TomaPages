@@ -22,6 +22,7 @@ export default defineConfig({
         talk: resolve(root, 'talk.html'),
         guruguru: resolve(root, 'guruguru.html'),
         room: resolve(root, 'room.html'),
+        video: resolve(root, 'video.html'),
       },
     },
   },

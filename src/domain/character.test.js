@@ -5,6 +5,7 @@ import {
   CHARACTER_OPTIONS,
   characterForId,
   frameSrc,
+  videoFiltersForCharacter,
   mouthFromLevel,
   poseVariantForCharacter,
   sheetForPose,
@@ -34,7 +35,7 @@ describe('character domain', () => {
   });
 
   it('registers the Reimu plush character as WebP frames', () => {
-    expect(CHARACTER_OPTIONS.map((character) => character.id)).toEqual(['tomari', 'reimu']);
+    expect(CHARACTER_OPTIONS.map((character) => character.id)).toEqual(['tomari', 'reimu', 'cirno']);
     expect(allFrames({ characterId: 'reimu' })).toHaveLength(225);
     expect(assetManifest('reimu')).toHaveLength(9);
     expect(assetManifest('reimu').every((item) => item.frameCount === 25)).toBe(true);
@@ -68,6 +69,40 @@ describe('character domain', () => {
       mouth: 0,
       poseVariant: 'y',
     })).toBe('cy_01');
+  });
+
+  it('registers the Cirno plush character as multiple pose sets', () => {
+    expect(allFrames({ characterId: 'cirno' })).toHaveLength(300);
+    expect(assetManifest('cirno')).toHaveLength(12);
+    expect(assetManifest('cirno').every((item) => item.frameCount === 25)).toBe(true);
+    expect(frameSrc('pl_01', 1, 1, 'cirno')).toContain('characters/cirno/pl_01/r1c1.webp');
+    expect(sheetForPose({
+      blink: false,
+      characterId: 'cirno',
+      mouth: 0,
+      poseVariant: '2',
+    })).toBe('pl_02');
+    expect(sheetForPose({
+      blink: false,
+      characterId: 'cirno',
+      mouth: 1,
+      poseVariant: '3',
+    })).toBe('om_03');
+    expect(sheetForPose({
+      blink: true,
+      characterId: 'cirno',
+      mouth: 0,
+      poseVariant: '4',
+    })).toBe('ce_04');
+    expect(poseVariantForCharacter(characterForId('cirno'), '2')).toMatchObject({ id: '2' });
+  });
+
+  it('provides per-character video filter presets for plush characters', () => {
+    const reimuFilters = videoFiltersForCharacter('reimu');
+    const cirnoFilters = videoFiltersForCharacter('cirno');
+    expect(reimuFilters.length).toBeGreaterThan(cirnoFilters.length - 1);
+    expect(reimuFilters.map((item) => item.id)).toContain('vivid');
+    expect(cirnoFilters.map((item) => item.id)).toContain('icy');
   });
 
   it('uses the original half/open mouth thresholds', () => {

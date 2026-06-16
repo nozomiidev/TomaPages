@@ -24,6 +24,7 @@ import {
   Pause,
   Play,
   Radio,
+  Video,
   Settings2,
   SlidersHorizontal,
   Upload,
@@ -48,11 +49,13 @@ import { useAvatarTintOverlay } from './hooks/use-avatar-tint-overlay';
 import { usePersistentState } from './hooks/use-persistent-state';
 import { clamp, lerp } from './lib/math';
 import { RoomView } from './room';
+import { VideoStudio } from './video-studio';
 
 const MODES = [
   { id: 'talk', label: 'Talk', icon: AudioLines, path: 'talk.html' },
   { id: 'gaze', label: 'Gaze', icon: MousePointer2, path: 'guruguru.html' },
   { id: 'room', label: 'Room', icon: Radio, path: 'room.html' },
+  { id: 'video', label: 'Video', icon: Video, path: 'video.html' },
   { id: 'assets', label: 'Assets', icon: Boxes, path: 'index.html#assets' },
 ];
 
@@ -117,9 +120,11 @@ function detectInitialMode() {
   const hash = window.location.hash.toLowerCase();
 
   if (hash === '#assets') return 'assets';
+  if (hash === '#video') return 'video';
   if (path.endsWith('/room.html')) return 'room';
   if (path.endsWith('/guruguru.html')) return 'gaze';
   if (path.endsWith('/talk.html')) return 'talk';
+  if (path.endsWith('/video.html')) return 'video';
   if (MODES.some((mode) => mode.id === bodyMode)) return bodyMode;
   return 'talk';
 }
@@ -226,7 +231,13 @@ function useModeRouter(initialMode) {
   }, []);
 
   useEffect(() => {
-    const labels = { talk: 'Talk', gaze: 'Gaze', room: 'Room', assets: 'Assets' };
+    const labels = {
+      assets: 'Assets',
+      gaze: 'Gaze',
+      room: 'Room',
+      talk: 'Talk',
+      video: 'Video',
+    };
     document.title = `Tomari Studio - ${labels[mode] ?? 'Talk'}`;
   }, [mode]);
 
@@ -543,8 +554,8 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
         <AppHeader mode={mode} setMode={setMode} onStageOnly={() => setStageOnly(true)} />
       )}
 
-      <main className={mode === 'room' && !stageOnly ? 'studio__workspace studio__workspace--room' : 'studio__workspace'}>
-        {!stageOnly && mode !== 'room' && (
+      <main className={['room', 'video'].includes(mode) && !stageOnly ? 'studio__workspace studio__workspace--room' : 'studio__workspace'}>
+        {!stageOnly && !['room', 'video'].includes(mode) && (
           <InputPanel
             mode={mode}
             micOn={micOn}
@@ -580,6 +591,8 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
           />
         ) : mode === 'assets' && !stageOnly ? (
           <AssetInventory onModeChange={setMode} />
+        ) : mode === 'video' ? (
+          <VideoStudio />
         ) : (
           <AvatarStage
             activeSheet={activeSheet}
@@ -599,7 +612,7 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
           />
         )}
 
-        {!stageOnly && mode !== 'room' && (
+        {!stageOnly && !['room', 'video'].includes(mode) && (
           <TuningPanel
             tuning={tuning}
             patchTuning={patchTuning}
@@ -1024,6 +1037,11 @@ function AssetInventory({ onModeChange }) {
   const manifest = useMemo(() => (
     CHARACTER_OPTIONS.flatMap((character) => assetManifest(character.id))
   ), []);
+  const sampleStrip = useMemo(() => (
+    manifest.filter((item, index, list) => (
+      index === list.findIndex((entry) => entry.characterId === item.characterId)
+    ))
+  ), [manifest]);
 
   return (
     <section className="asset-board" aria-label="Asset inventory">
@@ -1055,8 +1073,15 @@ function AssetInventory({ onModeChange }) {
       </div>
 
       <div className="asset-strip">
-        {Array.from({ length: 5 }, (_, row) => (
-          <img key={row} src={frameSrc('pl_01', row, 2, 'reimu')} alt="" draggable="false" />
+        {sampleStrip.flatMap((item) => (
+          Array.from({ length: 5 }, (_, row) => (
+            <img
+              key={`${item.characterId}-${row}`}
+              src={frameSrc(item.sheet, row, 2, item.characterId)}
+              alt=""
+              draggable="false"
+            />
+          ))
         ))}
       </div>
     </section>

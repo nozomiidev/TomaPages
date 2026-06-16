@@ -2,10 +2,27 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, posix } from 'node:path';
 
 const DIST = 'dist';
-const HTML_FILES = ['index.html', 'talk.html', 'guruguru.html'];
+const HTML_FILES = ['index.html', 'talk.html', 'guruguru.html', 'room.html', 'video.html'];
 const SHEETS = ['A', 'B', 'C', 'D', 'E', 'F'];
+const VIDEO_BUNDLE_MARKERS = [
+  'Vertical video stage',
+  'Load project',
+  'Save project',
+  'Export video',
+  'Timeline lanes',
+  'Stage drag',
+  'tomari-studio-video-project-v1',
+  'MediaRecorder',
+  'captureStream',
+];
+const VIDEO_CSS_MARKERS = [
+  '.video-studio',
+  '.video-studio__canvas',
+  '.video-timeline__pin',
+];
 const CHARACTER_SHEETS = {
   reimu: ['pl_01', 'om_01', 'ce_01', 'pt_01', 'ot_01', 'ct_01', 'py_01', 'oy_01', 'cy_01'],
+  cirno: ['pl_01', 'om_01', 'ce_01', 'pl_02', 'om_02', 'ce_02', 'pl_03', 'om_03', 'ce_03', 'pl_04', 'om_04', 'ce_04'],
 };
 
 function fail(message) {
@@ -15,6 +32,21 @@ function fail(message) {
 
 function assertFile(path) {
   if (!existsSync(path)) fail(`missing file: ${path}`);
+}
+
+function readDistAssets(extension) {
+  const assetsDir = join(DIST, 'assets');
+  assertFile(assetsDir);
+  return readdirSync(assetsDir)
+    .filter((file) => file.endsWith(extension))
+    .map((file) => readFileSync(join(assetsDir, file), 'utf8'))
+    .join('\n');
+}
+
+function assertTextContains(haystack, marker, scope) {
+  if (!haystack.includes(marker)) {
+    fail(`${scope} is missing marker: ${marker}`);
+  }
 }
 
 function readDistHtml(file) {
@@ -89,6 +121,21 @@ function assertCharacterImages() {
   }
 }
 
+function assertVideoEditorBundle() {
+  const videoHtml = readDistHtml('video.html');
+  assertTextContains(videoHtml, 'data-initial-mode="video"', 'dist/video.html');
+
+  const javascript = readDistAssets('.js');
+  for (const marker of VIDEO_BUNDLE_MARKERS) {
+    assertTextContains(javascript, marker, 'dist/assets/*.js');
+  }
+
+  const css = readDistAssets('.css');
+  for (const marker of VIDEO_CSS_MARKERS) {
+    assertTextContains(css, marker, 'dist/assets/*.css');
+  }
+}
+
 for (const file of HTML_FILES) {
   const html = readDistHtml(file);
   assertNoAbsoluteLocalReferences(file, html);
@@ -98,5 +145,6 @@ for (const file of HTML_FILES) {
 
 assertSliceImages();
 assertCharacterImages();
+assertVideoEditorBundle();
 
 console.log('Pages build verification passed.');

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
-import { Check, Copy, Radio, Shuffle, Signal, Users } from 'lucide-react';
+import { AudioLines, Check, Copy, Mic, MicOff, Radio, Shuffle, Signal, Upload, Users } from 'lucide-react';
 import { frameSrc, sheetForPose, targetToCell } from './domain/character';
 import {
   createPresenceTransport,
@@ -248,7 +248,67 @@ function RoomCard({ peer, live = false }) {
   );
 }
 
-export function RoomView({ localState, tuning }) {
+function RoomLiveControls({ controls }) {
+  if (!controls) return null;
+
+  const {
+    activeMouth,
+    audioError,
+    audioLevel,
+    fileName,
+    micOn,
+    onAudioFile,
+    onDemoSync,
+    onMicToggle,
+  } = controls;
+
+  return (
+    <div className="room-live-controls">
+      <button
+        className={micOn ? 'room-live-controls__button is-live' : 'room-live-controls__button'}
+        type="button"
+        onClick={onMicToggle}
+      >
+        {micOn ? <MicOff size={15} aria-hidden="true" /> : <Mic size={15} aria-hidden="true" />}
+        <span>{micOn ? 'Stop mic' : 'Start mic'}</span>
+      </button>
+      <button className="room-live-controls__button" type="button" onClick={onDemoSync}>
+        <AudioLines size={15} aria-hidden="true" />
+        <span>Test sync</span>
+      </button>
+      <label className="room-live-controls__button">
+        <Upload size={15} aria-hidden="true" />
+        <span>Audio file</span>
+        <input type="file" accept="audio/*" onChange={onAudioFile} />
+      </label>
+      <div className="room-live-meter" aria-label="Local audio level">
+        <span>{fileName || activeMouth?.label || 'Closed'}</span>
+        <i>
+          <b style={{ width: `${Math.round((audioLevel ?? 0) * 100)}%` }} />
+        </i>
+      </div>
+      {audioError && <p className="room-live-error" role="alert">{audioError}</p>}
+    </div>
+  );
+}
+
+function RoomRoster({ peers }) {
+  return (
+    <div className="room-roster" aria-label="Room participants">
+      {peers.map((peer) => (
+        <div key={peer.id} className="room-roster__peer">
+          <span>{peer.name}</span>
+          <small>{peer.source === 'local' ? 'you' : peer.source}</small>
+          <i aria-hidden="true">
+            <b style={{ width: `${Math.round((peer.audioLevel ?? 0) * 100)}%` }} />
+          </i>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function RoomView({ liveControls, localState, tuning }) {
   const roomId = useMemo(() => readRoomId(), []);
   const localPeerId = useMemo(createLocalPeerId, []);
   const localPeerName = useMemo(() => readDisplayName({ fallbackId: localPeerId }), [localPeerId]);
@@ -471,6 +531,7 @@ export function RoomView({ localState, tuning }) {
           <h1>{ROOM_NAME}</h1>
         </div>
         <div className="room-toolbar__meta">
+          <RoomLiveControls controls={liveControls} />
           <div className="room-status">
             <span><Signal size={15} aria-hidden="true" /> {transportStatus.p2p}</span>
             <span><Users size={15} aria-hidden="true" /> {peers.length}</span>
@@ -498,6 +559,8 @@ export function RoomView({ localState, tuning }) {
           </div>
         </div>
       </div>
+
+      <RoomRoster peers={peers} />
 
       <div className="room-stage">
         <canvas

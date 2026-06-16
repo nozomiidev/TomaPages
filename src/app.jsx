@@ -318,13 +318,14 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
         : nextCell
     ));
 
-    const raw = modeRef.current === 'talk' ? engine.level() * settings.micGain : 0;
+    const isAudioMode = modeRef.current === 'talk' || modeRef.current === 'room';
+    const raw = isAudioMode ? engine.level() * settings.micGain : 0;
     const envelope = envelopeRef.current;
     envelopeRef.current = raw > envelope
       ? envelope + (raw - envelope) * 0.6
       : envelope + (raw - envelope) * settings.release;
 
-    const nextMouth = modeRef.current === 'talk'
+    const nextMouth = isAudioMode
       ? mouthFromLevel(envelopeRef.current, settings)
       : 0;
     if (
@@ -341,9 +342,9 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
     }
   });
 
-  const toggleMic = useCallback(async () => {
+  const toggleMic = useCallback(async (options = {}) => {
     setAudioError('');
-    setMode('talk');
+    if (!options.keepMode) setMode('talk');
 
     if (micOn) {
       engine.stopMic();
@@ -361,11 +362,11 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
     }
   }, [engine, micOn, setMode]);
 
-  const handleAudioFile = useCallback(async (event) => {
+  const handleAudioFile = useCallback(async (event, options = {}) => {
     const file = event.target.files?.[0];
     if (!file || !audioElRef.current) return;
 
-    setMode('talk');
+    if (!options.keepMode) setMode('talk');
     setAudioError('');
 
     if (objectUrlRef.current) {
@@ -389,8 +390,8 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
     }
   }, [engine, setMode]);
 
-  const handleDemoSync = useCallback(async () => {
-    setMode('talk');
+  const handleDemoSync = useCallback(async (options = {}) => {
+    if (!options.keepMode) setMode('talk');
     setAudioError('');
     setMicOn(false);
 
@@ -436,8 +437,8 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
         <AppHeader mode={mode} setMode={setMode} onStageOnly={() => setStageOnly(true)} />
       )}
 
-      <main className="studio__workspace">
-        {!stageOnly && (
+      <main className={mode === 'room' && !stageOnly ? 'studio__workspace studio__workspace--room' : 'studio__workspace'}>
+        {!stageOnly && mode !== 'room' && (
           <InputPanel
             mode={mode}
             micOn={micOn}
@@ -458,6 +459,16 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
               audioLevel,
               cell,
               mouth,
+            }}
+            liveControls={{
+              activeMouth,
+              audioError,
+              audioLevel,
+              fileName,
+              micOn,
+              onAudioFile: (event) => handleAudioFile(event, { keepMode: true }),
+              onDemoSync: () => handleDemoSync({ keepMode: true }),
+              onMicToggle: () => toggleMic({ keepMode: true }),
             }}
             tuning={tuning}
           />

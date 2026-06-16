@@ -79,6 +79,10 @@ function makeBroadcastChannel(roomId, onMessage) {
   };
 }
 
+function loadDefaultTrystero() {
+  return import('trystero');
+}
+
 export function readRoomId(search = currentSearch()) {
   const params = new URLSearchParams(search);
   return sanitizeRoomId(params.get('room'));
@@ -110,7 +114,16 @@ export function getTabPeerId() {
   return id;
 }
 
-export function createPresenceTransport({ roomId, selfId, onPeer, onPeerLeave, onStatus }) {
+export function createPresenceTransport({
+  channelFactory = makeBroadcastChannel,
+  loadTrystero = loadDefaultTrystero,
+  now = safeNow,
+  onPeer,
+  onPeerLeave,
+  onStatus,
+  roomId,
+  selfId,
+}) {
   let currentPeer = null;
   let disposed = false;
   let trysteroRoom = null;
@@ -127,19 +140,24 @@ export function createPresenceTransport({ roomId, selfId, onPeer, onPeerLeave, o
     onPeer({
       ...peer,
       source,
-      receivedAt: safeNow(),
+      receivedAt: now(),
     });
   };
 
-  const localChannel = makeBroadcastChannel(roomId, (message) => {
+  const localChannel = channelFactory(roomId, (message) => {
     if (!message || message.roomId !== roomId) return;
     if (message.type === 'presence') receivePeer(message.peer, 'local');
     if (message.type === 'leave' && message.peerId !== selfId) onPeerLeave(message.peerId);
   });
 
   async function startP2p() {
+    if (!loadTrystero) {
+      setStatus({ p2p: 'disabled' });
+      return;
+    }
+
     try {
-      const { joinRoom } = await import('trystero');
+      const { joinRoom } = await loadTrystero();
       if (disposed) return;
 
       trysteroRoom = joinRoom({
@@ -183,7 +201,7 @@ export function createPresenceTransport({ roomId, selfId, onPeer, onPeerLeave, o
     publish(peer) {
       currentPeer = {
         ...peer,
-        lastSeen: safeNow(),
+        lastSeen: now(),
         roomId,
       };
       localChannel.post({

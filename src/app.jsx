@@ -68,7 +68,7 @@ const DEFAULT_TUNING = {
   hairTint: 0,
   eyeColor: '#2BA7E8',
   eyeTint: 0,
-  colorFilter: 'natural',
+  colorFilter: 'glaze',
 };
 
 const BACKGROUNDS = [
@@ -96,6 +96,7 @@ const EYE_COLORS = [
 ];
 
 const COLOR_FILTERS = [
+  { id: 'glaze', label: 'Glaze' },
   { id: 'natural', label: 'Natural' },
   { id: 'silk', label: 'Silk' },
   { id: 'grade', label: 'Grade' },
@@ -137,8 +138,9 @@ function normalizeColorFilter(value) {
   const normalized = String(value ?? '').trim().toLowerCase();
   if (['paint', 'overlay', 'tint'].includes(normalized)) return 'paint';
   if (['soft', 'tone'].includes(normalized)) return 'soft';
-  if (['natural', 'smooth', 'blend', 'chroma'].includes(normalized)) return 'natural';
-  if (['silk', 'glaze'].includes(normalized)) return 'silk';
+  if (['glaze', 'smooth', 'blend', 'chroma', 'color'].includes(normalized)) return 'glaze';
+  if (normalized === 'natural') return 'natural';
+  if (normalized === 'silk') return 'silk';
   if (['grade', 'luma', 'preserve'].includes(normalized)) return 'grade';
   return '';
 }
@@ -148,13 +150,16 @@ function readTuningParams(search = window.location.search) {
   const patch = {};
   const hairColor = normalizeColorParam(params.get('hair') ?? params.get('hairColor'));
   const eyeColor = normalizeColorParam(params.get('eyes') ?? params.get('eyeColor'));
+  const hasFilterOverride = params.has('filter') || params.has('colorFilter');
   const colorFilter = normalizeColorFilter(params.get('filter') ?? params.get('colorFilter'));
   const hairTint = Number(params.get('hairMix') ?? params.get('hairTint'));
   const eyeTint = Number(params.get('eyeMix') ?? params.get('eyeTint'));
+  const hasColorOverride = Boolean(hairColor || eyeColor || Number.isFinite(hairTint) || Number.isFinite(eyeTint));
 
   if (hairColor) patch.hairColor = hairColor;
   if (eyeColor) patch.eyeColor = eyeColor;
   if (colorFilter) patch.colorFilter = colorFilter;
+  if (!colorFilter && !hasFilterOverride && hasColorOverride) patch.colorFilter = 'glaze';
   if (Number.isFinite(hairTint)) patch.hairTint = clamp(hairTint, 0, 0.85);
   if (Number.isFinite(eyeTint)) patch.eyeTint = clamp(eyeTint, 0, 0.95);
 
@@ -450,6 +455,7 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
       data-lip-sync-mouth={lipSyncSnapshot.mouth}
       data-lip-sync-mouth-label={lipSyncSnapshot.mouthLabel}
       data-lip-sync-source={lipSyncSnapshot.source}
+      data-avatar-filter={tuning.colorFilter}
     >
       {!stageOnly && (
         <AppHeader mode={mode} setMode={setMode} onStageOnly={() => setStageOnly(true)} />

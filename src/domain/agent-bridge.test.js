@@ -78,7 +78,7 @@ describe('agent bridge', () => {
       hairTint: 0.65,
       eyeColor: '#A855F7',
       eyeTint: 0.85,
-      colorFilter: 'natural',
+      colorFilter: 'glaze',
       lastSeen: 4096,
       receivedAt: 4096,
     });

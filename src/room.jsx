@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
-import { AudioLines, Bot, Check, Copy, Mic, MicOff, Radio, Shuffle, Signal, Upload, Users } from 'lucide-react';
+import { AudioLines, Bot, Check, Copy, Mic, MicOff, Radio, Shuffle, Signal, Upload, UserPlus, Users } from 'lucide-react';
 import { frameSrc, sheetForPose } from './domain/character';
 import {
   AGENT_BRIDGE_PROTOCOL,
@@ -14,6 +14,7 @@ import {
   getTabPeerId,
   makeRandomRoomId,
   makeRoomUrl,
+  makeRoomTestPeerUrl,
   readDisplayName,
   readRoomId,
 } from './domain/presence-transport';
@@ -62,7 +63,7 @@ const DEMO_PEERS = [
     hairTint: 0.38,
     eyeColor: '#E35D75',
     eyeTint: 0.62,
-    colorFilter: 'natural',
+    colorFilter: 'glaze',
   },
   {
     id: 'demo-otacon',
@@ -76,7 +77,7 @@ const DEMO_PEERS = [
     hairTint: 0.52,
     eyeColor: '#2BA7E8',
     eyeTint: 0.72,
-    colorFilter: 'natural',
+    colorFilter: 'glaze',
   },
   {
     id: 'demo-naomi',
@@ -90,7 +91,7 @@ const DEMO_PEERS = [
     hairTint: 0.46,
     eyeColor: '#A855F7',
     eyeTint: 0.66,
-    colorFilter: 'natural',
+    colorFilter: 'glaze',
   },
 ];
 
@@ -548,8 +549,13 @@ export function RoomView({ liveControls, localState, tuning }) {
   const [hoverCells, setHoverCells] = useState({});
   const [agentPilotEnabled, setAgentPilotEnabled] = useState(false);
   const [copyState, setCopyState] = useState('idle');
+  const [testPeerOpenState, setTestPeerOpenState] = useState('idle');
   const [roomClock, setRoomClock] = useState(() => Date.now());
   const roomUrl = useMemo(() => makeRoomUrl({
+    roomId,
+    name: localPeerName,
+  }), [localPeerName, roomId]);
+  const testPeerUrl = useMemo(() => makeRoomTestPeerUrl({
     roomId,
     name: localPeerName,
   }), [localPeerName, roomId]);
@@ -890,6 +896,21 @@ export function RoomView({ liveControls, localState, tuning }) {
       name: localPeerName,
     }));
   }, [localPeerName]);
+  const handleOpenTestPeer = useCallback(() => {
+    setTestPeerOpenState('opening');
+    const openedWindow = window.open(testPeerUrl, '_blank');
+    if (openedWindow) {
+      try {
+        openedWindow.opener = null;
+      } catch {
+        // Some browsers protect the WindowProxy. Opening the test peer still succeeded.
+      }
+      setTestPeerOpenState('opened');
+    } else {
+      setTestPeerOpenState('blocked');
+    }
+    window.setTimeout(() => setTestPeerOpenState('idle'), 1800);
+  }, [testPeerUrl]);
   const handleAgentPilotToggle = useCallback(() => {
     if (agentPilotEnabled || agentPilotPresent) {
       leaveAgentPeer(AGENT_PILOT_ID);
@@ -938,6 +959,8 @@ export function RoomView({ liveControls, localState, tuning }) {
       data-room-session-snapshot-health={sessionStatus.snapshotHealth}
       data-room-session-state={sessionStatus.state}
       data-room-tab-peers={presenceSummary.tab}
+      data-room-test-peer-state={testPeerOpenState}
+      data-room-test-peer-url={testPeerUrl}
       data-room-total-peers={presenceSummary.total}
       data-room-layout-cols={roomScene.cols}
       data-room-layout-rows={roomScene.rows}
@@ -969,6 +992,21 @@ export function RoomView({ liveControls, localState, tuning }) {
               >
                 <Shuffle size={15} aria-hidden="true" />
                 <span>New room</span>
+              </button>
+              <button
+                type="button"
+                title="Open test peer tab"
+                aria-label="Open test peer tab"
+                onClick={handleOpenTestPeer}
+              >
+                <UserPlus size={15} aria-hidden="true" />
+                <span>
+                  {testPeerOpenState === 'opened'
+                    ? 'Peer opened'
+                    : testPeerOpenState === 'blocked'
+                      ? 'Allow popups'
+                      : 'Open peer'}
+                </span>
               </button>
               <button
                 type="button"

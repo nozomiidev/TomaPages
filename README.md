@@ -107,6 +107,7 @@ Pages 側の Source は GitHub Actions にしてください。
 
 Tuning パネルの Appearance で髪色・瞳色、変換フィルター、mix 強度を調整できます。元画像は書き換えず、現在表示中のフレームから髪・瞳らしい色域を検出して、透明な変換レイヤーを上に重ねます。`mix` が `0` のときは元絵のままです。
 
+- `Glaze`: 元画像の明暗、線、ハイライトを透かして残す半透明の色ガラス型フィルター。URL で色だけ指定した場合の既定です。
 - `Natural`: 元画像の明度差・影・ハイライトを保ちながら、色相だけを滑らかに寄せる自然変換フィルター
 - `Silk`: 元画像の線・輝度・ハイライトを残す半透明グレーズ型のフィルター
 - `Grade`: 元画像の輝度・影・ハイライトを優先して残し、色相だけを自然に寄せるフィルター
@@ -118,6 +119,7 @@ Tuning パネルの Appearance で髪色・瞳色、変換フィルター、mix 
 URL パラメーターでも初期値を指定できます。`#` は URL fragment になるため、色は `#` なしで渡すのが安全です。
 
 ```text
+talk.html?filter=glaze&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
 talk.html?filter=natural&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
 talk.html?filter=silk&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
 talk.html?filter=grade&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
@@ -140,6 +142,8 @@ room.html?room=codec-lobby&name=Nozomi
 `Copy link` は現在の room/name を含む共有 URL を作ります。`New room` はランダムな room id を作って移動します。presence は状態変化時に加えて短い heartbeat でも送るため、後から入った peer も既存 peer を拾いやすくしています。
 
 デモ peer は room が空のときだけ自動表示します。実 peer または agent peer が入ると roster と stage は実参加者を優先します。検証用に常時表示したい場合は `demo=1`、完全に隠したい場合は `demo=0` を URL に付けます。各タブの peer id はページ単位で生成し、duplicated tab の sessionStorage コピーによる自分同士の衝突を避けています。
+
+Room の `Open peer` ボタンは同じ room を `demo=0&testPeer=1` の別タブで開くセルフテストです。新しいタブは BroadcastChannel fallback では `TAB`、WebRTC が成立した相手は `P2P` として roster / session strip / canvas に出るため、サーバーなしで複数参加者の表示、口パク、hover live layer を確認できます。
 
 Room root には `data-room-live-peers`、`data-room-p2p-peers`、`data-room-tab-peers`、`data-room-agent-peers`、`data-room-speaking-peers` などの summary も出します。各 peer の口・音量・向きは `data-room-peer-states`、しゃべっている peer は `data-room-speaking-peer-ids` と `data-room-speaking-label` で確認できます。hover 中の live card は `data-room-hover-peer`、`data-room-hover-cell`、`data-room-hover-live-layer` で確認できます。html2canvas snapshot は `data-room-snapshot-ready` / `data-room-snapshot-failed` / `data-room-snapshot-total` で確認できます。UI 上の roster でも heartbeat freshness を小さく表示するため、実 peer / 同一ブラウザ検証 peer / AI agent / demo の状態を確認しやすくしています。
 
@@ -164,7 +168,7 @@ channel.postMessage({
     hairMix: 0.65,
     eyes: 'A855F7',
     eyeMix: 0.85,
-    filter: 'natural'
+    filter: 'glaze'
   }
 });
 ```

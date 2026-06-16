@@ -18,7 +18,7 @@ describe('agent pilot', () => {
       hairMix: 0.65,
       eyes: 'A855F7',
       eyeMix: 0.85,
-      filter: 'natural',
+      filter: 'glaze',
     });
     expect(AGENT_PILOT_ROOM_ID).toBe('agent:codex-agent');
   });

@@ -4,6 +4,7 @@ import {
   createOperatorName,
   createPresenceTransport,
   makeRandomRoomId,
+  makeRoomTestPeerUrl,
   makeRoomUrl,
   readDisplayName,
   readRoomId,
@@ -101,6 +102,14 @@ describe('presence transport helpers', () => {
       roomId: 'Cool Room',
       name: 'Operator Alpha',
     })).toBe('https://example.test/TomaPages/room.html?room=cool-room&name=Operator+Alpha');
+  });
+
+  it('builds a same-room test peer link without demo peers', () => {
+    expect(makeRoomTestPeerUrl({
+      baseUrl: 'https://example.test/TomaPages/index.html#assets',
+      roomId: 'Codec Lobby',
+      name: 'Codex',
+    })).toBe('https://example.test/TomaPages/room.html?room=codec-lobby&name=Codex+Peer&demo=0&testPeer=1');
   });
 
   it('generates readable room ids without relying on a server', () => {

@@ -128,6 +128,14 @@ export function makeRoomUrl({ roomId, name, baseUrl } = {}) {
   return url.toString();
 }
 
+export function makeRoomTestPeerUrl({ baseUrl, name, roomId } = {}) {
+  const displayName = sanitizeDisplayName(`${sanitizeDisplayName(name) || 'Operator'} Peer`);
+  const url = new URL(makeRoomUrl({ baseUrl, name: displayName, roomId }));
+  url.searchParams.set('demo', '0');
+  url.searchParams.set('testPeer', '1');
+  return url.toString();
+}
+
 export function getTabPeerId() {
   return readPagePeerId({ storage: window.sessionStorage });
 }

@@ -1066,6 +1066,12 @@ img {
   font: inherit;
 }
 
+.room-actions button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .room-actions button:hover {
   border-color: rgba(15, 118, 110, 0.24);
   color: #0f766e;

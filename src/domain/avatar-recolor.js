@@ -436,6 +436,51 @@ function tintConfidenceForPixel(pixel, type) {
   return clampRange(0.42 + Math.max(redConfidence, pinkConfidence, orangeConfidence) * 0.46, 0.32, 0.92);
 }
 
+function writeGlazePixel({ index, source, target, tintStrength, tintTone, type }) {
+  const sourceColor = {
+    r: source[index],
+    g: source[index + 1],
+    b: source[index + 2],
+  };
+  const sourceTone = rgbToHsl(sourceColor);
+  const sourceLuma = luma01(sourceColor);
+  const confidence = tintConfidenceForPixel(sourceColor, type);
+  const saturation = type === 'hair'
+    ? clampRange(sourceTone.s * 0.48 + tintTone.s * 0.34, 0.08, 0.54)
+    : clampRange(sourceTone.s * 0.32 + tintTone.s * 0.56, 0.26, type === 'accent' ? 0.9 : 0.82);
+  const lightness = type === 'hair'
+    ? clampRange(sourceTone.l + (tintTone.l - 0.5) * 0.012, 0.035, 0.82)
+    : clampRange(sourceTone.l + (tintTone.l - 0.5) * 0.026, 0.08, 0.88);
+  const colorized = hslToRgb({
+    h: tintTone.h,
+    s: saturation,
+    l: lightness,
+  });
+  const colorizedLuma = Math.max(0.001, luma01(colorized));
+  const targetLuma = clampRange(
+    sourceLuma + (tintTone.l - 0.5) * (type === 'hair' ? 0.002 : 0.01),
+    0.01,
+    0.985,
+  );
+  const lumaRatio = clampRange(targetLuma / colorizedLuma, 0.56, 1.56);
+  const lumaPreserved = {
+    r: clampChannel(colorized.r * lumaRatio),
+    g: clampChannel(colorized.g * lumaRatio),
+    b: clampChannel(colorized.b * lumaRatio),
+  };
+  const shadowHold = (type === 'hair' ? 0.34 : 0.16) * (1 - smoothstep(0.08, 0.3, sourceLuma));
+  const highlightHold = (type === 'hair' ? 0.24 : 0.26) * smoothstep(0.62, 0.94, sourceLuma);
+  const protectedAmount = shadowHold + highlightHold;
+  const sourceReveal = clamp01((type === 'hair' ? 0.18 : 0.12) + protectedAmount * 0.42);
+  const alphaBase = type === 'hair' ? 0.72 : type === 'accent' ? 0.82 : 0.78;
+  const alpha = clamp01(tintStrength * alphaBase * confidence * (1 - protectedAmount * 0.54));
+
+  target[index] = mixChannel(lumaPreserved.r, sourceColor.r, sourceReveal);
+  target[index + 1] = mixChannel(lumaPreserved.g, sourceColor.g, sourceReveal);
+  target[index + 2] = mixChannel(lumaPreserved.b, sourceColor.b, sourceReveal);
+  target[index + 3] = Math.round(source[index + 3] * alpha);
+}
+
 function writeNaturalPixel({ index, source, target, tintStrength, tintTone, type }) {
   const sourceColor = {
     r: source[index],
@@ -487,9 +532,9 @@ export function writeAvatarTintOverlay(sourceImageData, targetImageData, options
   const eyeStrength = clamp01(options.eyeStrength);
   const hairColor = parseHexColor(options.hairColor, { r: 109, g: 91, b: 208 });
   const eyeColor = parseHexColor(options.eyeColor, { r: 43, g: 167, b: 232 });
-  const filterMode = ['natural', 'paint', 'silk', 'soft', 'grade'].includes(options.filterMode)
+  const filterMode = ['glaze', 'natural', 'paint', 'silk', 'soft', 'grade'].includes(options.filterMode)
     ? options.filterMode
-    : 'natural';
+    : 'glaze';
   const hairTone = rgbToHsl(hairColor);
   const eyeTone = rgbToHsl(eyeColor);
   const accentMask = eyeStrength > 0 ? buildAccessoryAccentMask(sourceImageData) : null;
@@ -526,6 +571,8 @@ export function writeAvatarTintOverlay(sourceImageData, targetImageData, options
 
       if (filterMode === 'paint') {
         writePaintPixel({ index, source, target, tintColor, tintStrength, type });
+      } else if (filterMode === 'glaze') {
+        writeGlazePixel({ index, source, target, tintStrength, tintTone, type });
       } else if (filterMode === 'natural') {
         writeNaturalPixel({ index, source, target, tintStrength, tintTone, type });
       } else if (filterMode === 'silk') {

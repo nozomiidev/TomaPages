@@ -236,6 +236,28 @@ describe('avatar recolor domain', () => {
     );
   });
 
+  it('glaze filter keeps the original layer visible while shifting color smoothly', () => {
+    const darkSource = [58, 60, 58];
+    const midSource = [78, 82, 78];
+    const lightSource = [112, 116, 112];
+    const darkOverlay = renderHairPixel(darkSource, 'glaze');
+    const midOverlay = renderHairPixel(midSource, 'glaze');
+    const lightOverlay = renderHairPixel(lightSource, 'glaze');
+    const darkHair = compositeOverSource(darkSource, darkOverlay);
+    const midHair = compositeOverSource(midSource, midOverlay);
+    const lightHair = compositeOverSource(lightSource, lightOverlay);
+
+    expect(darkOverlay[3]).toBeGreaterThan(70);
+    expect(darkOverlay[3]).toBeLessThan(220);
+    expect(lightOverlay[3]).toBeLessThan(220);
+    expect(darkHair[1]).toBeGreaterThan(darkHair[0]);
+    expect(midHair[1]).toBeGreaterThan(midHair[0]);
+    expect(luma(midHair)).toBeGreaterThan(luma(darkHair) + 12);
+    expect(luma(lightHair)).toBeGreaterThan(luma(midHair) + 22);
+    expect(Math.abs(luma(darkHair) - luma(darkSource))).toBeLessThan(13);
+    expect(Math.abs(luma(lightHair) - luma(lightSource))).toBeLessThan(13);
+  });
+
   it('silk filter uses a translucent glaze so source detail keeps showing through', () => {
     const darkSource = [58, 60, 58];
     const lightSource = [112, 116, 112];

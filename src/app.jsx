@@ -64,6 +64,7 @@ const DEFAULT_TUNING = {
   hairTint: 0,
   eyeColor: '#2BA7E8',
   eyeTint: 0,
+  colorFilter: 'soft',
 };
 
 const BACKGROUNDS = [
@@ -88,6 +89,11 @@ const EYE_COLORS = [
   '#22A06B',
   '#A855F7',
   '#E35D75',
+];
+
+const COLOR_FILTERS = [
+  { id: 'soft', label: 'Soft' },
+  { id: 'paint', label: 'Paint' },
 ];
 
 function detectInitialMode() {
@@ -119,16 +125,25 @@ function normalizeColorParam(value) {
   return `#${expanded.toUpperCase()}`;
 }
 
+function normalizeColorFilter(value) {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (['paint', 'overlay', 'tint'].includes(normalized)) return 'paint';
+  if (['soft', 'tone', 'smooth', 'natural'].includes(normalized)) return 'soft';
+  return '';
+}
+
 function readTuningParams(search = window.location.search) {
   const params = new URLSearchParams(search);
   const patch = {};
   const hairColor = normalizeColorParam(params.get('hair') ?? params.get('hairColor'));
   const eyeColor = normalizeColorParam(params.get('eyes') ?? params.get('eyeColor'));
+  const colorFilter = normalizeColorFilter(params.get('filter') ?? params.get('colorFilter'));
   const hairTint = Number(params.get('hairMix') ?? params.get('hairTint'));
   const eyeTint = Number(params.get('eyeMix') ?? params.get('eyeTint'));
 
   if (hairColor) patch.hairColor = hairColor;
   if (eyeColor) patch.eyeColor = eyeColor;
+  if (colorFilter) patch.colorFilter = colorFilter;
   if (Number.isFinite(hairTint)) patch.hairTint = clamp(hairTint, 0, 0.85);
   if (Number.isFinite(eyeTint)) patch.eyeTint = clamp(eyeTint, 0, 0.95);
 
@@ -193,11 +208,12 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
   const engine = useMemo(() => new AudioLevelEngine(), []);
   const frames = useMemo(() => allFrames(), []);
   const avatarTint = useMemo(() => ({
+    filterMode: tuning.colorFilter,
     hairColor: tuning.hairColor,
     hairStrength: tuning.hairTint,
     eyeColor: tuning.eyeColor,
     eyeStrength: tuning.eyeTint,
-  }), [tuning.eyeColor, tuning.eyeTint, tuning.hairColor, tuning.hairTint]);
+  }), [tuning.colorFilter, tuning.eyeColor, tuning.eyeTint, tuning.hairColor, tuning.hairTint]);
   const activeSheet = sheetForPose({
     blink,
     mouth: mode === 'talk' ? mouth : 0,
@@ -735,6 +751,12 @@ function TuningPanel({ tuning, patchTuning, resetTuning, mode, cell, mouth }) {
       )}
 
       <ControlGroup title="Appearance" icon={Palette}>
+        <SegmentedControl
+          label="Filter"
+          value={tuning.colorFilter}
+          options={COLOR_FILTERS}
+          onChange={(colorFilter) => patchTuning({ colorFilter })}
+        />
         <ColorSwatches
           label="Hair"
           value={tuning.hairColor}
@@ -895,6 +917,27 @@ function SwitchControl({ label, value, onChange, iconOn: IconOn, iconOff: IconOf
       <span>{label}</span>
       <i aria-hidden="true" />
     </button>
+  );
+}
+
+function SegmentedControl({ label, value, options, onChange }) {
+  return (
+    <div className="segmented-control">
+      <span>{label}</span>
+      <div className="segmented-control__options">
+        {options.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            className={option.id === value ? 'is-active' : ''}
+            aria-pressed={option.id === value}
+            onClick={() => onChange(option.id)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

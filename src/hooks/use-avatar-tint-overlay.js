@@ -18,6 +18,7 @@ function makeCacheKey(src, options) {
 
   return [
     src,
+    options.filterMode,
     options.hairColor,
     hairStrength,
     options.eyeColor,
@@ -79,15 +80,17 @@ export function useAvatarTintOverlay(src, options) {
   const {
     eyeColor,
     eyeStrength,
+    filterMode,
     hairColor,
     hairStrength,
   } = options;
   const stableOptions = useMemo(() => ({
     eyeColor,
     eyeStrength,
+    filterMode,
     hairColor,
     hairStrength,
-  }), [eyeColor, eyeStrength, hairColor, hairStrength]);
+  }), [eyeColor, eyeStrength, filterMode, hairColor, hairStrength]);
   const cacheKey = useMemo(() => makeCacheKey(src, stableOptions), [src, stableOptions]);
   const [overlaySrc, setOverlaySrc] = useState(() => (
     cacheKey ? overlayCache.get(cacheKey) ?? '' : ''

@@ -100,13 +100,16 @@ Pages 側の Source は GitHub Actions にしてください。
 
 ## 色カスタマイズ
 
-Tuning パネルの Appearance で髪色・瞳色と mix 強度を調整できます。元画像は書き換えず、現在表示中のフレームから髪・瞳らしいピクセルを検出し、透明な色付きレイヤーを上に重ねます。`mix` が `0` のときは元絵のままです。
+Tuning パネルの Appearance で髪色・瞳色、変換フィルター、mix 強度を調整できます。元画像は書き換えず、現在表示中のフレームから髪・瞳らしい色域を検出して、透明な変換レイヤーを上に重ねます。`mix` が `0` のときは元絵のままです。
+
+- `Soft`: 元画像の明暗・陰影を保ちながら、色相を選択色へ滑らかに寄せる標準フィルター
+- `Paint`: 以前の単色 overlay 寄りのフィルター
 
 URL パラメーターでも初期値を指定できます。`#` は URL fragment になるため、色は `#` なしで渡すのが安全です。
 
 ```text
-talk.html?hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
-guruguru.html?hair=6D5BD0&hairMix=0.45&eyeColor=2BA7E8&eyeTint=0.75
+talk.html?filter=soft&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
+guruguru.html?filter=paint&hair=6D5BD0&hairMix=0.45&eyeColor=2BA7E8&eyeTint=0.75
 ```
 
 この方式は GitHub Pages 上でも追加サーバーなしで動きます。完全なレイヤー分けではないため、別キャラクターに差し替える場合は `src/domain/avatar-recolor.js` の色範囲条件を調整してください。

@@ -193,6 +193,7 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
 
   const avatarRef = useRef(null);
   const audioElRef = useRef(null);
+  const demoTimerRef = useRef(0);
   const objectUrlRef = useRef('');
   const targetRef = useRef({ x: 0, y: 0 });
   const currentRef = useRef({ x: 0, y: 0 });
@@ -345,6 +346,7 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
     }
 
     try {
+      engine.stopDemoSignal();
       await engine.startMic();
       setMicOn(true);
     } catch (error) {
@@ -366,6 +368,7 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
     }
 
     try {
+      engine.stopDemoSignal();
       engine.attachAudioElement(audioElRef.current);
       await engine.resume();
       const url = URL.createObjectURL(file);
@@ -380,8 +383,32 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
     }
   }, [engine, setMode]);
 
+  const handleDemoSync = useCallback(async () => {
+    setMode('talk');
+    setAudioError('');
+    setMicOn(false);
+
+    if (demoTimerRef.current) {
+      window.clearTimeout(demoTimerRef.current);
+      demoTimerRef.current = 0;
+    }
+
+    try {
+      engine.stopMic();
+      await engine.startDemoSignal();
+      setFileName('Built-in sync test');
+      demoTimerRef.current = window.setTimeout(() => {
+        setFileName((current) => (current === 'Built-in sync test' ? '' : current));
+        demoTimerRef.current = 0;
+      }, 5400);
+    } catch (error) {
+      setAudioError(error instanceof Error ? error.message : 'Demo sync signal could not start.');
+    }
+  }, [engine, setMode]);
+
   useEffect(() => () => {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    if (demoTimerRef.current) window.clearTimeout(demoTimerRef.current);
   }, []);
 
   const activeMouth = MOUTH_STATES[mouth] ?? MOUTH_STATES[0];
@@ -414,6 +441,7 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
             activeMouth={activeMouth}
             onMicToggle={toggleMic}
             onAudioFile={handleAudioFile}
+            onDemoSync={handleDemoSync}
             onModeChange={setMode}
           />
         )}
@@ -520,6 +548,7 @@ function InputPanel({
   activeMouth,
   onMicToggle,
   onAudioFile,
+  onDemoSync,
   onModeChange,
 }) {
   return (
@@ -545,6 +574,11 @@ function InputPanel({
         <span>Audio file</span>
         <input type="file" accept="audio/*" onChange={onAudioFile} />
       </label>
+
+      <button className="command-button command-button--secondary" type="button" onClick={onDemoSync}>
+        <AudioLines size={18} aria-hidden="true" />
+        <span>Test sync</span>
+      </button>
 
       <div className="meter" aria-label="Audio level">
         <div className="meter__header">

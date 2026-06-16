@@ -36,6 +36,7 @@ https://nozomiidev.github.io/TomaPages/index.html#assets
 ## 機能
 
 - `talk.html`: マイクまたは音声ファイルの音量に合わせた 3 段階口パク
+- `Test sync`: マイク権限や外部音源なしで口パク挙動を検証する内蔵テスト信号
 - `guruguru.html`: ポインター位置に追従する 25 方向の視線・顔向き
 - 自然な自動まばたき、ダブル blink、長め blink
 - 調整パネル: follow range、smoothing、avatar size、mic gain、口パクしきい値、release、髪色、瞳色、背景色、auto blink、debug grid
@@ -104,6 +105,8 @@ Tuning パネルの Appearance で髪色・瞳色、変換フィルター、mix 
 
 - `Soft`: 元画像の明暗・陰影を保ちながら、色相を選択色へ滑らかに寄せる標準フィルター
 - `Paint`: 以前の単色 overlay 寄りのフィルター
+
+赤・橙・ピンク系のアクセサリ塗り残しは、髪・瞳とは別の accent 色域として検出し、瞳色側の変換に追従します。
 
 URL パラメーターでも初期値を指定できます。`#` は URL fragment になるため、色は `#` なしで渡すのが安全です。
 

@@ -34,6 +34,10 @@ export function classifyAvatarPixel({ r, g, b, a, x, y, width, height }) {
   const isGoldenRange = r > 145 && g > 82 && b < 125 && r >= g && saturation > 0.28;
   if (isGoldenRange) return 'eye';
 
+  const isRedAccentRange = r > 145 && g > 35 && g < 150 && b < 170 && r > g * 1.12 && saturation > 0.3;
+  const isPinkAccentRange = r > 165 && b > 95 && g < 145 && r > g * 1.18 && saturation > 0.22;
+  if (isRedAccentRange || isPinkAccentRange) return 'accent';
+
   const isSkin = r > 135 && g > 85 && b > 60 && r > g * 1.08 && g > b * 1.06;
   const isWhiteArea = luma > 0.78 && saturation < 0.2;
   const isWarmAccent = r > 135 && g > 65 && b < 130 && saturation > 0.3;
@@ -113,11 +117,12 @@ function writePaintPixel({ index, source, target, tintColor, tintStrength, type 
   const saturation = max === 0 ? 0 : (max - min) / max;
   const shadeBoost = type === 'hair' ? 0.7 + (1 - max / 255) * 0.3 : 0.72 + saturation * 0.28;
   const colorBoost = type === 'hair' ? 1.12 + (1 - max / 255) * 0.58 : 1;
+  const alphaBoost = type === 'accent' ? 1.04 : 1;
 
   target[index] = clampChannel(tintColor.r * colorBoost);
   target[index + 1] = clampChannel(tintColor.g * colorBoost);
   target[index + 2] = clampChannel(tintColor.b * colorBoost);
-  target[index + 3] = Math.round(source[index + 3] * tintStrength * shadeBoost);
+  target[index + 3] = Math.round(source[index + 3] * tintStrength * shadeBoost * alphaBoost);
 }
 
 function writeSoftPixel({ index, source, target, tintStrength, tintTone, type }) {
@@ -129,16 +134,16 @@ function writeSoftPixel({ index, source, target, tintStrength, tintTone, type })
   const sourceTone = rgbToHsl(sourceColor);
   const saturation = type === 'hair'
     ? clampRange(tintTone.s * 0.74 + sourceTone.s * 0.16, 0.28, 0.78)
-    : clampRange(tintTone.s * 0.9 + sourceTone.s * 0.08, 0.44, 0.9);
+    : clampRange(tintTone.s * 0.9 + sourceTone.s * 0.08, 0.44, type === 'accent' ? 0.96 : 0.9);
   const lightness = type === 'hair'
     ? clampRange(sourceTone.l * 0.98, 0.08, 0.56)
-    : clampRange(sourceTone.l * 0.96 + 0.015, 0.18, 0.72);
+    : clampRange(sourceTone.l * (type === 'accent' ? 0.9 : 0.96) + 0.015, 0.16, 0.72);
   const recolored = hslToRgb({
     h: tintTone.h,
     s: saturation,
     l: lightness,
   });
-  const amount = type === 'hair' ? tintStrength * 0.92 : tintStrength * 0.98;
+  const amount = type === 'hair' ? tintStrength * 0.92 : tintStrength * (type === 'accent' ? 1 : 0.98);
 
   target[index] = mixChannel(sourceColor.r, recolored.r, amount);
   target[index + 1] = mixChannel(sourceColor.g, recolored.g, amount);

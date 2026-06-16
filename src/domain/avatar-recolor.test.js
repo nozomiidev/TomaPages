@@ -34,6 +34,29 @@ function renderHairPixel([r, g, b], filterMode = 'soft') {
   return Array.from(target.data);
 }
 
+function renderAccentPixel([r, g, b], filterMode = 'soft') {
+  const source = {
+    width: 1,
+    height: 1,
+    data: new Uint8ClampedArray([r, g, b, 255]),
+  };
+  const target = {
+    width: 1,
+    height: 1,
+    data: new Uint8ClampedArray(4),
+  };
+
+  writeAvatarTintOverlay(source, target, {
+    filterMode,
+    hairColor: '#0F766E',
+    hairStrength: 0,
+    eyeColor: '#A855F7',
+    eyeStrength: 1,
+  });
+
+  return Array.from(target.data);
+}
+
 describe('avatar recolor domain', () => {
   it('parses hex colors with long and short notation', () => {
     expect(parseHexColor('#2BA7E8')).toEqual({ r: 43, g: 167, b: 232 });
@@ -64,6 +87,25 @@ describe('avatar recolor domain', () => {
       x: 1040,
       y: 980,
     })).toBe('hair');
+  });
+
+  it('classifies red and pink accessory accents as a third color range', () => {
+    expect(classifyAvatarPixel({
+      ...basePixel,
+      r: 236,
+      g: 76,
+      b: 52,
+      x: 850,
+      y: 320,
+    })).toBe('accent');
+    expect(classifyAvatarPixel({
+      ...basePixel,
+      r: 224,
+      g: 82,
+      b: 142,
+      x: 850,
+      y: 320,
+    })).toBe('accent');
   });
 
   it('does not recolor skin or transparent pixels', () => {
@@ -109,5 +151,12 @@ describe('avatar recolor domain', () => {
 
     expect(paintedHair[3]).toBeLessThan(255);
     expect(paintedHair[1]).toBeGreaterThan(paintedHair[0]);
+  });
+
+  it('accessory accents follow the eye recolor channel', () => {
+    const recoloredAccent = renderAccentPixel([236, 76, 52]);
+
+    expect(recoloredAccent[2]).toBeGreaterThan(recoloredAccent[1]);
+    expect(recoloredAccent[3]).toBe(255);
   });
 });

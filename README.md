@@ -166,6 +166,8 @@ channel.postMessage({
 
 同じページ内では `window.tomariAgentBridge.publish(peer)` も使えます。仕様メモは `docs/agent-bridge.md` にあります。
 
+MCP adapter やローカル自動化からは `agent-ping` を送ると `agent-bridge-ready` が返るため、Room が開いていること、channel 名、TTL を確認してから agent presence を publish できます。
+
 ## 新しいキャラクターへ差し替える
 
 元 repo 由来の `tools/slice_character_sheets.py` を残しています。最終的には `public/slices2/{A..F}/r{0..4}c{0..4}.webp` が揃えばアプリは動きます。

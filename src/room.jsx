@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import { AudioLines, Bot, Check, Copy, Mic, MicOff, Radio, Shuffle, Signal, Upload, Users } from 'lucide-react';
 import { frameSrc, sheetForPose, targetToCell } from './domain/character';
-import { AGENT_BRIDGE_PROTOCOL, AGENT_PEER_TTL_MS, createAgentBridge } from './domain/agent-bridge';
+import {
+  AGENT_BRIDGE_PROTOCOL,
+  AGENT_BRIDGE_READY_TYPE,
+  AGENT_PEER_TTL_MS,
+  createAgentBridge,
+} from './domain/agent-bridge';
 import {
   createPresenceTransport,
   getTabPeerId,
@@ -652,7 +657,9 @@ export function RoomView({ liveControls, localState, tuning }) {
       aria-label="Codec room"
       data-agent-bridge-channel={agentBridge.channelName}
       data-agent-bridge-protocol={AGENT_BRIDGE_PROTOCOL}
+      data-agent-bridge-ready-type={AGENT_BRIDGE_READY_TYPE}
       data-agent-bridge-status={agentBridge.status}
+      data-agent-bridge-ttl-ms={AGENT_PEER_TTL_MS}
     >
       <div className="room-toolbar">
         <div className="room-toolbar__identity">

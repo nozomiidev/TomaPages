@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   AGENT_BRIDGE_PROTOCOL,
+  AGENT_BRIDGE_READY_TYPE,
   createAgentBridge,
   makeAgentBridgeChannelName,
+  makeAgentBridgeReadyMessage,
   normalizeAgentPeer,
 } from './agent-bridge';
 
@@ -35,6 +37,20 @@ function createMemoryChannelFactory() {
 describe('agent bridge', () => {
   it('creates room-scoped channel names with sanitized room ids', () => {
     expect(makeAgentBridgeChannelName('Codec Lobby!!')).toBe('tomari-studio:agent-bridge:codec-lobby');
+  });
+
+  it('builds a machine-readable ready message for local MCP adapters', () => {
+    expect(makeAgentBridgeReadyMessage({
+      now: () => 2048,
+      roomId: 'Codec Lobby!!',
+    })).toEqual({
+      protocol: AGENT_BRIDGE_PROTOCOL,
+      type: AGENT_BRIDGE_READY_TYPE,
+      roomId: 'codec-lobby',
+      channelName: 'tomari-studio:agent-bridge:codec-lobby',
+      ttlMs: 22000,
+      timestamp: 2048,
+    });
   });
 
   it('normalizes agent payloads into room peer state', () => {
@@ -111,6 +127,81 @@ describe('agent bridge', () => {
 
     bridgeA.close();
     bridgeB.close();
+  });
+
+  it('answers agent ping messages with bridge readiness metadata', async () => {
+    const channelFactory = createMemoryChannelFactory();
+    const readyMessages = [];
+    const bridge = createAgentBridge({
+      channelFactory,
+      now: () => 8192,
+      onPeer: () => {},
+      onPeerLeave: () => {},
+      roomId: 'codec-lobby',
+      windowRef: null,
+    });
+    const probe = channelFactory(makeAgentBridgeChannelName('codec-lobby'), (message) => {
+      readyMessages.push(message);
+    });
+
+    probe.post({
+      protocol: AGENT_BRIDGE_PROTOCOL,
+      type: 'agent-ping',
+      roomId: 'codec-lobby',
+    });
+    await flushMicrotasks();
+    await flushMicrotasks();
+
+    expect(readyMessages).toEqual([{
+      protocol: AGENT_BRIDGE_PROTOCOL,
+      type: AGENT_BRIDGE_READY_TYPE,
+      roomId: 'codec-lobby',
+      channelName: 'tomari-studio:agent-bridge:codec-lobby',
+      ttlMs: 22000,
+      timestamp: 8192,
+    }]);
+
+    bridge.close();
+    probe.close();
+  });
+
+  it('exposes a page-local ping helper for automation adapters', () => {
+    const posted = [];
+    const windowRef = {
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    };
+    const bridge = createAgentBridge({
+      channelFactory: () => ({
+        close: () => {},
+        post: (message) => posted.push(message),
+      }),
+      now: () => 16384,
+      onPeer: () => {},
+      onPeerLeave: () => {},
+      roomId: 'codec-lobby',
+      windowRef,
+    });
+
+    expect(windowRef.tomariAgentBridge.ping()).toEqual({
+      protocol: AGENT_BRIDGE_PROTOCOL,
+      type: AGENT_BRIDGE_READY_TYPE,
+      roomId: 'codec-lobby',
+      channelName: 'tomari-studio:agent-bridge:codec-lobby',
+      ttlMs: 22000,
+      timestamp: 16384,
+    });
+    expect(posted).toEqual([{
+      protocol: AGENT_BRIDGE_PROTOCOL,
+      type: AGENT_BRIDGE_READY_TYPE,
+      roomId: 'codec-lobby',
+      channelName: 'tomari-studio:agent-bridge:codec-lobby',
+      ttlMs: 22000,
+      timestamp: 16384,
+    }]);
+
+    bridge.close();
+    expect(windowRef.tomariAgentBridge).toBeUndefined();
   });
 
   it('ignores messages for other rooms and unknown bridge protocol versions', async () => {

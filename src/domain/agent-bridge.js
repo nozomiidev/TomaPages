@@ -2,6 +2,7 @@ import { sanitizeDisplayName, sanitizeRoomId } from './presence-transport';
 
 export const AGENT_BRIDGE_PROTOCOL = 'tomari-agent-bridge.v1';
 export const AGENT_BRIDGE_PREFIX = 'tomari-studio:agent-bridge';
+export const AGENT_BRIDGE_READY_TYPE = 'agent-bridge-ready';
 export const AGENT_PEER_TTL_MS = 22000;
 
 const DEFAULT_HAIR_COLOR = '#0F766E';
@@ -67,6 +68,19 @@ export function makeAgentBridgeChannelName(roomId) {
   return `${AGENT_BRIDGE_PREFIX}:${sanitizeRoomId(roomId)}`;
 }
 
+export function makeAgentBridgeReadyMessage({ channelName, now = safeNow, roomId } = {}) {
+  const safeRoomId = sanitizeRoomId(roomId);
+
+  return {
+    protocol: AGENT_BRIDGE_PROTOCOL,
+    type: AGENT_BRIDGE_READY_TYPE,
+    roomId: safeRoomId,
+    channelName: channelName || makeAgentBridgeChannelName(safeRoomId),
+    ttlMs: AGENT_PEER_TTL_MS,
+    timestamp: now(),
+  };
+}
+
 export function normalizeAgentPeer(input, { now = safeNow } = {}) {
   const rawPeer = input?.peer ?? input ?? {};
   const id = sanitizeAgentId(rawPeer.id ?? rawPeer.agentId ?? rawPeer.name);
@@ -103,6 +117,13 @@ export function createAgentBridge({
   const safeRoomId = sanitizeRoomId(roomId);
   const channelName = makeAgentBridgeChannelName(safeRoomId);
   let disposed = false;
+  let channel = null;
+
+  const ping = () => {
+    const message = makeAgentBridgeReadyMessage({ channelName, now, roomId: safeRoomId });
+    channel?.post(message);
+    return message;
+  };
 
   const receiveMessage = (message) => {
     if (disposed || !message || typeof message !== 'object') return;
@@ -110,6 +131,11 @@ export function createAgentBridge({
     if (messageRoom !== safeRoomId) return;
 
     if (message.protocol && message.protocol !== AGENT_BRIDGE_PROTOCOL) return;
+
+    if (['agent-ping', 'agent:ping', 'ping'].includes(message.type)) {
+      ping();
+      return;
+    }
 
     if (['agent-leave', 'leave'].includes(message.type)) {
       onPeerLeave(sanitizeAgentId(message.peerId ?? message.id));
@@ -121,7 +147,7 @@ export function createAgentBridge({
     }
   };
 
-  const channel = channelFactory?.(channelName, receiveMessage);
+  channel = channelFactory?.(channelName, receiveMessage);
 
   const publish = (peer) => {
     const message = {
@@ -154,6 +180,7 @@ export function createAgentBridge({
     windowRef.tomariAgentBridge = {
       channelName,
       leave,
+      ping,
       protocol: AGENT_BRIDGE_PROTOCOL,
       publish,
       roomId: safeRoomId,
@@ -163,6 +190,7 @@ export function createAgentBridge({
   return {
     channelName,
     leave,
+    ping,
     publish,
     close() {
       disposed = true;

@@ -8,8 +8,53 @@ Tomari Studio is hosted as static GitHub Pages, so it cannot keep an MCP server 
 - `window.postMessage`: same payload shape as the channel
 - `window.tomariAgentBridge.publish(peer)`: page-local helper exposed by `room.html`
 - `window.tomariAgentBridge.leave(peerId)`: page-local leave helper
+- `window.tomariAgentBridge.ping()`: returns and broadcasts bridge readiness metadata
 
 The room id is sanitized the same way as normal room links. For `room.html?room=Codec Lobby`, the channel is `tomari-studio:agent-bridge:codec-lobby`.
+
+`room.html` also exposes machine-readable metadata on the root room element:
+
+```html
+<section
+  data-agent-bridge-channel="tomari-studio:agent-bridge:codec-lobby"
+  data-agent-bridge-protocol="tomari-agent-bridge.v1"
+  data-agent-bridge-ready-type="agent-bridge-ready"
+  data-agent-bridge-status="ready"
+  data-agent-bridge-ttl-ms="22000"
+>
+```
+
+## Ready / Ping
+
+A local MCP adapter can verify that the browser room is open before publishing an agent peer:
+
+```js
+const channel = new BroadcastChannel('tomari-studio:agent-bridge:codec-lobby');
+channel.onmessage = (event) => {
+  if (event.data?.type === 'agent-bridge-ready') {
+    console.log(event.data.channelName, event.data.ttlMs);
+  }
+};
+
+channel.postMessage({
+  protocol: 'tomari-agent-bridge.v1',
+  type: 'agent-ping',
+  roomId: 'codec-lobby'
+});
+```
+
+The page replies with:
+
+```js
+{
+  protocol: 'tomari-agent-bridge.v1',
+  type: 'agent-bridge-ready',
+  roomId: 'codec-lobby',
+  channelName: 'tomari-studio:agent-bridge:codec-lobby',
+  ttlMs: 22000,
+  timestamp: 8192
+}
+```
 
 ## Presence Payload
 

@@ -168,6 +168,20 @@ function normalizePoseVariant(value) {
   return String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
 }
 
+function isEditableShortcutTarget(target) {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+
+  return ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName);
+}
+
+function poseVariantForShortcut(key, variants) {
+  const normalized = key.toLowerCase();
+  if (/^[1-9]$/.test(normalized)) return variants[Number(normalized) - 1] ?? null;
+
+  return variants.find((variant) => variant.shortcut === normalized || variant.id === normalized) ?? null;
+}
+
 function readTuningParams(search = window.location.search) {
   const params = new URLSearchParams(search);
   const patch = {};
@@ -276,6 +290,25 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
     const tuningParams = readTuningParams();
     if (Object.keys(tuningParams).length > 0) patchTuning(tuningParams);
   }, [patchTuning]);
+
+  useEffect(() => {
+    const variants = activeCharacter.poseVariants ?? [];
+    if (variants.length === 0) return undefined;
+
+    const onKeyDown = (event) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.repeat) return;
+      if (isEditableShortcutTarget(event.target)) return;
+
+      const variant = poseVariantForShortcut(event.key, variants);
+      if (!variant) return;
+
+      event.preventDefault();
+      patchTuning({ poseVariant: variant.id });
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activeCharacter.poseVariants, patchTuning]);
 
   useEffect(() => {
     const onPointerMove = (event) => {

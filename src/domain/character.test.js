@@ -44,7 +44,7 @@ describe('character domain', () => {
 
   it('maps Reimu talk, blink, and arm pose variants onto the plush sheet set', () => {
     const reimu = characterForId('reimu');
-    expect(poseVariantForCharacter(reimu, 'missing')).toEqual({ id: 'plain', label: 'Plain' });
+    expect(poseVariantForCharacter(reimu, 'missing')).toMatchObject({ id: 'plain', label: 'Plain' });
     expect(sheetForPose({ blink: false, characterId: 'reimu', mouth: 0 })).toBe('pl_01');
     expect(sheetForPose({ blink: false, characterId: 'reimu', mouth: 1 })).toBe('om_01');
     expect(sheetForPose({ blink: false, characterId: 'reimu', mouth: 2 })).toBe('om_01');

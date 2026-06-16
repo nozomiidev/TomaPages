@@ -184,9 +184,9 @@ export const CHARACTER_DEFINITIONS = {
     sheetDefinitions: REIMU_SHEETS,
     poseSets: REIMU_POSE_SETS,
     poseVariants: [
-      { id: 'plain', label: 'Plain' },
-      { id: 't', label: 'T-pose' },
-      { id: 'y', label: 'Y-pose' },
+      { id: 'plain', label: 'Plain', shortcut: 'p' },
+      { id: 't', label: 'T-pose', shortcut: 't' },
+      { id: 'y', label: 'Y-pose', shortcut: 'y' },
     ],
   },
 };

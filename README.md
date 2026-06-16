@@ -128,6 +128,12 @@ guruguru.html?filter=paint&hair=6D5BD0&hairMix=0.45&eyeColor=2BA7E8&eyeTint=0.75
 
 カードの通常表示は html2canvas で DOM から canvas snapshot 化し、hover 中のカードだけ live DOM として前面に出します。詳しい設計メモは `docs/multiplayer-architecture.md` にあります。
 
+```text
+room.html?room=codec-lobby&name=Nozomi
+```
+
+`Copy link` は現在の room/name を含む共有 URL を作ります。`New room` はランダムな room id を作って移動します。presence は状態変化時に加えて短い heartbeat でも送るため、後から入った peer も既存 peer を拾いやすくしています。
+
 ## 新しいキャラクターへ差し替える
 
 元 repo 由来の `tools/slice_character_sheets.py` を残しています。最終的には `public/slices2/{A..F}/r{0..4}c{0..4}.webp` が揃えばアプリは動きます。

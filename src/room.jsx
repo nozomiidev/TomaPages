@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
-import { Radio, Signal, Users } from 'lucide-react';
+import { Check, Copy, Radio, Shuffle, Signal, Users } from 'lucide-react';
 import { frameSrc, sheetForPose, targetToCell } from './domain/character';
-import { createPresenceTransport, getTabPeerId, readRoomId } from './domain/presence-transport';
+import {
+  createPresenceTransport,
+  getTabPeerId,
+  makeRandomRoomId,
+  makeRoomUrl,
+  readDisplayName,
+  readRoomId,
+} from './domain/presence-transport';
 import { useAvatarTintOverlay } from './hooks/use-avatar-tint-overlay';
 import { clamp } from './lib/math';
 
@@ -107,6 +114,7 @@ function usePresenceRoom({ localPeer, roomId }) {
     local: 'ready',
     p2p: 'starting',
   });
+  const localPeerRef = useRef(localPeer);
   const transportRef = useRef(null);
 
   useEffect(() => {
@@ -136,8 +144,16 @@ function usePresenceRoom({ localPeer, roomId }) {
   }, [localPeer.id, roomId]);
 
   useEffect(() => {
+    localPeerRef.current = localPeer;
     transportRef.current?.publish(localPeer);
   }, [localPeer]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      transportRef.current?.publish(localPeerRef.current);
+    }, 2200);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -153,6 +169,48 @@ function usePresenceRoom({ localPeer, roomId }) {
     remotePeers: Object.values(remotePeers),
     transportStatus,
   };
+}
+
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall through to the selection-based copy path below.
+    }
+  }
+
+  const input = document.createElement('textarea');
+  input.value = text;
+  input.setAttribute('readonly', '');
+  input.style.position = 'fixed';
+  input.style.left = '-9999px';
+  document.body.append(input);
+  input.select();
+  const copied = document.execCommand('copy');
+  input.remove();
+  return copied;
+}
+
+function waitForImage(image) {
+  if (image.complete && image.naturalWidth > 0) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    const done = () => resolve();
+    const timeoutId = window.setTimeout(done, 900);
+    const finish = () => {
+      window.clearTimeout(timeoutId);
+      done();
+    };
+
+    image.addEventListener('load', finish, { once: true });
+    image.addEventListener('error', finish, { once: true });
+  });
+}
+
+async function waitForImages(node) {
+  await Promise.all(Array.from(node.querySelectorAll('img'), waitForImage));
 }
 
 function RoomAvatar({ peer }) {
@@ -193,6 +251,7 @@ function RoomCard({ peer, live = false }) {
 export function RoomView({ localState, tuning }) {
   const roomId = useMemo(() => readRoomId(), []);
   const localPeerId = useMemo(createLocalPeerId, []);
+  const localPeerName = useMemo(() => readDisplayName({ fallbackId: localPeerId }), [localPeerId]);
   const canvasRef = useRef(null);
   const snapshotNodesRef = useRef(new Map());
   const snapshotsRef = useRef(new Map());
@@ -201,10 +260,15 @@ export function RoomView({ localState, tuning }) {
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [hoveredPeerId, setHoveredPeerId] = useState('');
   const [hoverCells, setHoverCells] = useState({});
+  const [copyState, setCopyState] = useState('idle');
+  const roomUrl = useMemo(() => makeRoomUrl({
+    roomId,
+    name: localPeerName,
+  }), [localPeerName, roomId]);
 
   const localPeer = useMemo(() => ({
     id: localPeerId,
-    name: 'You',
+    name: localPeerName,
     role: 'Live uplink',
     source: 'local',
     cell: hoverCells[localPeerId] ?? localState.cell,
@@ -215,7 +279,7 @@ export function RoomView({ localState, tuning }) {
     eyeColor: tuning.eyeColor,
     eyeTint: tuning.eyeTint,
     colorFilter: tuning.colorFilter,
-  }), [hoverCells, localPeerId, localState.audioLevel, localState.cell, localState.mouth, tuning.colorFilter, tuning.eyeColor, tuning.eyeTint, tuning.hairColor, tuning.hairTint]);
+  }), [hoverCells, localPeerId, localPeerName, localState.audioLevel, localState.cell, localState.mouth, tuning.colorFilter, tuning.eyeColor, tuning.eyeTint, tuning.hairColor, tuning.hairTint]);
 
   const { remotePeers, transportStatus } = usePresenceRoom({ localPeer, roomId });
   const peers = useMemo(() => (
@@ -264,11 +328,13 @@ export function RoomView({ localState, tuning }) {
 
   useEffect(() => {
     let cancelled = false;
-    const timerId = window.setTimeout(async () => {
+    const captureSnapshots = async () => {
       const nextSnapshots = new Map();
       for (const peer of peers) {
         const node = snapshotNodesRef.current.get(peer.id);
         if (!node) continue;
+        await waitForImages(node);
+        if (cancelled) return;
         const snapshot = await html2canvas(node, {
           backgroundColor: null,
           logging: false,
@@ -282,11 +348,15 @@ export function RoomView({ localState, tuning }) {
         snapshotsRef.current = nextSnapshots;
         setSnapshotVersion((value) => value + 1);
       }
-    }, 220);
+    };
+    const timerIds = [
+      window.setTimeout(captureSnapshots, 260),
+      window.setTimeout(captureSnapshots, 1200),
+    ];
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timerId);
+      timerIds.forEach((timerId) => window.clearTimeout(timerId));
     };
   }, [peerSnapshotKey, peers]);
 
@@ -380,6 +450,18 @@ export function RoomView({ localState, tuning }) {
 
   const clearHover = useCallback(() => setHoveredPeerId(''), []);
   const hoveredLayout = hoveredPeerId ? layoutsRef.current.get(hoveredPeerId) : null;
+  const handleCopyRoom = useCallback(async () => {
+    setCopyState('copying');
+    const didCopy = await copyText(roomUrl).catch(() => false);
+    setCopyState(didCopy ? 'copied' : 'failed');
+    window.setTimeout(() => setCopyState('idle'), 1800);
+  }, [roomUrl]);
+  const handleNewRoom = useCallback(() => {
+    window.location.assign(makeRoomUrl({
+      roomId: makeRandomRoomId(),
+      name: localPeerName,
+    }));
+  }, [localPeerName]);
 
   return (
     <section className="room-shell" aria-label="Codec room">
@@ -388,10 +470,32 @@ export function RoomView({ localState, tuning }) {
           <p className="eyebrow">Room / {roomId}</p>
           <h1>{ROOM_NAME}</h1>
         </div>
-        <div className="room-status">
-          <span><Signal size={15} aria-hidden="true" /> {transportStatus.p2p}</span>
-          <span><Users size={15} aria-hidden="true" /> {peers.length}</span>
-          <span><Radio size={15} aria-hidden="true" /> html2canvas</span>
+        <div className="room-toolbar__meta">
+          <div className="room-status">
+            <span><Signal size={15} aria-hidden="true" /> {transportStatus.p2p}</span>
+            <span><Users size={15} aria-hidden="true" /> {peers.length}</span>
+            <span><Radio size={15} aria-hidden="true" /> html2canvas</span>
+          </div>
+          <div className="room-actions">
+            <button
+              type="button"
+              title="Copy room link"
+              aria-label="Copy room link"
+              onClick={handleCopyRoom}
+            >
+              {copyState === 'copied' ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}
+              <span>{copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy link'}</span>
+            </button>
+            <button
+              type="button"
+              title="New room"
+              aria-label="New room"
+              onClick={handleNewRoom}
+            >
+              <Shuffle size={15} aria-hidden="true" />
+              <span>New room</span>
+            </button>
+          </div>
         </div>
       </div>
 

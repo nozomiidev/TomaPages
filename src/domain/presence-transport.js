@@ -1,8 +1,48 @@
 const APP_ID = 'io.github.nozomiidev.tomapages';
 const P2P_ROOM_PREFIX = 'tomari-studio';
+const ROOM_WORDS = ['codec', 'signal', 'orbit', 'relay', 'uplink', 'vector', 'beacon', 'circuit'];
 
 function safeNow() {
   return Date.now();
+}
+
+function currentSearch() {
+  return typeof window === 'undefined' ? '' : window.location.search;
+}
+
+function sanitizeRoomId(value) {
+  return (value || 'public-lobby')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 48) || 'public-lobby';
+}
+
+function sanitizeDisplayName(value) {
+  return String(value || '')
+    .split('')
+    .filter((char) => {
+      const code = char.charCodeAt(0);
+      return code >= 32 && code !== 127;
+    })
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 28);
+}
+
+export function createOperatorName(peerId = '') {
+  const suffix = String(peerId).replace(/[^a-z0-9]/gi, '').slice(0, 4).toUpperCase();
+  return `Operator ${suffix || Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+}
+
+export function makeRandomRoomId(random = Math.random) {
+  const left = ROOM_WORDS[Math.floor(random() * ROOM_WORDS.length)] ?? ROOM_WORDS[0];
+  const right = ROOM_WORDS[Math.floor(random() * ROOM_WORDS.length)] ?? ROOM_WORDS[1];
+  const code = Math.floor(random() * 0xfff).toString(16).padStart(3, '0');
+  return sanitizeRoomId(`${left}-${right}-${code}`);
 }
 
 function makeBroadcastChannel(roomId, onMessage) {
@@ -39,13 +79,25 @@ function makeBroadcastChannel(roomId, onMessage) {
   };
 }
 
-export function readRoomId(search = window.location.search) {
+export function readRoomId(search = currentSearch()) {
   const params = new URLSearchParams(search);
-  return (params.get('room') || 'public-lobby')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]/g, '-')
-    .slice(0, 48) || 'public-lobby';
+  return sanitizeRoomId(params.get('room'));
+}
+
+export function readDisplayName({ search = currentSearch(), fallbackId = '' } = {}) {
+  const params = new URLSearchParams(search);
+  return sanitizeDisplayName(params.get('name')) || createOperatorName(fallbackId);
+}
+
+export function makeRoomUrl({ roomId, name, baseUrl } = {}) {
+  const safeBase = baseUrl ?? (typeof window === 'undefined' ? 'https://example.test/room.html' : window.location.href);
+  const url = new URL('room.html', safeBase);
+  url.searchParams.set('room', sanitizeRoomId(roomId));
+
+  const displayName = sanitizeDisplayName(name);
+  if (displayName) url.searchParams.set('name', displayName);
+
+  return url.toString();
 }
 
 export function getTabPeerId() {

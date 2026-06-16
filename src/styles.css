@@ -813,6 +813,15 @@ img {
   line-height: 1.1;
 }
 
+.room-toolbar__meta {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .room-status {
   display: flex;
   align-items: center;
@@ -821,7 +830,8 @@ img {
   gap: 8px;
 }
 
-.room-status span {
+.room-status span,
+.room-actions button {
   min-height: 30px;
   display: inline-flex;
   align-items: center;
@@ -833,6 +843,25 @@ img {
   background: #f8f9fa;
   font-size: 12px;
   font-weight: 760;
+}
+
+.room-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.room-actions button {
+  cursor: pointer;
+  font: inherit;
+}
+
+.room-actions button:hover {
+  border-color: rgba(15, 118, 110, 0.24);
+  color: #0f766e;
+  background: #f1fbf8;
 }
 
 .room-stage {

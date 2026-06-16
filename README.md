@@ -138,6 +138,8 @@ room.html?room=codec-lobby&name=Nozomi
 
 デモ peer は room が空のときだけ自動表示します。実 peer または agent peer が入ると roster と stage は実参加者を優先します。検証用に常時表示したい場合は `demo=1`、完全に隠したい場合は `demo=0` を URL に付けます。各タブの peer id はページ単位で生成し、duplicated tab の sessionStorage コピーによる自分同士の衝突を避けています。
 
+Room root には `data-room-live-peers`、`data-room-p2p-peers`、`data-room-agent-peers`、`data-room-speaking-peers` などの summary も出します。UI 上の roster でも heartbeat freshness を小さく表示するため、実 peer / AI agent / demo の状態を確認しやすくしています。
+
 ### Agent Bridge / MCP 窓口
 
 `room.html` は AI agent も peer として表示できる browser-side bridge を公開します。GitHub Pages は常駐 MCP サーバーをホストできないため、MCP adapter やローカルツール側からブラウザへ presence payload を渡す入口です。

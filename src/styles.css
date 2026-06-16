@@ -1043,6 +1043,10 @@ img {
   transform: translateY(-1px);
 }
 
+.room-roster__peer.is-stale {
+  opacity: 0.62;
+}
+
 .room-roster__peer span {
   overflow: hidden;
   color: #202124;
@@ -1057,6 +1061,7 @@ img {
   font-size: 10px;
   font-weight: 820;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .room-roster__peer.is-speaking small {

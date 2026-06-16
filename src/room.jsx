@@ -17,6 +17,7 @@ import {
   readRoomId,
 } from './domain/presence-transport';
 import { readDemoPeerPreference, shouldIncludeDemoPeers } from './domain/room-peers';
+import { getPeerFreshness, summarizeRoomPresence } from './domain/room-presence';
 import { useAvatarTintOverlay } from './hooks/use-avatar-tint-overlay';
 import { clamp } from './lib/math';
 
@@ -90,6 +91,12 @@ function peerSort(left, right) {
 
 function sourceLabel(source) {
   return SOURCE_LABELS[source] ?? String(source || 'PEER').slice(0, 4).toUpperCase();
+}
+
+function rosterMetaLabel(source, freshness) {
+  if (source === 'local') return 'you';
+  if (source === 'demo') return 'sim';
+  return `${sourceLabel(source)} · ${freshness.label}`;
 }
 
 function computeLayouts(width, height, count) {
@@ -364,22 +371,28 @@ function RoomLiveControls({ controls }) {
   );
 }
 
-function RoomRoster({ activePeerId, peers }) {
+function RoomRoster({ activePeerId, now, peers }) {
   return (
     <div className="room-roster" aria-label="Room participants">
       {peers.map((peer) => {
         const source = peer.source || 'peer';
+        const freshness = getPeerFreshness(peer, { now });
         const className = [
           'room-roster__peer',
           `room-roster__peer--${source}`,
           activePeerId === peer.id ? 'is-active' : '',
           (peer.audioLevel ?? 0) > 0.2 ? 'is-speaking' : '',
+          freshness.state === 'stale' ? 'is-stale' : '',
         ].filter(Boolean).join(' ');
 
         return (
-          <div key={peer.id} className={className}>
+          <div
+            key={peer.id}
+            className={className}
+            title={`${peer.name} / ${sourceLabel(source)} / ${freshness.label}`}
+          >
             <span>{peer.name}</span>
-            <small>{source === 'local' ? 'you' : sourceLabel(source)}</small>
+            <small>{rosterMetaLabel(source, freshness)}</small>
             <i aria-hidden="true">
               <b style={{ width: `${Math.round((peer.audioLevel ?? 0) * 100)}%` }} />
             </i>
@@ -404,6 +417,7 @@ export function RoomView({ liveControls, localState, tuning }) {
   const [hoveredPeerId, setHoveredPeerId] = useState('');
   const [hoverCells, setHoverCells] = useState({});
   const [copyState, setCopyState] = useState('idle');
+  const [roomClock, setRoomClock] = useState(() => Date.now());
   const roomUrl = useMemo(() => makeRoomUrl({
     roomId,
     name: localPeerName,
@@ -441,6 +455,7 @@ export function RoomView({ liveControls, localState, tuning }) {
       }))
       .sort(peerSort)
   ), [agentPeers, demoPeers, hoverCells, localPeer, remotePeers]);
+  const presenceSummary = useMemo(() => summarizeRoomPresence(peers), [peers]);
   const hoveredPeer = peers.find((peer) => peer.id === hoveredPeerId);
   const peerSnapshotKey = peers.map((peer) => [
     peer.id,
@@ -458,6 +473,11 @@ export function RoomView({ liveControls, localState, tuning }) {
   const setSnapshotNode = useCallback((peerId, node) => {
     if (node) snapshotNodesRef.current.set(peerId, node);
     else snapshotNodesRef.current.delete(peerId);
+  }, []);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setRoomClock(Date.now()), 3000);
+    return () => window.clearInterval(intervalId);
   }, []);
 
   useEffect(() => {
@@ -660,6 +680,12 @@ export function RoomView({ liveControls, localState, tuning }) {
       data-agent-bridge-ready-type={AGENT_BRIDGE_READY_TYPE}
       data-agent-bridge-status={agentBridge.status}
       data-agent-bridge-ttl-ms={AGENT_PEER_TTL_MS}
+      data-room-agent-peers={presenceSummary.agent}
+      data-room-demo-peers={presenceSummary.demo}
+      data-room-live-peers={presenceSummary.live}
+      data-room-p2p-peers={presenceSummary.p2p}
+      data-room-speaking-peers={presenceSummary.speaking}
+      data-room-total-peers={presenceSummary.total}
     >
       <div className="room-toolbar">
         <div className="room-toolbar__identity">
@@ -671,7 +697,8 @@ export function RoomView({ liveControls, localState, tuning }) {
           <div className="room-toolbar__secondary">
             <div className="room-status">
               <span data-state={transportStatus.p2p}><Signal size={15} aria-hidden="true" /> {transportStatus.p2p}</span>
-              <span><Users size={15} aria-hidden="true" /> {peers.length}</span>
+              <span title="Live / total peers"><Users size={15} aria-hidden="true" /> {presenceSummary.live}/{presenceSummary.total}</span>
+              <span title="Speaking peers"><AudioLines size={15} aria-hidden="true" /> {presenceSummary.speaking}</span>
               <span title={agentBridge.channelName} data-state={agentBridge.status}><Bot size={15} aria-hidden="true" /> Agent {agentBridge.status}</span>
               <span><Radio size={15} aria-hidden="true" /> canvas</span>
             </div>
@@ -699,7 +726,7 @@ export function RoomView({ liveControls, localState, tuning }) {
         </div>
       </div>
 
-      <RoomRoster activePeerId={hoveredPeerId} peers={peers} />
+      <RoomRoster activePeerId={hoveredPeerId} now={roomClock} peers={peers} />
 
       <div className="room-stage">
         <canvas

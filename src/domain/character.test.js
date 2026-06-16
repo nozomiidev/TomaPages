@@ -3,8 +3,10 @@ import {
   allFrames,
   assetManifest,
   CHARACTER_OPTIONS,
+  characterForId,
   frameSrc,
   mouthFromLevel,
+  poseVariantForCharacter,
   sheetForPose,
   targetToCell,
 } from './character';
@@ -33,18 +35,39 @@ describe('character domain', () => {
 
   it('registers the Reimu plush character as WebP frames', () => {
     expect(CHARACTER_OPTIONS.map((character) => character.id)).toEqual(['tomari', 'reimu']);
-    expect(allFrames({ characterId: 'reimu' })).toHaveLength(75);
-    expect(assetManifest('reimu')).toHaveLength(3);
+    expect(allFrames({ characterId: 'reimu' })).toHaveLength(225);
+    expect(assetManifest('reimu')).toHaveLength(9);
     expect(assetManifest('reimu').every((item) => item.frameCount === 25)).toBe(true);
     expect(frameSrc('pl_01', 2, 2, 'reimu')).toContain('characters/reimu/pl_01/r2c2.webp');
+    expect(frameSrc('py_01', 0, 4, 'reimu')).toContain('characters/reimu/py_01/r0c4.webp');
   });
 
-  it('maps Reimu talk and blink poses onto the plush sheet set', () => {
+  it('maps Reimu talk, blink, and arm pose variants onto the plush sheet set', () => {
+    const reimu = characterForId('reimu');
+    expect(poseVariantForCharacter(reimu, 'missing')).toEqual({ id: 'plain', label: 'Plain' });
     expect(sheetForPose({ blink: false, characterId: 'reimu', mouth: 0 })).toBe('pl_01');
     expect(sheetForPose({ blink: false, characterId: 'reimu', mouth: 1 })).toBe('om_01');
     expect(sheetForPose({ blink: false, characterId: 'reimu', mouth: 2 })).toBe('om_01');
     expect(sheetForPose({ blink: true, characterId: 'reimu', mouth: 0 })).toBe('ce_01');
     expect(sheetForPose({ blink: true, characterId: 'reimu', mouth: 2 })).toBe('ce_01');
+    expect(sheetForPose({
+      blink: false,
+      characterId: 'reimu',
+      mouth: 0,
+      poseVariant: 't',
+    })).toBe('pt_01');
+    expect(sheetForPose({
+      blink: false,
+      characterId: 'reimu',
+      mouth: 2,
+      poseVariant: 'y',
+    })).toBe('oy_01');
+    expect(sheetForPose({
+      blink: true,
+      characterId: 'reimu',
+      mouth: 0,
+      poseVariant: 'y',
+    })).toBe('cy_01');
   });
 
   it('uses the original half/open mouth thresholds', () => {

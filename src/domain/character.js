@@ -63,7 +63,7 @@ const TOMARI_SHEETS = [
 const REIMU_SHEETS = [
   {
     sheet: 'pl_01',
-    name: 'Reimu plush / closed mouth',
+    name: 'Reimu plush / plain',
     eyes: 'open',
     mouth: 'closed',
   },
@@ -75,11 +75,86 @@ const REIMU_SHEETS = [
   },
   {
     sheet: 'ce_01',
-    name: 'Reimu plush / blink',
+    name: 'Reimu plush / closed eyes',
+    eyes: 'closed',
+    mouth: 'closed',
+  },
+  {
+    sheet: 'pt_01',
+    name: 'Reimu plush / T-pose',
+    eyes: 'open',
+    mouth: 'closed',
+  },
+  {
+    sheet: 'ot_01',
+    name: 'Reimu plush / T-pose open mouth',
+    eyes: 'open',
+    mouth: 'open',
+  },
+  {
+    sheet: 'ct_01',
+    name: 'Reimu plush / T-pose closed eyes',
+    eyes: 'closed',
+    mouth: 'closed',
+  },
+  {
+    sheet: 'py_01',
+    name: 'Reimu plush / Y-pose',
+    eyes: 'open',
+    mouth: 'closed',
+  },
+  {
+    sheet: 'oy_01',
+    name: 'Reimu plush / Y-pose open mouth',
+    eyes: 'open',
+    mouth: 'open',
+  },
+  {
+    sheet: 'cy_01',
+    name: 'Reimu plush / Y-pose closed eyes',
     eyes: 'closed',
     mouth: 'closed',
   },
 ];
+
+const REIMU_POSE_SETS = {
+  plain: {
+    eyesOpen: {
+      closedMouth: 'pl_01',
+      halfMouth: 'om_01',
+      openMouth: 'om_01',
+    },
+    eyesClosed: {
+      closedMouth: 'ce_01',
+      halfMouth: 'ce_01',
+      openMouth: 'ce_01',
+    },
+  },
+  t: {
+    eyesOpen: {
+      closedMouth: 'pt_01',
+      halfMouth: 'ot_01',
+      openMouth: 'ot_01',
+    },
+    eyesClosed: {
+      closedMouth: 'ct_01',
+      halfMouth: 'ct_01',
+      openMouth: 'ct_01',
+    },
+  },
+  y: {
+    eyesOpen: {
+      closedMouth: 'py_01',
+      halfMouth: 'oy_01',
+      openMouth: 'oy_01',
+    },
+    eyesClosed: {
+      closedMouth: 'cy_01',
+      halfMouth: 'cy_01',
+      openMouth: 'cy_01',
+    },
+  },
+};
 
 export const CHARACTER_DEFINITIONS = {
   tomari: {
@@ -93,6 +168,7 @@ export const CHARACTER_DEFINITIONS = {
     supportsTint: true,
     sheets: CHARACTER.sheets,
     sheetDefinitions: TOMARI_SHEETS,
+    poseVariants: [],
   },
   reimu: {
     id: 'reimu',
@@ -103,19 +179,15 @@ export const CHARACTER_DEFINITIONS = {
     basePath: `${BASE_URL}characters/reimu`,
     ext: 'webp',
     supportsTint: false,
-    sheets: {
-      eyesOpen: {
-        closedMouth: 'pl_01',
-        halfMouth: 'om_01',
-        openMouth: 'om_01',
-      },
-      eyesClosed: {
-        closedMouth: 'ce_01',
-        halfMouth: 'ce_01',
-        openMouth: 'ce_01',
-      },
-    },
+    defaultPoseVariant: 'plain',
+    sheets: REIMU_POSE_SETS.plain,
     sheetDefinitions: REIMU_SHEETS,
+    poseSets: REIMU_POSE_SETS,
+    poseVariants: [
+      { id: 'plain', label: 'Plain' },
+      { id: 't', label: 'T-pose' },
+      { id: 'y', label: 'Y-pose' },
+    ],
   },
 };
 
@@ -136,29 +208,40 @@ export function characterForId(characterId = 'tomari') {
   return CHARACTER_DEFINITIONS[characterId] ?? CHARACTER_DEFINITIONS.tomari;
 }
 
+export function poseVariantForCharacter(character, poseVariant) {
+  if (!character.poseVariants?.length) return null;
+  return character.poseVariants.find((variant) => variant.id === poseVariant)
+    ?? character.poseVariants.find((variant) => variant.id === character.defaultPoseVariant)
+    ?? character.poseVariants[0];
+}
+
+function sheetSetForPoseVariant(character, poseVariant) {
+  const variant = poseVariantForCharacter(character, poseVariant);
+  return character.poseSets?.[variant?.id] ?? character.sheets;
+}
+
 export function frameSrc(sheet, row, col, characterId = 'tomari') {
   const character = characterForId(characterId);
   return `${character.basePath}/${sheet}/r${row}c${col}.${character.ext}`;
 }
 
-export function sheetForPose({ blink, characterId = 'tomari', mouth }) {
+export function sheetForPose({
+  blink,
+  characterId = 'tomari',
+  mouth,
+  poseVariant,
+}) {
   const character = characterForId(characterId);
+  const sheetSet = sheetSetForPoseVariant(character, poseVariant);
   const mouthState = MOUTH_STATES[mouth] ?? MOUTH_STATES[0];
-  const eyeSet = blink ? character.sheets.eyesClosed : character.sheets.eyesOpen;
+  const eyeSet = blink ? sheetSet.eyesClosed : sheetSet.eyesOpen;
   return eyeSet[mouthState.key];
 }
 
 export function allFrames({ characterId = 'tomari', includeMouthStates = true } = {}) {
   const character = characterForId(characterId);
   const sheets = includeMouthStates
-    ? Array.from(new Set([
-      character.sheets.eyesOpen.closedMouth,
-      character.sheets.eyesOpen.halfMouth,
-      character.sheets.eyesOpen.openMouth,
-      character.sheets.eyesClosed.closedMouth,
-      character.sheets.eyesClosed.halfMouth,
-      character.sheets.eyesClosed.openMouth,
-    ]))
+    ? character.sheetDefinitions.map((definition) => definition.sheet)
     : [character.sheets.eyesOpen.closedMouth, character.sheets.eyesClosed.closedMouth];
   const frames = [];
 

@@ -37,6 +37,12 @@ public/slices2/F/r0c0.webp ... r4c4.webp
 public/characters/reimu/pl_01/r0c0.webp ... r4c4.webp
 public/characters/reimu/om_01/r0c0.webp ... r4c4.webp
 public/characters/reimu/ce_01/r0c0.webp ... r4c4.webp
+public/characters/reimu/pt_01/r0c0.webp ... r4c4.webp
+public/characters/reimu/ot_01/r0c0.webp ... r4c4.webp
+public/characters/reimu/ct_01/r0c0.webp ... r4c4.webp
+public/characters/reimu/py_01/r0c0.webp ... r4c4.webp
+public/characters/reimu/oy_01/r0c0.webp ... r4c4.webp
+public/characters/reimu/cy_01/r0c0.webp ... r4c4.webp
 ```
 
 This summary is intentionally conservative. If the upstream asset terms are stricter, the upstream terms prevail.

@@ -31,7 +31,7 @@ https://nozomiidev.github.io/TomaPages/index.html#assets
 - GitHub Actions による build / verify / deploy を追加
 - lint / test / Pages artifact verifier を追加
 - 文字化けしていた UI 文言を整理し、制作ツールとして使える SaaS 風の画面構成に刷新
-- asset inventory 画面を追加し、Tomari と Reimu の 9 シート / 225 フレームの読み込みを確認しやすくした
+- asset inventory 画面を追加し、Tomari と Reimu の 15 シート / 375 フレームの読み込みを確認しやすくした
 - 髪色・瞳色を非破壊のピクセルマスクで重ねる appearance tuning を追加
 - `avatar=reimu` / `character=reimu` で霊夢 fumo 版の WebP アセットへ切り替え可能にした
 
@@ -44,7 +44,7 @@ https://nozomiidev.github.io/TomaPages/index.html#assets
 - `room.html`: Trystero の WebRTC presence と html2canvas snapshot を使った通信ルームの第一実装 slice
 - 自然な自動まばたき、ダブル blink、長め blink
 - 調整パネル: character、follow range、smoothing、avatar size、mic gain、口パクしきい値、release、髪色、瞳色、背景色、auto blink、debug grid
-- `index.html#assets`: 9 シート / 225 フレームの asset inventory
+- `index.html#assets`: 15 シート / 375 フレームの asset inventory
 - GitHub Pages 用の relative asset path、Actions deploy、artifact verifier
 - lint/test/audit/build/Pages verify を回せる保守用スクリプト
 
@@ -114,19 +114,21 @@ Pages 側の Source は GitHub Actions にしてください。
 
 方向は `r0..r4` x `c0..c4` です。`r2c2` が正面、列は左から右、行は上から下の向きです。
 
-追加キャラクターは `public/characters/{characterId}/{sheet}/r{row}c{col}.webp` に置きます。現在は霊夢 fumo の初期対応として、以下の 3 シートを同梱しています。
+追加キャラクターは `public/characters/{characterId}/{sheet}/r{row}c{col}.webp` に置きます。現在は霊夢 fumo の対応として、Plain / T-pose / Y-pose の各 5x5 方向セットを同梱しています。
 
-| Sheet | Eyes | Mouth |
-| --- | --- | --- |
-| `pl_01` | open | closed |
-| `om_01` | open | half/open |
-| `ce_01` | closed | closed/half/open |
+| Pose | Plain eyes | Open mouth | Closed eyes |
+| --- | --- | --- | --- |
+| Plain | `pl_01` | `om_01` | `ce_01` |
+| T-pose | `pt_01` | `ot_01` | `ct_01` |
+| Y-pose | `py_01` | `oy_01` | `cy_01` |
 
 URL から直接切り替える場合は次のように指定できます。
 
 ```text
 talk.html?avatar=reimu
 guruguru.html?character=reimu
+talk.html?avatar=reimu&pose=y
+guruguru.html?character=reimu&arms=t
 ```
 
 ## 色カスタマイズ

@@ -38,6 +38,7 @@ import {
   mouthFromLevel,
   MOUTH_STATES,
   pointerToTarget,
+  poseVariantForCharacter,
   sheetForPose,
   targetToCell,
 } from './domain/character';
@@ -67,6 +68,7 @@ const DEFAULT_TUNING = {
   autoBlink: true,
   showDebug: false,
   characterId: 'tomari',
+  poseVariant: 'plain',
   hairColor: '#6D5BD0',
   hairTint: 0,
   eyeColor: '#2BA7E8',
@@ -162,10 +164,15 @@ function normalizeCharacterId(value) {
   return CHARACTER_OPTIONS.some((character) => character.id === normalized) ? normalized : '';
 }
 
+function normalizePoseVariant(value) {
+  return String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+}
+
 function readTuningParams(search = window.location.search) {
   const params = new URLSearchParams(search);
   const patch = {};
   const characterId = normalizeCharacterId(params.get('character') ?? params.get('avatar'));
+  const poseVariant = normalizePoseVariant(params.get('pose') ?? params.get('arms') ?? params.get('variant'));
   const hairColor = normalizeColorParam(params.get('hair') ?? params.get('hairColor'));
   const eyeColor = normalizeColorParam(params.get('eyes') ?? params.get('eyeColor'));
   const hasFilterOverride = params.has('filter') || params.has('colorFilter');
@@ -175,6 +182,7 @@ function readTuningParams(search = window.location.search) {
   const hasColorOverride = Boolean(hairColor || eyeColor || Number.isFinite(hairTint) || Number.isFinite(eyeTint));
 
   if (characterId) patch.characterId = characterId;
+  if (poseVariant) patch.poseVariant = poseVariant;
   if (hairColor) patch.hairColor = hairColor;
   if (eyeColor) patch.eyeColor = eyeColor;
   if (colorFilter) patch.colorFilter = colorFilter;
@@ -244,6 +252,7 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
 
   const engine = useMemo(() => new AudioLevelEngine(), []);
   const activeCharacter = characterForId(tuning.characterId);
+  const activePoseVariant = poseVariantForCharacter(activeCharacter, tuning.poseVariant);
   const frames = useMemo(() => allFrames({
     characterId: activeCharacter.id,
   }), [activeCharacter.id]);
@@ -258,6 +267,7 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
     blink,
     characterId: activeCharacter.id,
     mouth: mode === 'talk' ? mouth : 0,
+    poseVariant: activePoseVariant?.id,
   });
 
   useEffect(() => () => engine.dispose(), [engine]);
@@ -493,6 +503,7 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
       data-lip-sync-demo-samples={builtInSyncAudit.sampleCount}
       data-lip-sync-demo-transitions={builtInSyncAudit.transitions}
       data-character-id={activeCharacter.id}
+      data-pose-variant={activePoseVariant?.id ?? ''}
       data-avatar-filter={tuning.colorFilter}
     >
       {!stageOnly && (
@@ -564,6 +575,7 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
             cell={cell}
             character={activeCharacter}
             mouth={activeMouth}
+            poseVariant={activePoseVariant}
           />
         )}
       </main>
@@ -805,7 +817,16 @@ function DebugGrid({ row, col }) {
   );
 }
 
-function TuningPanel({ tuning, patchTuning, resetTuning, mode, cell, character, mouth }) {
+function TuningPanel({
+  tuning,
+  patchTuning,
+  resetTuning,
+  mode,
+  cell,
+  character,
+  mouth,
+  poseVariant,
+}) {
   return (
     <aside className="panel tuning-panel" aria-label="Tuning">
       <PanelTitle icon={SlidersHorizontal} title="Tuning" />
@@ -883,6 +904,14 @@ function TuningPanel({ tuning, patchTuning, resetTuning, mode, cell, character, 
           options={CHARACTER_OPTIONS}
           onChange={(characterId) => patchTuning({ characterId })}
         />
+        {character.poseVariants?.length > 0 && poseVariant && (
+          <SegmentedControl
+            label="Arm pose"
+            value={poseVariant.id}
+            options={character.poseVariants}
+            onChange={(nextPoseVariant) => patchTuning({ poseVariant: nextPoseVariant })}
+          />
+        )}
         {character.supportsTint && (
           <>
             <SegmentedControl

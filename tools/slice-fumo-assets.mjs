@@ -2,11 +2,38 @@ import { mkdir, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 
+const DEFAULT_CHARACTER_SHEETS = {
+  cirno: [
+    'pl_01',
+    'om_01',
+    'ce_01',
+    'pl_02',
+    'om_02',
+    'ce_02',
+    'pl_03',
+    'om_03',
+    'ce_03',
+    'pl_04',
+    'om_04',
+    'ce_04',
+  ],
+  reimu: [
+    'pl_01',
+    'om_01',
+    'ce_01',
+    'pt_01',
+    'ot_01',
+    'ct_01',
+    'py_01',
+    'oy_01',
+    'cy_01',
+  ],
+};
+
 const DEFAULTS = {
   sourceRoot: 'metaassets/fumo',
   outputRoot: 'public/characters',
   characters: ['reimu'],
-  sheets: ['pl_01', 'om_01', 'ce_01'],
   rows: 5,
   cols: 5,
   outputSize: 512,
@@ -21,11 +48,20 @@ function readOption(args, name, fallback) {
   return args[index + 1] ?? fallback;
 }
 
-function readListOption(args, name, fallback) {
-  return readOption(args, name, fallback.join(','))
+function hasOption(args, name) {
+  return args.includes(`--${name}`);
+}
+
+function parseList(value) {
+  return String(value ?? '')
     .split(',')
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
+}
+
+function readListOption(args, name, fallback) {
+  if (!hasOption(args, name)) return fallback;
+  return parseList(readOption(args, name, ''));
 }
 
 function readNumberOption(args, name, fallback) {
@@ -350,13 +386,23 @@ async function sliceSheet({ sourceFile, sheetOutputDir, rows, cols, outputSize, 
   }
 }
 
+function sheetsForCharacter(characterId, sheetOverride) {
+  const sheets = sheetOverride ?? DEFAULT_CHARACTER_SHEETS[characterId];
+  if (!sheets?.length) {
+    throw new Error(`No sheet list configured for character: ${characterId}`);
+  }
+
+  return sheets;
+}
+
 async function main() {
   const args = process.argv.slice(2);
+  const sheetOverride = hasOption(args, 'sheets') ? readListOption(args, 'sheets', []) : null;
   const options = {
     sourceRoot: path.resolve(readOption(args, 'source', DEFAULTS.sourceRoot)),
     outputRoot: path.resolve(readOption(args, 'out', DEFAULTS.outputRoot)),
     characters: readListOption(args, 'characters', DEFAULTS.characters),
-    sheets: readListOption(args, 'sheets', DEFAULTS.sheets),
+    sheetOverride,
     rows: readNumberOption(args, 'rows', DEFAULTS.rows),
     cols: readNumberOption(args, 'cols', DEFAULTS.cols),
     outputSize: readNumberOption(args, 'size', DEFAULTS.outputSize),
@@ -370,8 +416,9 @@ async function main() {
   let written = 0;
   for (const characterId of options.characters) {
     const characterOutputDir = await cleanCharacterOutput(options.outputRoot, characterId);
+    const sheets = sheetsForCharacter(characterId, options.sheetOverride);
 
-    for (const sheetId of options.sheets) {
+    for (const sheetId of sheets) {
       const sourceFile = path.join(options.sourceRoot, characterId, `${characterId}_${sheetId}.png`);
       const sheetOutputDir = path.join(characterOutputDir, sheetId);
 

@@ -5,7 +5,7 @@ const DIST = 'dist';
 const HTML_FILES = ['index.html', 'talk.html', 'guruguru.html'];
 const SHEETS = ['A', 'B', 'C', 'D', 'E', 'F'];
 const CHARACTER_SHEETS = {
-  reimu: ['pl_01', 'om_01', 'ce_01'],
+  reimu: ['pl_01', 'om_01', 'ce_01', 'pt_01', 'ot_01', 'ct_01', 'py_01', 'oy_01', 'cy_01'],
 };
 
 function fail(message) {

@@ -11,6 +11,7 @@ Tomari Studio is hosted as static GitHub Pages, so it cannot keep an MCP server 
 - `window.tomariAgentBridge.ping()`: returns and broadcasts bridge readiness metadata
 - `window.tomariAgentBridge.makePresence(peer)`: returns a sanitized `agent-presence` message without publishing it
 - `window.tomariAgentBridge.makeLeave(peerId)`: returns a sanitized `agent-leave` message without publishing it
+- `#tomari-agent-bridge-manifest`: machine-readable JSON for adapters that can inspect DOM but cannot access page globals
 
 The room id is sanitized the same way as normal room links. For `room.html?room=Codec Lobby`, the channel is `tomari-studio:agent-bridge:codec-lobby`.
 
@@ -20,6 +21,7 @@ The room id is sanitized the same way as normal room links. For `room.html?room=
 <section
   data-agent-bridge-channel="tomari-studio:agent-bridge:codec-lobby"
   data-agent-bridge-helper="window.tomariAgentBridge"
+  data-agent-bridge-manifest="tomari-agent-bridge-manifest"
   data-agent-bridge-presence-type="agent-presence"
   data-agent-bridge-leave-type="agent-leave"
   data-agent-bridge-protocol="tomari-agent-bridge.v1"
@@ -27,6 +29,16 @@ The room id is sanitized the same way as normal room links. For `room.html?room=
   data-agent-bridge-status="ready"
   data-agent-bridge-ttl-ms="22000"
 >
+```
+
+The JSON manifest mirrors the attributes and adds the supported message types, ingress methods, TTL, and peer fields:
+
+```js
+const manifest = JSON.parse(
+  document.getElementById('tomari-agent-bridge-manifest').textContent
+);
+console.log(manifest.channelName);
+console.log(manifest.messageTypes.presence);
 ```
 
 ## Ready / Ping

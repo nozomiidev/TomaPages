@@ -6,6 +6,7 @@ import {
   AGENT_BRIDGE_READY_TYPE,
   createAgentBridge,
   makeAgentBridgeChannelName,
+  makeAgentBridgeManifest,
   makeAgentLeaveMessage,
   makeAgentPresenceMessage,
   makeAgentBridgeReadyMessage,
@@ -54,6 +55,47 @@ describe('agent bridge', () => {
       channelName: 'tomari-studio:agent-bridge:codec-lobby',
       ttlMs: 22000,
       timestamp: 2048,
+    });
+  });
+
+  it('builds a DOM-readable manifest for MCP adapters that cannot access page globals', () => {
+    expect(makeAgentBridgeManifest({
+      roomId: 'Codec Lobby!!',
+      status: 'ready',
+    })).toEqual({
+      protocol: AGENT_BRIDGE_PROTOCOL,
+      version: 1,
+      status: 'ready',
+      roomId: 'codec-lobby',
+      channelName: 'tomari-studio:agent-bridge:codec-lobby',
+      ttlMs: 22000,
+      helper: 'window.tomariAgentBridge',
+      customEvent: 'tomari-agent-bridge',
+      messageTypes: {
+        ping: 'agent-ping',
+        ready: AGENT_BRIDGE_READY_TYPE,
+        presence: AGENT_BRIDGE_PRESENCE_TYPE,
+        leave: AGENT_BRIDGE_LEAVE_TYPE,
+      },
+      transports: [
+        'BroadcastChannel',
+        'window.postMessage',
+        'CustomEvent',
+        'page-helper',
+      ],
+      peerFields: [
+        'id',
+        'name',
+        'role',
+        'cell',
+        'mouth',
+        'audioLevel',
+        'hair|hairColor',
+        'hairMix|hairTint',
+        'eyes|eyeColor',
+        'eyeMix|eyeTint',
+        'filter|colorFilter',
+      ],
     });
   });
 

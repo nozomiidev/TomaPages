@@ -177,7 +177,7 @@ channel.postMessage({
 });
 ```
 
-同じページ内では `window.tomariAgentBridge.publish(peer)` も使えます。`makePresence(peer)` / `makeLeave(peerId)` で sanitized envelope だけを作れるため、MCP adapter 側の実装も手書き payload に依存しにくくしています。仕様メモは `docs/agent-bridge.md` にあります。
+同じページ内では `window.tomariAgentBridge.publish(peer)` も使えます。`makePresence(peer)` / `makeLeave(peerId)` で sanitized envelope だけを作れるため、MCP adapter 側の実装も手書き payload に依存しにくくしています。DOM だけ読める adapter 向けに `#tomari-agent-bridge-manifest` へ protocol / channel / message types / TTL も出します。仕様メモは `docs/agent-bridge.md` にあります。
 
 MCP adapter やローカル自動化からは `agent-ping` を送ると `agent-bridge-ready` が返るため、Room が開いていること、channel 名、TTL を確認してから agent presence を publish できます。
 

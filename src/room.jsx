@@ -9,6 +9,7 @@ import {
   AGENT_BRIDGE_READY_TYPE,
   AGENT_PEER_TTL_MS,
   createAgentBridge,
+  makeAgentBridgeManifest,
 } from './domain/agent-bridge';
 import { AGENT_PILOT_ID, AGENT_PILOT_ROOM_ID, makeAgentPilotPeer } from './domain/agent-pilot';
 import {
@@ -616,6 +617,14 @@ export function RoomView({ liveControls, localState, tuning }) {
     snapshotHealth,
     transportStatus,
   }), [agentBridge.status, presenceSummary, roomActivity, snapshotHealth, transportStatus]);
+  const agentBridgeManifest = useMemo(() => makeAgentBridgeManifest({
+    channelName: agentBridge.channelName,
+    roomId,
+    status: agentBridge.status,
+  }), [agentBridge.channelName, agentBridge.status, roomId]);
+  const agentBridgeManifestText = useMemo(() => (
+    JSON.stringify(agentBridgeManifest)
+  ), [agentBridgeManifest]);
   const hoveredPeer = peers.find((peer) => peer.id === hoveredPeerId);
   const hoveredCell = hoveredPeerId ? hoverCells[hoveredPeerId] : null;
   const hoverSnapshot = useMemo(() => makeRoomHoverSnapshot({
@@ -940,6 +949,7 @@ export function RoomView({ liveControls, localState, tuning }) {
       data-agent-bridge-channel={agentBridge.channelName}
       data-agent-bridge-helper="window.tomariAgentBridge"
       data-agent-bridge-leave-type={AGENT_BRIDGE_LEAVE_TYPE}
+      data-agent-bridge-manifest="tomari-agent-bridge-manifest"
       data-agent-bridge-presence-type={AGENT_BRIDGE_PRESENCE_TYPE}
       data-agent-bridge-protocol={AGENT_BRIDGE_PROTOCOL}
       data-agent-bridge-ready-type={AGENT_BRIDGE_READY_TYPE}
@@ -984,6 +994,9 @@ export function RoomView({ liveControls, localState, tuning }) {
       data-room-layout-rows={roomScene.rows}
       data-room-layout-scale={roomScene.scale.toFixed(3)}
     >
+      <script id="tomari-agent-bridge-manifest" type="application/json">
+        {agentBridgeManifestText}
+      </script>
       <div className="room-toolbar">
         <div className="room-toolbar__identity">
           <p className="eyebrow">Room / {roomId}</p>

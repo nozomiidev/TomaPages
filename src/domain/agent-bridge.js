@@ -87,6 +87,46 @@ export function makeAgentBridgeReadyMessage({ channelName, now = safeNow, roomId
   };
 }
 
+export function makeAgentBridgeManifest({ channelName, roomId, status = 'starting' } = {}) {
+  const safeRoomId = sanitizeRoomId(roomId);
+
+  return {
+    protocol: AGENT_BRIDGE_PROTOCOL,
+    version: 1,
+    status: status === 'ready' ? 'ready' : 'starting',
+    roomId: safeRoomId,
+    channelName: channelName || makeAgentBridgeChannelName(safeRoomId),
+    ttlMs: AGENT_PEER_TTL_MS,
+    helper: 'window.tomariAgentBridge',
+    customEvent: 'tomari-agent-bridge',
+    messageTypes: {
+      ping: 'agent-ping',
+      ready: AGENT_BRIDGE_READY_TYPE,
+      presence: AGENT_BRIDGE_PRESENCE_TYPE,
+      leave: AGENT_BRIDGE_LEAVE_TYPE,
+    },
+    transports: [
+      'BroadcastChannel',
+      'window.postMessage',
+      'CustomEvent',
+      'page-helper',
+    ],
+    peerFields: [
+      'id',
+      'name',
+      'role',
+      'cell',
+      'mouth',
+      'audioLevel',
+      'hair|hairColor',
+      'hairMix|hairTint',
+      'eyes|eyeColor',
+      'eyeMix|eyeTint',
+      'filter|colorFilter',
+    ],
+  };
+}
+
 export function normalizeAgentPeer(input, { now = safeNow } = {}) {
   const rawPeer = input?.peer ?? input ?? {};
   const id = sanitizeAgentId(rawPeer.id ?? rawPeer.agentId ?? rawPeer.name);

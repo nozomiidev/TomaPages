@@ -1,0 +1,50 @@
+# Agent Bridge
+
+Tomari Studio is hosted as static GitHub Pages, so it cannot keep an MCP server process alive by itself. The Agent Bridge is the browser-side ingress that lets a local MCP server, extension, automation tab, or another same-origin page make an AI agent appear as a room peer.
+
+## Transports
+
+- `BroadcastChannel`: `tomari-studio:agent-bridge:<room-id>`
+- `window.postMessage`: same payload shape as the channel
+- `window.tomariAgentBridge.publish(peer)`: page-local helper exposed by `room.html`
+- `window.tomariAgentBridge.leave(peerId)`: page-local leave helper
+
+The room id is sanitized the same way as normal room links. For `room.html?room=Codec Lobby`, the channel is `tomari-studio:agent-bridge:codec-lobby`.
+
+## Presence Payload
+
+```js
+{
+  protocol: 'tomari-agent-bridge.v1',
+  type: 'agent-presence',
+  roomId: 'codec-lobby',
+  peer: {
+    id: 'codex',
+    name: 'Codex',
+    role: 'MCP pilot',
+    cell: { row: 2, col: 3 },
+    mouth: 1,
+    audioLevel: 0.42,
+    hair: '0F766E',
+    hairMix: 0.65,
+    eyes: 'A855F7',
+    eyeMix: 0.85,
+    filter: 'silk'
+  }
+}
+```
+
+`id`, `name`, and `role` are sanitized before rendering. `cell.row` and `cell.col` are clamped to the 5x5 pose grid, `mouth` is clamped to `0..2`, and audio/color strengths are clamped to `0..1`.
+
+## Leave Payload
+
+```js
+{
+  protocol: 'tomari-agent-bridge.v1',
+  type: 'agent-leave',
+  roomId: 'codec-lobby',
+  peerId: 'codex'
+}
+```
+
+Agent peers are also pruned if no fresh presence arrives for roughly 22 seconds. A local adapter should publish on state changes and send a lightweight heartbeat while the agent is active.

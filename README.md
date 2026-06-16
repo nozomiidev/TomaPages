@@ -106,7 +106,8 @@ Pages 側の Source は GitHub Actions にしてください。
 
 Tuning パネルの Appearance で髪色・瞳色、変換フィルター、mix 強度を調整できます。元画像は書き換えず、現在表示中のフレームから髪・瞳らしい色域を検出して、透明な変換レイヤーを上に重ねます。`mix` が `0` のときは元絵のままです。
 
-- `Grade`: 元画像の輝度・影・ハイライトを優先して残し、色相だけを自然に寄せる標準フィルター
+- `Silk`: 元画像の線・輝度・ハイライトを残す半透明グレーズ型の標準フィルター
+- `Grade`: 元画像の輝度・影・ハイライトを優先して残し、色相だけを自然に寄せるフィルター
 - `Soft`: HSL ベースで色相を選択色へ強めに寄せるフィルター
 - `Paint`: 以前の単色 overlay 寄りのフィルター
 
@@ -135,6 +136,34 @@ room.html?room=codec-lobby&name=Nozomi
 
 `Copy link` は現在の room/name を含む共有 URL を作ります。`New room` はランダムな room id を作って移動します。presence は状態変化時に加えて短い heartbeat でも送るため、後から入った peer も既存 peer を拾いやすくしています。
 
+### Agent Bridge / MCP 窓口
+
+`room.html` は AI agent も peer として表示できる browser-side bridge を公開します。GitHub Pages は常駐 MCP サーバーをホストできないため、MCP adapter やローカルツール側からブラウザへ presence payload を渡す入口です。
+
+```js
+const channel = new BroadcastChannel('tomari-studio:agent-bridge:codec-lobby');
+channel.postMessage({
+  protocol: 'tomari-agent-bridge.v1',
+  type: 'agent-presence',
+  roomId: 'codec-lobby',
+  peer: {
+    id: 'codex',
+    name: 'Codex',
+    role: 'MCP pilot',
+    cell: { row: 2, col: 3 },
+    mouth: 1,
+    audioLevel: 0.42,
+    hair: '0F766E',
+    hairMix: 0.65,
+    eyes: 'A855F7',
+    eyeMix: 0.85,
+    filter: 'silk'
+  }
+});
+```
+
+同じページ内では `window.tomariAgentBridge.publish(peer)` も使えます。仕様メモは `docs/agent-bridge.md` にあります。
+
 ## 新しいキャラクターへ差し替える
 
 元 repo 由来の `tools/slice_character_sheets.py` を残しています。最終的には `public/slices2/{A..F}/r{0..4}c{0..4}.webp` が揃えばアプリは動きます。
@@ -157,6 +186,7 @@ room.html?room=codec-lobby&name=Nozomi
 │  ├─ styles.css
 │  ├─ domain/
 │  │  ├─ audio-engine.js
+│  │  ├─ agent-bridge.js
 │  │  ├─ avatar-recolor.js
 │  │  ├─ avatar-recolor.test.js
 │  │  ├─ character.js

@@ -10,6 +10,7 @@ This is the working architecture for the planned multi-user PNGTuber room.
 - Presence is sent on state changes and on a lightweight heartbeat so late joiners can discover already-open tabs without waiting for the current user to move or speak.
 - Render the room as a canvas-backed scene with live DOM overlays only for focused/hovered cards. Ambient cards can be rendered from HTML to canvas snapshots when they are not interactive.
 - Use html2canvas only for card snapshotting. The live, hovered card should remain DOM so pointer tracking, focus states, and accessibility do not get flattened.
+- Expose a browser-side Agent Bridge for local MCP adapters and automation tools. Static GitHub Pages cannot host a long-running MCP server, so the page provides `BroadcastChannel`, `postMessage`, `data-*`, and `window.tomariAgentBridge` ingress points.
 
 ## First Implementation Slice
 
@@ -19,6 +20,7 @@ This is the working architecture for the planned multi-user PNGTuber room.
 4. Keep a `localStorage` fallback transport for same-browser testing and for offline demos.
 5. Add shareable room links with `room` and `name` query parameters.
 6. Add Playwright/browser checks for two tabs: peer cards appear, hovered card follows the pointer, mouth state updates propagate.
+7. Add an agent bridge so AI peers can join the same room state model without a server process.
 
 ## References
 

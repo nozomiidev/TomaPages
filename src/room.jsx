@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
-import { AudioLines, Check, Copy, Mic, MicOff, Radio, Shuffle, Signal, Upload, Users } from 'lucide-react';
+import { AudioLines, Bot, Check, Copy, Mic, MicOff, Radio, Shuffle, Signal, Upload, Users } from 'lucide-react';
 import { frameSrc, sheetForPose, targetToCell } from './domain/character';
+import { AGENT_BRIDGE_PROTOCOL, AGENT_PEER_TTL_MS, createAgentBridge } from './domain/agent-bridge';
 import {
   createPresenceTransport,
   getTabPeerId,
@@ -17,6 +18,12 @@ const ROOM_NAME = 'Codec Lobby';
 const CARD_WIDTH = 286;
 const CARD_HEIGHT = 184;
 const CARD_GAP = 18;
+const SOURCE_LABELS = {
+  agent: 'AI',
+  demo: 'SIM',
+  local: 'YOU',
+  p2p: 'P2P',
+};
 
 const DEMO_PEERS = [
   {
@@ -31,7 +38,7 @@ const DEMO_PEERS = [
     hairTint: 0.38,
     eyeColor: '#E35D75',
     eyeTint: 0.62,
-    colorFilter: 'grade',
+    colorFilter: 'silk',
   },
   {
     id: 'demo-otacon',
@@ -45,7 +52,7 @@ const DEMO_PEERS = [
     hairTint: 0.52,
     eyeColor: '#2BA7E8',
     eyeTint: 0.72,
-    colorFilter: 'grade',
+    colorFilter: 'silk',
   },
   {
     id: 'demo-naomi',
@@ -59,7 +66,7 @@ const DEMO_PEERS = [
     hairTint: 0.46,
     eyeColor: '#A855F7',
     eyeTint: 0.66,
-    colorFilter: 'grade',
+    colorFilter: 'silk',
   },
 ];
 
@@ -68,11 +75,15 @@ function createLocalPeerId() {
 }
 
 function peerSort(left, right) {
-  if (left.source === 'local') return -1;
-  if (right.source === 'local') return 1;
-  if (left.source === 'p2p' && right.source !== 'p2p') return -1;
-  if (right.source === 'p2p' && left.source !== 'p2p') return 1;
+  const rank = { local: 0, p2p: 1, agent: 2, demo: 3 };
+  const leftRank = rank[left.source] ?? 9;
+  const rightRank = rank[right.source] ?? 9;
+  if (leftRank !== rightRank) return leftRank - rightRank;
   return left.name.localeCompare(right.name);
+}
+
+function sourceLabel(source) {
+  return SOURCE_LABELS[source] ?? String(source || 'PEER').slice(0, 4).toUpperCase();
 }
 
 function computeLayouts(width, height, count) {
@@ -171,6 +182,50 @@ function usePresenceRoom({ localPeer, roomId }) {
   };
 }
 
+function useAgentBridgeRoom({ roomId }) {
+  const [agentPeers, setAgentPeers] = useState({});
+  const [channelName, setChannelName] = useState('');
+
+  useEffect(() => {
+    const bridge = createAgentBridge({
+      roomId,
+      onPeer: (peer) => {
+        setAgentPeers((current) => ({
+          ...current,
+          [peer.id]: peer,
+        }));
+      },
+      onPeerLeave: (peerId) => {
+        setAgentPeers((current) => {
+          const next = { ...current };
+          delete next[peerId];
+          return next;
+        });
+      },
+    });
+    setChannelName(bridge.channelName);
+    return () => bridge.close();
+  }, [roomId]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      const now = Date.now();
+      setAgentPeers((current) => Object.fromEntries(
+        Object.entries(current).filter(([, peer]) => now - peer.receivedAt < AGENT_PEER_TTL_MS),
+      ));
+    }, 5000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  return {
+    agentBridge: {
+      channelName,
+      status: channelName ? 'ready' : 'starting',
+    },
+    agentPeers: Object.values(agentPeers),
+  };
+}
+
 async function copyText(text) {
   if (navigator.clipboard?.writeText) {
     try {
@@ -236,7 +291,9 @@ function RoomCard({ peer, live = false }) {
   return (
     <article className={live ? 'room-card room-card--live' : 'room-card'}>
       <div className="room-card__signal">
-        <span>{peer.source === 'local' ? 'YOU' : peer.source === 'p2p' ? 'P2P' : 'SIM'}</span>
+        <span className={`room-card__badge room-card__badge--${peer.source || 'peer'}`}>
+          {sourceLabel(peer.source)}
+        </span>
         <i style={{ width: `${Math.round((peer.audioLevel ?? 0) * 100)}%` }} />
       </div>
       <RoomAvatar peer={peer} />
@@ -298,7 +355,7 @@ function RoomRoster({ peers }) {
       {peers.map((peer) => (
         <div key={peer.id} className="room-roster__peer">
           <span>{peer.name}</span>
-          <small>{peer.source === 'local' ? 'you' : peer.source}</small>
+          <small>{peer.source === 'local' ? 'you' : sourceLabel(peer.source)}</small>
           <i aria-hidden="true">
             <b style={{ width: `${Math.round((peer.audioLevel ?? 0) * 100)}%` }} />
           </i>
@@ -342,14 +399,15 @@ export function RoomView({ liveControls, localState, tuning }) {
   }), [hoverCells, localPeerId, localPeerName, localState.audioLevel, localState.cell, localState.mouth, tuning.colorFilter, tuning.eyeColor, tuning.eyeTint, tuning.hairColor, tuning.hairTint]);
 
   const { remotePeers, transportStatus } = usePresenceRoom({ localPeer, roomId });
+  const { agentBridge, agentPeers } = useAgentBridgeRoom({ roomId });
   const peers = useMemo(() => (
-    [localPeer, ...remotePeers, ...DEMO_PEERS]
+    [localPeer, ...remotePeers, ...agentPeers, ...DEMO_PEERS]
       .map((peer) => ({
         ...peer,
         cell: hoverCells[peer.id] ?? peer.cell,
       }))
       .sort(peerSort)
-  ), [hoverCells, localPeer, remotePeers]);
+  ), [agentPeers, hoverCells, localPeer, remotePeers]);
   const hoveredPeer = peers.find((peer) => peer.id === hoveredPeerId);
   const peerSnapshotKey = peers.map((peer) => [
     peer.id,
@@ -432,14 +490,35 @@ export function RoomView({ liveControls, localState, tuning }) {
 
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
     context.clearRect(0, 0, canvasSize.width, canvasSize.height);
-    context.fillStyle = '#111418';
+    const background = context.createLinearGradient(0, 0, canvasSize.width, canvasSize.height);
+    background.addColorStop(0, '#faf8f2');
+    background.addColorStop(0.52, '#f7faf8');
+    background.addColorStop(1, '#f3f5f8');
+    context.fillStyle = background;
     context.fillRect(0, 0, canvasSize.width, canvasSize.height);
+
+    context.save();
+    context.strokeStyle = 'rgba(32, 37, 41, 0.045)';
+    context.lineWidth = 1;
+    for (let x = 24; x < canvasSize.width; x += 48) {
+      context.beginPath();
+      context.moveTo(x, 0);
+      context.lineTo(x, canvasSize.height);
+      context.stroke();
+    }
+    for (let y = 24; y < canvasSize.height; y += 48) {
+      context.beginPath();
+      context.moveTo(0, y);
+      context.lineTo(canvasSize.width, y);
+      context.stroke();
+    }
+    context.restore();
 
     const layouts = computeLayouts(canvasSize.width, canvasSize.height, peers.length);
     const nextLayoutMap = new Map();
 
     context.save();
-    context.strokeStyle = 'rgba(89, 205, 187, 0.2)';
+    context.strokeStyle = 'rgba(15, 118, 110, 0.16)';
     context.lineWidth = 1;
     layouts.forEach((layout, index) => {
       if (index === 0) return;
@@ -456,19 +535,19 @@ export function RoomView({ liveControls, localState, tuning }) {
       const snapshot = snapshotsRef.current.get(peer.id);
 
       context.save();
-      context.shadowColor = 'rgba(0, 0, 0, 0.35)';
-      context.shadowBlur = hoveredPeerId === peer.id ? 24 : 14;
-      context.shadowOffsetY = 12;
+      context.shadowColor = 'rgba(32, 37, 41, 0.14)';
+      context.shadowBlur = hoveredPeerId === peer.id ? 24 : 16;
+      context.shadowOffsetY = 10;
       if (snapshot) {
         context.drawImage(snapshot, layout.x, layout.y, layout.width, layout.height);
       } else {
-        context.fillStyle = '#1f242a';
+        context.fillStyle = '#ffffff';
         context.fillRect(layout.x, layout.y, layout.width, layout.height);
       }
       context.restore();
 
       if (hoveredPeerId === peer.id) {
-        context.strokeStyle = '#59cdbb';
+        context.strokeStyle = '#0f766e';
         context.lineWidth = 2;
         context.strokeRect(layout.x + 1, layout.y + 1, layout.width - 2, layout.height - 2);
       }
@@ -524,7 +603,13 @@ export function RoomView({ liveControls, localState, tuning }) {
   }, [localPeerName]);
 
   return (
-    <section className="room-shell" aria-label="Codec room">
+    <section
+      className="room-shell"
+      aria-label="Codec room"
+      data-agent-bridge-channel={agentBridge.channelName}
+      data-agent-bridge-protocol={AGENT_BRIDGE_PROTOCOL}
+      data-agent-bridge-status={agentBridge.status}
+    >
       <div className="room-toolbar">
         <div>
           <p className="eyebrow">Room / {roomId}</p>
@@ -535,6 +620,7 @@ export function RoomView({ liveControls, localState, tuning }) {
           <div className="room-status">
             <span><Signal size={15} aria-hidden="true" /> {transportStatus.p2p}</span>
             <span><Users size={15} aria-hidden="true" /> {peers.length}</span>
+            <span title={agentBridge.channelName}><Bot size={15} aria-hidden="true" /> Agent {agentBridge.status}</span>
             <span><Radio size={15} aria-hidden="true" /> html2canvas</span>
           </div>
           <div className="room-actions">

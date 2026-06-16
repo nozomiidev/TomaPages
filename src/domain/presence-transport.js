@@ -10,7 +10,7 @@ function currentSearch() {
   return typeof window === 'undefined' ? '' : window.location.search;
 }
 
-function sanitizeRoomId(value) {
+export function sanitizeRoomId(value) {
   return (value || 'public-lobby')
     .trim()
     .toLowerCase()
@@ -20,7 +20,7 @@ function sanitizeRoomId(value) {
     .slice(0, 48) || 'public-lobby';
 }
 
-function sanitizeDisplayName(value) {
+export function sanitizeDisplayName(value) {
   return String(value || '')
     .split('')
     .filter((char) => {

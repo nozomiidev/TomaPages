@@ -289,11 +289,20 @@ function RoomAvatar({ peer }) {
 }
 
 function RoomCard({ peer, live = false }) {
+  const source = peer.source || 'peer';
+  const isSpeaking = (peer.audioLevel ?? 0) > 0.2;
+  const className = [
+    'room-card',
+    live ? 'room-card--live' : '',
+    `room-card--source-${source}`,
+    isSpeaking ? 'room-card--speaking' : '',
+  ].filter(Boolean).join(' ');
+
   return (
-    <article className={live ? 'room-card room-card--live' : 'room-card'}>
+    <article className={className}>
       <div className="room-card__signal">
-        <span className={`room-card__badge room-card__badge--${peer.source || 'peer'}`}>
-          {sourceLabel(peer.source)}
+        <span className={`room-card__badge room-card__badge--${source}`}>
+          {sourceLabel(source)}
         </span>
         <i style={{ width: `${Math.round((peer.audioLevel ?? 0) * 100)}%` }} />
       </div>
@@ -350,18 +359,28 @@ function RoomLiveControls({ controls }) {
   );
 }
 
-function RoomRoster({ peers }) {
+function RoomRoster({ activePeerId, peers }) {
   return (
     <div className="room-roster" aria-label="Room participants">
-      {peers.map((peer) => (
-        <div key={peer.id} className="room-roster__peer">
-          <span>{peer.name}</span>
-          <small>{peer.source === 'local' ? 'you' : sourceLabel(peer.source)}</small>
-          <i aria-hidden="true">
-            <b style={{ width: `${Math.round((peer.audioLevel ?? 0) * 100)}%` }} />
-          </i>
-        </div>
-      ))}
+      {peers.map((peer) => {
+        const source = peer.source || 'peer';
+        const className = [
+          'room-roster__peer',
+          `room-roster__peer--${source}`,
+          activePeerId === peer.id ? 'is-active' : '',
+          (peer.audioLevel ?? 0) > 0.2 ? 'is-speaking' : '',
+        ].filter(Boolean).join(' ');
+
+        return (
+          <div key={peer.id} className={className}>
+            <span>{peer.name}</span>
+            <small>{source === 'local' ? 'you' : sourceLabel(source)}</small>
+            <i aria-hidden="true">
+              <b style={{ width: `${Math.round((peer.audioLevel ?? 0) * 100)}%` }} />
+            </i>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -527,14 +546,30 @@ export function RoomView({ liveControls, localState, tuning }) {
     const nextLayoutMap = new Map();
 
     context.save();
-    context.strokeStyle = 'rgba(15, 118, 110, 0.16)';
+    context.strokeStyle = 'rgba(15, 118, 110, 0.14)';
     context.lineWidth = 1;
+    context.setLineDash([8, 10]);
     layouts.forEach((layout, index) => {
       if (index === 0) return;
+      const origin = layouts[0];
+      const originX = origin.x + origin.width / 2;
+      const originY = origin.y + origin.height / 2;
+      const targetX = layout.x + layout.width / 2;
+      const targetY = layout.y + layout.height / 2;
+      const controlY = (originY + targetY) / 2;
       context.beginPath();
-      context.moveTo(layouts[0].x + layouts[0].width / 2, layouts[0].y + layouts[0].height / 2);
-      context.lineTo(layout.x + layout.width / 2, layout.y + layout.height / 2);
+      context.moveTo(originX, originY);
+      context.bezierCurveTo(originX, controlY, targetX, controlY, targetX, targetY);
       context.stroke();
+    });
+    context.setLineDash([]);
+    layouts.forEach((layout, index) => {
+      const centerX = layout.x + layout.width / 2;
+      const centerY = layout.y + layout.height / 2;
+      context.beginPath();
+      context.fillStyle = index === 0 ? 'rgba(15, 118, 110, 0.18)' : 'rgba(255, 255, 255, 0.72)';
+      context.arc(centerX, centerY, index === 0 ? 5 : 4, 0, Math.PI * 2);
+      context.fill();
     });
     context.restore();
 
@@ -620,42 +655,44 @@ export function RoomView({ liveControls, localState, tuning }) {
       data-agent-bridge-status={agentBridge.status}
     >
       <div className="room-toolbar">
-        <div>
+        <div className="room-toolbar__identity">
           <p className="eyebrow">Room / {roomId}</p>
           <h1>{ROOM_NAME}</h1>
         </div>
         <div className="room-toolbar__meta">
           <RoomLiveControls controls={liveControls} />
-          <div className="room-status">
-            <span><Signal size={15} aria-hidden="true" /> {transportStatus.p2p}</span>
-            <span><Users size={15} aria-hidden="true" /> {peers.length}</span>
-            <span title={agentBridge.channelName}><Bot size={15} aria-hidden="true" /> Agent {agentBridge.status}</span>
-            <span><Radio size={15} aria-hidden="true" /> html2canvas</span>
-          </div>
-          <div className="room-actions">
-            <button
-              type="button"
-              title="Copy room link"
-              aria-label="Copy room link"
-              onClick={handleCopyRoom}
-            >
-              {copyState === 'copied' ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}
-              <span>{copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy link'}</span>
-            </button>
-            <button
-              type="button"
-              title="New room"
-              aria-label="New room"
-              onClick={handleNewRoom}
-            >
-              <Shuffle size={15} aria-hidden="true" />
-              <span>New room</span>
-            </button>
+          <div className="room-toolbar__secondary">
+            <div className="room-status">
+              <span data-state={transportStatus.p2p}><Signal size={15} aria-hidden="true" /> {transportStatus.p2p}</span>
+              <span><Users size={15} aria-hidden="true" /> {peers.length}</span>
+              <span title={agentBridge.channelName} data-state={agentBridge.status}><Bot size={15} aria-hidden="true" /> Agent {agentBridge.status}</span>
+              <span><Radio size={15} aria-hidden="true" /> canvas</span>
+            </div>
+            <div className="room-actions">
+              <button
+                type="button"
+                title="Copy room link"
+                aria-label="Copy room link"
+                onClick={handleCopyRoom}
+              >
+                {copyState === 'copied' ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}
+                <span>{copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy link'}</span>
+              </button>
+              <button
+                type="button"
+                title="New room"
+                aria-label="New room"
+                onClick={handleNewRoom}
+              >
+                <Shuffle size={15} aria-hidden="true" />
+                <span>New room</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <RoomRoster peers={peers} />
+      <RoomRoster activePeerId={hoveredPeerId} peers={peers} />
 
       <div className="room-stage">
         <canvas

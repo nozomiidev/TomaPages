@@ -12,6 +12,7 @@ This is the working architecture for the planned multi-user PNGTuber room.
 - Same-browser BroadcastChannel peers are labeled as `tab`, not `local`, so local fallback tests do not look like duplicate self cards.
 - Render the room as a canvas-backed scene with live DOM overlays only for focused/hovered cards. Ambient cards can be rendered from HTML to canvas snapshots when they are not interactive.
 - Use html2canvas only for card snapshotting. The live, hovered card should remain DOM so pointer tracking, focus states, and accessibility do not get flattened. Hover state is single-owner: moving into another card clears the previous hover cell, and leaving the canvas returns the room to snapshot-only rendering.
+- Snapshot capture is best effort per card. A failed html2canvas render keeps any previous snapshot, does not block other cards, and is exposed through `data-room-snapshot-ready`, `data-room-snapshot-failed`, and `data-room-snapshot-total`.
 - Compute card layout in a pure domain helper. The scene should scale cards and column counts to the canvas size so crowded mobile rooms do not clip participant cards.
 - Expose a browser-side Agent Bridge for local MCP adapters and automation tools. Static GitHub Pages cannot host a long-running MCP server, so the page provides `BroadcastChannel`, `postMessage`, `data-*`, and `window.tomariAgentBridge` ingress points.
 

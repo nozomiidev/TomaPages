@@ -485,6 +485,10 @@ export function RoomView({ liveControls, localState, tuning }) {
   const snapshotsRef = useRef(new Map());
   const layoutsRef = useRef(new Map());
   const [snapshotVersion, setSnapshotVersion] = useState(0);
+  const [snapshotHealth, setSnapshotHealth] = useState({
+    failed: 0,
+    ready: 0,
+  });
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [hoveredPeerId, setHoveredPeerId] = useState('');
   const [hoverCells, setHoverCells] = useState({});
@@ -583,22 +587,35 @@ export function RoomView({ liveControls, localState, tuning }) {
     let cancelled = false;
     const captureSnapshots = async () => {
       const nextSnapshots = new Map();
+      let failed = 0;
       for (const peer of peers) {
         const node = snapshotNodesRef.current.get(peer.id);
         if (!node) continue;
-        await waitForImages(node);
         if (cancelled) return;
-        const snapshot = await html2canvas(node, {
-          backgroundColor: null,
-          logging: false,
-          scale: 2,
-          useCORS: true,
-        });
-        nextSnapshots.set(peer.id, snapshot);
+
+        try {
+          await waitForImages(node);
+          if (cancelled) return;
+          const snapshot = await html2canvas(node, {
+            backgroundColor: null,
+            logging: false,
+            scale: 2,
+            useCORS: true,
+          });
+          nextSnapshots.set(peer.id, snapshot);
+        } catch {
+          failed += 1;
+          const previousSnapshot = snapshotsRef.current.get(peer.id);
+          if (previousSnapshot) nextSnapshots.set(peer.id, previousSnapshot);
+        }
       }
 
       if (!cancelled) {
         snapshotsRef.current = nextSnapshots;
+        setSnapshotHealth({
+          failed,
+          ready: nextSnapshots.size,
+        });
         setSnapshotVersion((value) => value + 1);
       }
     };
@@ -808,6 +825,9 @@ export function RoomView({ liveControls, localState, tuning }) {
       data-room-speaking-peer-ids={peerDiagnostics.speakingIds}
       data-room-speaking-label={roomActivity.speakingLabel}
       data-room-speaking-peers={presenceSummary.speaking}
+      data-room-snapshot-failed={snapshotHealth.failed}
+      data-room-snapshot-ready={snapshotHealth.ready}
+      data-room-snapshot-total={peers.length}
       data-room-tab-peers={presenceSummary.tab}
       data-room-total-peers={presenceSummary.total}
       data-room-layout-cols={roomScene.cols}

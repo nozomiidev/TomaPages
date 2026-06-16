@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import { AudioLines, Bot, Check, Copy, Mic, MicOff, Radio, Shuffle, Signal, Upload, Users } from 'lucide-react';
-import { frameSrc, sheetForPose, targetToCell } from './domain/character';
+import { frameSrc, sheetForPose } from './domain/character';
 import {
   AGENT_BRIDGE_PROTOCOL,
   AGENT_BRIDGE_READY_TYPE,
@@ -22,10 +22,16 @@ import {
   computeRoomSceneLayout,
   isPointInLayout,
 } from './domain/room-layout';
+import {
+  formatHoverCell,
+  isPointerInsideRect,
+  makeRoomHoverSnapshot,
+  nextSingleHoverCells,
+  pointerToRoomCardCell,
+} from './domain/room-hover';
 import { readDemoPeerPreference, shouldIncludeDemoPeers } from './domain/room-peers';
 import { getPeerFreshness, summarizeRoomPresence } from './domain/room-presence';
 import { useAvatarTintOverlay } from './hooks/use-avatar-tint-overlay';
-import { clamp } from './lib/math';
 
 const ROOM_NAME = 'Codec Lobby';
 const SOURCE_LABELS = {
@@ -108,19 +114,6 @@ function rosterMetaLabel(source, freshness) {
   if (source === 'local') return 'you';
   if (source === 'demo') return 'sim';
   return `${sourceLabel(source)} / ${freshness.label}`;
-}
-
-function pointerToCardCell(event, layout, canvas) {
-  const rect = canvas.getBoundingClientRect();
-  const localX = event.clientX - rect.left - layout.x;
-  const localY = event.clientY - rect.top - layout.y;
-  const centerX = layout.width * 0.5;
-  const centerY = layout.height * 0.48;
-
-  return targetToCell({
-    x: clamp((localX - centerX) / (layout.width * 0.38), -1, 1),
-    y: clamp((localY - centerY) / (layout.height * 0.32), -1, 1),
-  });
 }
 
 function drawRoundedRect(context, x, y, width, height, radius) {
@@ -366,6 +359,7 @@ function RoomAvatar({ peer }) {
 function RoomCard({ peer, live = false }) {
   const source = peer.source || 'peer';
   const isSpeaking = (peer.audioLevel ?? 0) > 0.2;
+  const cell = peer.cell ?? { row: 2, col: 2 };
   const className = [
     'room-card',
     live ? 'room-card--live' : '',
@@ -374,7 +368,14 @@ function RoomCard({ peer, live = false }) {
   ].filter(Boolean).join(' ');
 
   return (
-    <article className={className}>
+    <article
+      className={className}
+      data-room-card-cell={formatHoverCell(cell)}
+      data-room-card-live={live ? 'true' : 'false'}
+      data-room-card-mouth={peer.mouth ?? 0}
+      data-room-card-peer-id={peer.id}
+      data-room-card-source={source}
+    >
       <div className="room-card__signal">
         <span className={`room-card__badge room-card__badge--${source}`}>
           {sourceLabel(source)}
@@ -520,6 +521,11 @@ export function RoomView({ liveControls, localState, tuning }) {
   ), [agentPeers, demoPeers, hoverCells, localPeer, remotePeers]);
   const presenceSummary = useMemo(() => summarizeRoomPresence(peers), [peers]);
   const hoveredPeer = peers.find((peer) => peer.id === hoveredPeerId);
+  const hoveredCell = hoveredPeerId ? hoverCells[hoveredPeerId] : null;
+  const hoverSnapshot = useMemo(() => makeRoomHoverSnapshot({
+    hoverCell: hoveredCell,
+    hoveredPeer,
+  }), [hoveredCell, hoveredPeer]);
   const roomScene = useMemo(() => (
     computeRoomSceneLayout(canvasSize.width, canvasSize.height, peers.length)
   ), [canvasSize.height, canvasSize.width, peers.length]);
@@ -702,21 +708,56 @@ export function RoomView({ liveControls, localState, tuning }) {
     const nextPeerId = match?.[0] ?? '';
     setHoveredPeerId(nextPeerId);
 
-    if (match) {
-      const [peerId, layout] = match;
-      const nextCell = pointerToCardCell(event, layout, canvas);
-      setHoverCells((current) => {
-        const previous = current[peerId];
-        if (previous?.row === nextCell.row && previous?.col === nextCell.col) return current;
-        return {
-          ...current,
-          [peerId]: nextCell,
-        };
-      });
+    if (!match) {
+      setHoverCells((current) => (Object.keys(current).length ? {} : current));
+      return;
     }
+
+    const [peerId, layout] = match;
+    const nextCell = pointerToRoomCardCell({
+      canvasRect: rect,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      layout,
+    });
+    setHoverCells((current) => nextSingleHoverCells(current, {
+      cell: nextCell,
+      peerId,
+    }));
   }, []);
 
-  const clearHover = useCallback(() => setHoveredPeerId(''), []);
+  const clearHover = useCallback(() => {
+    setHoveredPeerId('');
+    setHoverCells((current) => (Object.keys(current).length ? {} : current));
+  }, []);
+
+  useEffect(() => {
+    if (!hoveredPeerId) return undefined;
+
+    const clearWhenOutsideCanvas = (event) => {
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        clearHover();
+        return;
+      }
+
+      if (!isPointerInsideRect({
+        clientX: event.clientX,
+        clientY: event.clientY,
+        rect: canvas.getBoundingClientRect(),
+      })) {
+        clearHover();
+      }
+    };
+
+    window.addEventListener('pointermove', clearWhenOutsideCanvas);
+    window.addEventListener('blur', clearHover);
+    return () => {
+      window.removeEventListener('pointermove', clearWhenOutsideCanvas);
+      window.removeEventListener('blur', clearHover);
+    };
+  }, [clearHover, hoveredPeerId]);
+
   const hoveredLayout = hoveredPeerId ? layoutsRef.current.get(hoveredPeerId) : null;
   const handleCopyRoom = useCallback(async () => {
     setCopyState('copying');
@@ -742,6 +783,11 @@ export function RoomView({ liveControls, localState, tuning }) {
       data-agent-bridge-ttl-ms={AGENT_PEER_TTL_MS}
       data-room-agent-peers={presenceSummary.agent}
       data-room-demo-peers={presenceSummary.demo}
+      data-room-hover-cell={hoverSnapshot.cell}
+      data-room-hover-live-layer={hoverSnapshot.liveLayer}
+      data-room-hover-peer={hoverSnapshot.peerId}
+      data-room-hover-peer-name={hoverSnapshot.name}
+      data-room-hover-source={hoverSnapshot.source}
       data-room-live-peers={presenceSummary.live}
       data-room-local-peers={presenceSummary.local}
       data-room-p2p-peers={presenceSummary.p2p}

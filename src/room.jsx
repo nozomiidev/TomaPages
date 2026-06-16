@@ -37,6 +37,7 @@ import {
   summarizeRoomPeerStates,
   summarizeRoomPresence,
 } from './domain/room-presence';
+import { makeRoomSessionStatus } from './domain/room-session';
 import { useAvatarTintOverlay } from './hooks/use-avatar-tint-overlay';
 
 const ROOM_NAME = 'Codec Lobby';
@@ -202,6 +203,7 @@ function usePresenceRoom({ localPeer, roomId }) {
   });
   const localPeerRef = useRef(localPeer);
   const transportRef = useRef(null);
+  const remotePeerList = useMemo(() => Object.values(remotePeers), [remotePeers]);
 
   useEffect(() => {
     const transport = createPresenceTransport({
@@ -252,7 +254,7 @@ function usePresenceRoom({ localPeer, roomId }) {
   }, []);
 
   return {
-    remotePeers: Object.values(remotePeers),
+    remotePeers: remotePeerList,
     transportStatus,
   };
 }
@@ -261,6 +263,7 @@ function useAgentBridgeRoom({ roomId }) {
   const [agentPeers, setAgentPeers] = useState({});
   const [channelName, setChannelName] = useState('');
   const bridgeRef = useRef(null);
+  const agentPeerList = useMemo(() => Object.values(agentPeers), [agentPeers]);
 
   useEffect(() => {
     const bridge = createAgentBridge({
@@ -309,7 +312,7 @@ function useAgentBridgeRoom({ roomId }) {
       channelName,
       status: channelName ? 'ready' : 'starting',
     },
-    agentPeers: Object.values(agentPeers),
+    agentPeers: agentPeerList,
     leaveAgentPeer,
     publishAgentPeer,
   };
@@ -490,6 +493,42 @@ function RoomRoster({ activePeerId, now, peers }) {
   );
 }
 
+function RoomSessionStrip({ presenceSummary, roomActivity, sessionStatus }) {
+  return (
+    <div className="room-session-strip" aria-label="Room session status">
+      <span className="room-session-strip__state" data-state={sessionStatus.state}>
+        <Radio size={15} aria-hidden="true" />
+        <b>{sessionStatus.stateLabel}</b>
+      </span>
+      <span>
+        <Users size={15} aria-hidden="true" />
+        <b>{presenceSummary.live}/{presenceSummary.total}</b>
+        <small>Peers</small>
+      </span>
+      <span>
+        <Signal size={15} aria-hidden="true" />
+        <b>{sessionStatus.meshLabel}</b>
+        <small>Mesh</small>
+      </span>
+      <span title={roomActivity.speakingNames || 'Quiet'}>
+        <AudioLines size={15} aria-hidden="true" />
+        <b>{sessionStatus.speakingLabel}</b>
+        <small>Voice</small>
+      </span>
+      <span>
+        <Check size={15} aria-hidden="true" />
+        <b>{sessionStatus.snapshotHealth}</b>
+        <small>Canvas</small>
+      </span>
+      <span>
+        <Bot size={15} aria-hidden="true" />
+        <b>{sessionStatus.agentLabel}</b>
+        <small>MCP</small>
+      </span>
+    </div>
+  );
+}
+
 export function RoomView({ liveControls, localState, tuning }) {
   const roomId = useMemo(() => readRoomId(), []);
   const demoPeerPreference = useMemo(() => readDemoPeerPreference(window.location.search), []);
@@ -556,6 +595,13 @@ export function RoomView({ liveControls, localState, tuning }) {
   const roomActivity = useMemo(() => summarizeRoomActivity(peers), [peers]);
   const peerDiagnostics = useMemo(() => summarizeRoomPeerStates(peers), [peers]);
   const presenceSummary = useMemo(() => summarizeRoomPresence(peers), [peers]);
+  const sessionStatus = useMemo(() => makeRoomSessionStatus({
+    agentBridgeStatus: agentBridge.status,
+    presenceSummary,
+    roomActivity,
+    snapshotHealth,
+    transportStatus,
+  }), [agentBridge.status, presenceSummary, roomActivity, snapshotHealth, transportStatus]);
   const hoveredPeer = peers.find((peer) => peer.id === hoveredPeerId);
   const hoveredCell = hoveredPeerId ? hoverCells[hoveredPeerId] : null;
   const hoverSnapshot = useMemo(() => makeRoomHoverSnapshot({
@@ -570,7 +616,6 @@ export function RoomView({ liveControls, localState, tuning }) {
     peer.cell?.row,
     peer.cell?.col,
     peer.mouth,
-    peer.audioLevel,
     peer.hairColor,
     peer.hairTint,
     peer.eyeColor,
@@ -608,9 +653,20 @@ export function RoomView({ liveControls, localState, tuning }) {
   useEffect(() => {
     let cancelled = false;
     const captureSnapshots = async () => {
-      const nextSnapshots = new Map();
+      const peerIds = new Set(peers.map((peer) => peer.id));
+      const prunedSnapshots = new Map(
+        Array.from(snapshotsRef.current.entries()).filter(([peerId]) => peerIds.has(peerId)),
+      );
+      if (prunedSnapshots.size !== snapshotsRef.current.size) {
+        snapshotsRef.current = prunedSnapshots;
+      }
+
       let failed = 0;
-      for (const peer of peers) {
+      const prioritizedPeers = [...peers].sort((left, right) => (
+        Number(snapshotsRef.current.has(left.id)) - Number(snapshotsRef.current.has(right.id))
+      ));
+
+      for (const peer of prioritizedPeers) {
         const node = snapshotNodesRef.current.get(peer.id);
         if (!node) continue;
         if (cancelled) return;
@@ -624,21 +680,22 @@ export function RoomView({ liveControls, localState, tuning }) {
             scale: 2,
             useCORS: true,
           });
-          nextSnapshots.set(peer.id, snapshot);
+          if (cancelled) return;
+          snapshotsRef.current = new Map(snapshotsRef.current).set(peer.id, snapshot);
+          setSnapshotHealth({
+            failed,
+            ready: snapshotsRef.current.size,
+          });
+          setSnapshotVersion((value) => value + 1);
         } catch {
           failed += 1;
-          const previousSnapshot = snapshotsRef.current.get(peer.id);
-          if (previousSnapshot) nextSnapshots.set(peer.id, previousSnapshot);
+          if (!cancelled) {
+            setSnapshotHealth({
+              failed,
+              ready: snapshotsRef.current.size,
+            });
+          }
         }
-      }
-
-      if (!cancelled) {
-        snapshotsRef.current = nextSnapshots;
-        setSnapshotHealth({
-          failed,
-          ready: nextSnapshots.size,
-        });
-        setSnapshotVersion((value) => value + 1);
       }
     };
     const timerIds = [
@@ -875,6 +932,11 @@ export function RoomView({ liveControls, localState, tuning }) {
       data-room-snapshot-failed={snapshotHealth.failed}
       data-room-snapshot-ready={snapshotHealth.ready}
       data-room-snapshot-total={peers.length}
+      data-room-session-agent-label={sessionStatus.agentLabel}
+      data-room-session-label={sessionStatus.stateLabel}
+      data-room-session-mesh-label={sessionStatus.meshLabel}
+      data-room-session-snapshot-health={sessionStatus.snapshotHealth}
+      data-room-session-state={sessionStatus.state}
       data-room-tab-peers={presenceSummary.tab}
       data-room-total-peers={presenceSummary.total}
       data-room-layout-cols={roomScene.cols}
@@ -889,17 +951,6 @@ export function RoomView({ liveControls, localState, tuning }) {
         <div className="room-toolbar__meta">
           <RoomLiveControls controls={liveControls} />
           <div className="room-toolbar__secondary">
-            <div className="room-status">
-              <span data-state={transportStatus.p2p}><Signal size={15} aria-hidden="true" /> {transportStatus.p2p}</span>
-              <span title="Live / total peers"><Users size={15} aria-hidden="true" /> {presenceSummary.live}/{presenceSummary.total}</span>
-              <span title="Remote P2P / same-browser test peers">P{presenceSummary.p2p} / T{presenceSummary.tab}</span>
-              <span className="room-status__activity" title={roomActivity.speakingNames || 'No active speakers'}>
-                <AudioLines size={15} aria-hidden="true" />
-                <b>{roomActivity.speakingLabel}</b>
-              </span>
-              <span title={agentBridge.channelName} data-state={agentBridge.status}><Bot size={15} aria-hidden="true" /> Agent {agentBridge.status}</span>
-              <span><Radio size={15} aria-hidden="true" /> canvas</span>
-            </div>
             <div className="room-actions">
               <button
                 type="button"
@@ -933,6 +984,12 @@ export function RoomView({ liveControls, localState, tuning }) {
           </div>
         </div>
       </div>
+
+      <RoomSessionStrip
+        presenceSummary={presenceSummary}
+        roomActivity={roomActivity}
+        sessionStatus={sessionStatus}
+      />
 
       <RoomRoster activePeerId={hoveredPeerId} now={roomClock} peers={peers} />
 

@@ -39,6 +39,7 @@ import {
   sheetForPose,
   targetToCell,
 } from './domain/character';
+import { makeLipSyncSnapshot } from './domain/lip-sync-diagnostics';
 import { useAnimationFrame } from './hooks/use-animation-frame';
 import { useAvatarTintOverlay } from './hooks/use-avatar-tint-overlay';
 import { usePersistentState } from './hooks/use-persistent-state';
@@ -422,6 +423,14 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
   }, []);
 
   const activeMouth = MOUTH_STATES[mouth] ?? MOUTH_STATES[0];
+  const lipSyncSnapshot = useMemo(() => makeLipSyncSnapshot({
+    activeMouth,
+    audioLevel,
+    fileName,
+    micOn,
+    mode,
+    mouth,
+  }), [activeMouth, audioLevel, fileName, micOn, mode, mouth]);
   const isDarkStage = tuning.background === '#171717';
 
   return (
@@ -435,6 +444,12 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
         '--avatar-size': `${tuning.avatarSize * 1.32}vmin`,
         '--stage-background': tuning.background,
       }}
+      data-lip-sync-level={lipSyncSnapshot.level}
+      data-lip-sync-level-percent={lipSyncSnapshot.levelPercent}
+      data-lip-sync-mode={lipSyncSnapshot.mode}
+      data-lip-sync-mouth={lipSyncSnapshot.mouth}
+      data-lip-sync-mouth-label={lipSyncSnapshot.mouthLabel}
+      data-lip-sync-source={lipSyncSnapshot.source}
     >
       {!stageOnly && (
         <AppHeader mode={mode} setMode={setMode} onStageOnly={() => setStageOnly(true)} />

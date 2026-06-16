@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatRoomPeerCell,
   normalizeRoomPeerState,
+  summarizeRoomActivity,
   summarizeRoomPeerStates,
   summarizeRoomPresence,
   getPeerFreshness,
@@ -76,6 +77,27 @@ describe('room presence helpers', () => {
       openMouthIds: 'agent%3Acodex',
       speakingIds: 'agent%3Acodex',
       states: 'local+peer,local,2:2,m0,a5|agent%3Acodex,agent,3:4,m2,a42',
+    });
+  });
+
+  it('summarizes active speakers by display name for room status chips', () => {
+    expect(summarizeRoomActivity([
+      { id: 'local', name: 'Codex', audioLevel: 0.04, mouth: 0 },
+      { id: 'remote-a', name: 'Nozomi', audioLevel: 0.44, mouth: 2 },
+      { id: 'remote-b', name: 'Meryl', audioLevel: 0.31, mouth: 1 },
+      { id: 'remote-c', name: 'Naomi', audioLevel: 0.21, mouth: 2 },
+    ])).toEqual({
+      openMouthCount: 2,
+      openMouthLabel: 'Nozomi, Naomi',
+      openMouthNames: 'Nozomi, Naomi',
+      speakingCount: 3,
+      speakingLabel: 'Nozomi, Meryl +1',
+      speakingNames: 'Nozomi, Meryl, Naomi',
+    });
+
+    expect(summarizeRoomActivity([])).toMatchObject({
+      openMouthLabel: '0',
+      speakingLabel: '0',
     });
   });
 });

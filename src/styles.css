@@ -923,6 +923,18 @@ img {
   background: #f1f3f5;
 }
 
+.room-status__activity {
+  max-width: 220px;
+}
+
+.room-status__activity b {
+  min-width: 0;
+  overflow: hidden;
+  font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .room-live-meter {
   min-width: 124px;
   min-height: 30px;

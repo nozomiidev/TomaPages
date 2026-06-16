@@ -13,6 +13,32 @@ function encodePeerToken(value) {
   return encodeURIComponent(String(value || 'peer')).replace(/%20/g, '+');
 }
 
+function displayNameForPeer(peer = {}) {
+  return String(peer.name || peer.id || 'Peer').trim() || 'Peer';
+}
+
+function summarizeNamedPeers(peers = [], { limit = 2 } = {}) {
+  if (!peers.length) {
+    return {
+      count: 0,
+      label: '0',
+      names: '',
+    };
+  }
+
+  const names = peers.map(displayNameForPeer);
+  const visibleNames = names.slice(0, limit);
+  const remaining = names.length - visibleNames.length;
+
+  return {
+    count: names.length,
+    label: remaining > 0
+      ? `${visibleNames.join(', ')} +${remaining}`
+      : visibleNames.join(', '),
+    names: names.join(', '),
+  };
+}
+
 export function formatRoomPeerCell(cell = {}) {
   const row = clamp(Math.round(normalizeNumber(cell.row, 2)), 0, 4);
   const col = clamp(Math.round(normalizeNumber(cell.col, 2)), 0, 4);
@@ -55,6 +81,22 @@ export function summarizeRoomPeerStates(peers = []) {
         `a${peer.audioPercent}`,
       ].join(','))
       .join('|'),
+  };
+}
+
+export function summarizeRoomActivity(peers = []) {
+  const speakingPeers = peers.filter((peer) => normalizeRoomPeerState(peer).speaking);
+  const openMouthPeers = peers.filter((peer) => normalizeRoomPeerState(peer).mouth === '2');
+  const speaking = summarizeNamedPeers(speakingPeers);
+  const openMouth = summarizeNamedPeers(openMouthPeers);
+
+  return {
+    openMouthCount: openMouth.count,
+    openMouthLabel: openMouth.label,
+    openMouthNames: openMouth.names,
+    speakingCount: speaking.count,
+    speakingLabel: speaking.label,
+    speakingNames: speaking.names,
   };
 }
 

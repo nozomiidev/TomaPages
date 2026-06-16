@@ -32,6 +32,7 @@ import { readDemoPeerPreference, shouldIncludeDemoPeers } from './domain/room-pe
 import {
   getPeerFreshness,
   normalizeRoomPeerState,
+  summarizeRoomActivity,
   summarizeRoomPeerStates,
   summarizeRoomPresence,
 } from './domain/room-presence';
@@ -526,6 +527,7 @@ export function RoomView({ liveControls, localState, tuning }) {
       }))
       .sort(peerSort)
   ), [agentPeers, demoPeers, hoverCells, localPeer, remotePeers]);
+  const roomActivity = useMemo(() => summarizeRoomActivity(peers), [peers]);
   const peerDiagnostics = useMemo(() => summarizeRoomPeerStates(peers), [peers]);
   const presenceSummary = useMemo(() => summarizeRoomPresence(peers), [peers]);
   const hoveredPeer = peers.find((peer) => peer.id === hoveredPeerId);
@@ -799,10 +801,12 @@ export function RoomView({ liveControls, localState, tuning }) {
       data-room-live-peers={presenceSummary.live}
       data-room-local-peers={presenceSummary.local}
       data-room-open-mouth-peer-ids={peerDiagnostics.openMouthIds}
+      data-room-open-mouth-label={roomActivity.openMouthLabel}
       data-room-peer-ids={peerDiagnostics.ids}
       data-room-peer-states={peerDiagnostics.states}
       data-room-p2p-peers={presenceSummary.p2p}
       data-room-speaking-peer-ids={peerDiagnostics.speakingIds}
+      data-room-speaking-label={roomActivity.speakingLabel}
       data-room-speaking-peers={presenceSummary.speaking}
       data-room-tab-peers={presenceSummary.tab}
       data-room-total-peers={presenceSummary.total}
@@ -822,7 +826,10 @@ export function RoomView({ liveControls, localState, tuning }) {
               <span data-state={transportStatus.p2p}><Signal size={15} aria-hidden="true" /> {transportStatus.p2p}</span>
               <span title="Live / total peers"><Users size={15} aria-hidden="true" /> {presenceSummary.live}/{presenceSummary.total}</span>
               <span title="Remote P2P / same-browser test peers">P{presenceSummary.p2p} / T{presenceSummary.tab}</span>
-              <span title="Speaking peers"><AudioLines size={15} aria-hidden="true" /> {presenceSummary.speaking}</span>
+              <span className="room-status__activity" title={roomActivity.speakingNames || 'No active speakers'}>
+                <AudioLines size={15} aria-hidden="true" />
+                <b>{roomActivity.speakingLabel}</b>
+              </span>
               <span title={agentBridge.channelName} data-state={agentBridge.status}><Bot size={15} aria-hidden="true" /> Agent {agentBridge.status}</span>
               <span><Radio size={15} aria-hidden="true" /> canvas</span>
             </div>

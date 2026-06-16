@@ -1001,6 +1001,11 @@ img {
   background: #f1fbf8;
 }
 
+.room-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
 .room-roster {
   display: flex;
   gap: 8px;

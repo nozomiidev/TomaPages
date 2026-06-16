@@ -173,6 +173,8 @@ channel.postMessage({
 
 MCP adapter やローカル自動化からは `agent-ping` を送ると `agent-bridge-ready` が返るため、Room が開いていること、channel 名、TTL を確認してから agent presence を publish できます。
 
+Room の `Agent pilot` ボタンは同じ Agent Bridge 経路で `Codex Agent` peer を publish する自己診断です。MCP adapter をまだ接続していない状態でも、agent peer の表示、発話ラベル、`data-room-agent-peers`、`data-room-peer-states` の反映を確認できます。
+
 ## 新しいキャラクターへ差し替える
 
 元 repo 由来の `tools/slice_character_sheets.py` を残しています。最終的には `public/slices2/{A..F}/r{0..4}c{0..4}.webp` が揃えばアプリは動きます。

@@ -8,6 +8,7 @@ import {
   AGENT_PEER_TTL_MS,
   createAgentBridge,
 } from './domain/agent-bridge';
+import { AGENT_PILOT_ID, AGENT_PILOT_ROOM_ID, makeAgentPilotPeer } from './domain/agent-pilot';
 import {
   createPresenceTransport,
   getTabPeerId,
@@ -259,6 +260,7 @@ function usePresenceRoom({ localPeer, roomId }) {
 function useAgentBridgeRoom({ roomId }) {
   const [agentPeers, setAgentPeers] = useState({});
   const [channelName, setChannelName] = useState('');
+  const bridgeRef = useRef(null);
 
   useEffect(() => {
     const bridge = createAgentBridge({
@@ -277,8 +279,12 @@ function useAgentBridgeRoom({ roomId }) {
         });
       },
     });
+    bridgeRef.current = bridge;
     setChannelName(bridge.channelName);
-    return () => bridge.close();
+    return () => {
+      bridge.close();
+      bridgeRef.current = null;
+    };
   }, [roomId]);
 
   useEffect(() => {
@@ -291,12 +297,21 @@ function useAgentBridgeRoom({ roomId }) {
     return () => window.clearInterval(intervalId);
   }, []);
 
+  const publishAgentPeer = useCallback((peer) => {
+    bridgeRef.current?.publish(peer);
+  }, []);
+  const leaveAgentPeer = useCallback((peerId) => {
+    bridgeRef.current?.leave(peerId);
+  }, []);
+
   return {
     agentBridge: {
       channelName,
       status: channelName ? 'ready' : 'starting',
     },
     agentPeers: Object.values(agentPeers),
+    leaveAgentPeer,
+    publishAgentPeer,
   };
 }
 
@@ -492,6 +507,7 @@ export function RoomView({ liveControls, localState, tuning }) {
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [hoveredPeerId, setHoveredPeerId] = useState('');
   const [hoverCells, setHoverCells] = useState({});
+  const [agentPilotEnabled, setAgentPilotEnabled] = useState(false);
   const [copyState, setCopyState] = useState('idle');
   const [roomClock, setRoomClock] = useState(() => Date.now());
   const roomUrl = useMemo(() => makeRoomUrl({
@@ -515,7 +531,13 @@ export function RoomView({ liveControls, localState, tuning }) {
   }), [hoverCells, localPeerId, localPeerName, localState.audioLevel, localState.cell, localState.mouth, tuning.colorFilter, tuning.eyeColor, tuning.eyeTint, tuning.hairColor, tuning.hairTint]);
 
   const { remotePeers, transportStatus } = usePresenceRoom({ localPeer, roomId });
-  const { agentBridge, agentPeers } = useAgentBridgeRoom({ roomId });
+  const {
+    agentBridge,
+    agentPeers,
+    leaveAgentPeer,
+    publishAgentPeer,
+  } = useAgentBridgeRoom({ roomId });
+  const agentPilotPresent = agentPeers.some((peer) => peer.id === AGENT_PILOT_ROOM_ID);
   const demoPeers = useMemo(() => (
     shouldIncludeDemoPeers({
       agentCount: agentPeers.length,
@@ -759,6 +781,19 @@ export function RoomView({ liveControls, localState, tuning }) {
   }, []);
 
   useEffect(() => {
+    if (!agentPilotEnabled || agentBridge.status !== 'ready') return undefined;
+
+    let tick = 0;
+    publishAgentPeer(makeAgentPilotPeer({ tick }));
+    const intervalId = window.setInterval(() => {
+      tick += 1;
+      publishAgentPeer(makeAgentPilotPeer({ tick }));
+    }, 1600);
+
+    return () => window.clearInterval(intervalId);
+  }, [agentBridge.status, agentPilotEnabled, publishAgentPeer]);
+
+  useEffect(() => {
     if (!hoveredPeerId) return undefined;
 
     const clearWhenOutsideCanvas = (event) => {
@@ -798,6 +833,16 @@ export function RoomView({ liveControls, localState, tuning }) {
       name: localPeerName,
     }));
   }, [localPeerName]);
+  const handleAgentPilotToggle = useCallback(() => {
+    if (agentPilotEnabled || agentPilotPresent) {
+      leaveAgentPeer(AGENT_PILOT_ID);
+      setAgentPilotEnabled(false);
+      return;
+    }
+
+    setAgentPilotEnabled(true);
+    publishAgentPeer(makeAgentPilotPeer());
+  }, [agentPilotEnabled, agentPilotPresent, leaveAgentPeer, publishAgentPeer]);
 
   return (
     <section
@@ -808,6 +853,8 @@ export function RoomView({ liveControls, localState, tuning }) {
       data-agent-bridge-ready-type={AGENT_BRIDGE_READY_TYPE}
       data-agent-bridge-status={agentBridge.status}
       data-agent-bridge-ttl-ms={AGENT_PEER_TTL_MS}
+      data-agent-pilot-peer={AGENT_PILOT_ROOM_ID}
+      data-agent-pilot-status={agentPilotEnabled || agentPilotPresent ? 'active' : 'idle'}
       data-room-agent-peers={presenceSummary.agent}
       data-room-demo-peers={presenceSummary.demo}
       data-room-hover-cell={hoverSnapshot.cell}
@@ -871,6 +918,16 @@ export function RoomView({ liveControls, localState, tuning }) {
               >
                 <Shuffle size={15} aria-hidden="true" />
                 <span>New room</span>
+              </button>
+              <button
+                type="button"
+                title={agentPilotEnabled || agentPilotPresent ? 'Leave agent pilot' : 'Join as agent pilot'}
+                aria-label={agentPilotEnabled || agentPilotPresent ? 'Leave agent pilot' : 'Join as agent pilot'}
+                disabled={agentBridge.status !== 'ready'}
+                onClick={handleAgentPilotToggle}
+              >
+                <Bot size={15} aria-hidden="true" />
+                <span>{agentPilotEnabled || agentPilotPresent ? 'Agent leave' : 'Agent pilot'}</span>
               </button>
             </div>
           </div>

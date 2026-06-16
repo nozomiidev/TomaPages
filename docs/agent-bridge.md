@@ -56,6 +56,10 @@ The page replies with:
 }
 ```
 
+## Built-in Pilot
+
+The `Agent pilot` button in `room.html` publishes a local `Codex Agent` peer through the same `window.tomariAgentBridge.publish(peer)` path that external MCP adapters use. It cycles pose, mouth, and audio level so `data-room-agent-peers`, `data-room-peer-states`, and `data-room-speaking-label` can be checked without running a separate adapter process.
+
 ## Presence Payload
 
 ```js

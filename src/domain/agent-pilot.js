@@ -22,6 +22,6 @@ export function makeAgentPilotPeer({ tick = 0 } = {}) {
     hairMix: 0.65,
     eyes: 'A855F7',
     eyeMix: 0.85,
-    filter: 'glaze',
+    filter: 'smooth',
   };
 }

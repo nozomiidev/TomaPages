@@ -9,6 +9,8 @@ Tomari Studio is hosted as static GitHub Pages, so it cannot keep an MCP server 
 - `window.tomariAgentBridge.publish(peer)`: page-local helper exposed by `room.html`
 - `window.tomariAgentBridge.leave(peerId)`: page-local leave helper
 - `window.tomariAgentBridge.ping()`: returns and broadcasts bridge readiness metadata
+- `window.tomariAgentBridge.makePresence(peer)`: returns a sanitized `agent-presence` message without publishing it
+- `window.tomariAgentBridge.makeLeave(peerId)`: returns a sanitized `agent-leave` message without publishing it
 
 The room id is sanitized the same way as normal room links. For `room.html?room=Codec Lobby`, the channel is `tomari-studio:agent-bridge:codec-lobby`.
 
@@ -17,6 +19,9 @@ The room id is sanitized the same way as normal room links. For `room.html?room=
 ```html
 <section
   data-agent-bridge-channel="tomari-studio:agent-bridge:codec-lobby"
+  data-agent-bridge-helper="window.tomariAgentBridge"
+  data-agent-bridge-presence-type="agent-presence"
+  data-agent-bridge-leave-type="agent-leave"
   data-agent-bridge-protocol="tomari-agent-bridge.v1"
   data-agent-bridge-ready-type="agent-bridge-ready"
   data-agent-bridge-status="ready"
@@ -56,6 +61,34 @@ The page replies with:
 }
 ```
 
+## Page Helper
+
+When an MCP adapter controls the already-open browser page, it can use the page-local helper instead of hand-building the envelope:
+
+```js
+const bridge = window.tomariAgentBridge;
+const ready = bridge.ping();
+
+bridge.publish({
+  id: 'codex',
+  name: 'Codex',
+  role: 'MCP pilot',
+  cell: { row: 2, col: 3 },
+  mouth: 1,
+  audioLevel: 0.42,
+  hair: '0F766E',
+  hairMix: 0.65,
+  eyes: 'A855F7',
+  eyeMix: 0.85,
+  filter: 'smooth'
+});
+
+console.log(ready.channelName);
+console.log(bridge.makePresence({ id: 'codex', name: 'Codex' }));
+```
+
+The helper sanitizes the peer id, display strings, pose cell, mouth state, audio level, and appearance fields through the same code path as incoming channel messages.
+
 ## Built-in Pilot
 
 The `Agent pilot` button in `room.html` publishes a local `Codex Agent` peer through the same `window.tomariAgentBridge.publish(peer)` path that external MCP adapters use. It cycles pose, mouth, and audio level so `data-room-agent-peers`, `data-room-peer-states`, and `data-room-speaking-label` can be checked without running a separate adapter process.
@@ -78,7 +111,7 @@ The `Agent pilot` button in `room.html` publishes a local `Codex Agent` peer thr
     hairMix: 0.65,
     eyes: 'A855F7',
     eyeMix: 0.85,
-    filter: 'glaze'
+    filter: 'smooth'
   }
 }
 ```

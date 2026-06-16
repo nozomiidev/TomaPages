@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   AGENT_BRIDGE_PROTOCOL,
+  AGENT_BRIDGE_LEAVE_TYPE,
+  AGENT_BRIDGE_PRESENCE_TYPE,
   AGENT_BRIDGE_READY_TYPE,
   createAgentBridge,
   makeAgentBridgeChannelName,
+  makeAgentLeaveMessage,
+  makeAgentPresenceMessage,
   makeAgentBridgeReadyMessage,
   normalizeAgentPeer,
 } from './agent-bridge';
@@ -53,6 +57,51 @@ describe('agent bridge', () => {
     });
   });
 
+  it('builds sanitized presence and leave messages for external adapters', () => {
+    expect(makeAgentPresenceMessage({
+      roomId: 'Codec Lobby!!',
+      peer: {
+        id: 'Codex 01',
+        name: 'Codex Agent',
+        role: 'MCP pilot',
+        cell: { row: 9, col: -2 },
+        mouth: 4,
+        audioLevel: 1.6,
+        hair: '0f766e',
+        hairMix: 0.65,
+        eyes: 'a855f7',
+        eyeMix: 0.85,
+        filter: 'smooth',
+      },
+    })).toEqual({
+      protocol: AGENT_BRIDGE_PROTOCOL,
+      type: AGENT_BRIDGE_PRESENCE_TYPE,
+      roomId: 'codec-lobby',
+      peer: {
+        id: 'agent:codex-01',
+        name: 'Codex Agent',
+        role: 'MCP pilot',
+        cell: { row: 4, col: 0 },
+        mouth: 2,
+        audioLevel: 1,
+        hairColor: '#0F766E',
+        hairTint: 0.65,
+        eyeColor: '#A855F7',
+        eyeTint: 0.85,
+        colorFilter: 'smooth',
+      },
+    });
+    expect(makeAgentLeaveMessage({
+      peerId: 'Codex 01',
+      roomId: 'Codec Lobby!!',
+    })).toEqual({
+      protocol: AGENT_BRIDGE_PROTOCOL,
+      type: AGENT_BRIDGE_LEAVE_TYPE,
+      roomId: 'codec-lobby',
+      peerId: 'agent:codex-01',
+    });
+  });
+
   it('normalizes agent payloads into room peer state', () => {
     expect(normalizeAgentPeer({
       id: 'Codex 01',
@@ -78,7 +127,7 @@ describe('agent bridge', () => {
       hairTint: 0.65,
       eyeColor: '#A855F7',
       eyeTint: 0.85,
-      colorFilter: 'glaze',
+      colorFilter: 'smooth',
       lastSeen: 4096,
       receivedAt: 4096,
     });
@@ -199,6 +248,26 @@ describe('agent bridge', () => {
       ttlMs: 22000,
       timestamp: 16384,
     }]);
+    expect(windowRef.tomariAgentBridge.makePresence({
+      id: 'Codex 01',
+      name: 'Codex',
+      audioLevel: 0.4,
+    })).toMatchObject({
+      protocol: AGENT_BRIDGE_PROTOCOL,
+      type: AGENT_BRIDGE_PRESENCE_TYPE,
+      roomId: 'codec-lobby',
+      peer: {
+        id: 'agent:codex-01',
+        name: 'Codex',
+        audioLevel: 0.4,
+      },
+    });
+    expect(windowRef.tomariAgentBridge.makeLeave('Codex 01')).toEqual({
+      protocol: AGENT_BRIDGE_PROTOCOL,
+      type: AGENT_BRIDGE_LEAVE_TYPE,
+      roomId: 'codec-lobby',
+      peerId: 'agent:codex-01',
+    });
 
     bridge.close();
     expect(windowRef.tomariAgentBridge).toBeUndefined();

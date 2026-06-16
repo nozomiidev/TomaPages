@@ -4,6 +4,8 @@ import { AudioLines, Bot, Check, Copy, Mic, MicOff, Radio, RefreshCw, Shuffle, S
 import { frameSrc, sheetForPose } from './domain/character';
 import {
   AGENT_BRIDGE_PROTOCOL,
+  AGENT_BRIDGE_LEAVE_TYPE,
+  AGENT_BRIDGE_PRESENCE_TYPE,
   AGENT_BRIDGE_READY_TYPE,
   AGENT_PEER_TTL_MS,
   createAgentBridge,
@@ -63,7 +65,7 @@ const DEMO_PEERS = [
     hairTint: 0.38,
     eyeColor: '#E35D75',
     eyeTint: 0.62,
-    colorFilter: 'glaze',
+    colorFilter: 'smooth',
   },
   {
     id: 'demo-otacon',
@@ -77,7 +79,7 @@ const DEMO_PEERS = [
     hairTint: 0.52,
     eyeColor: '#2BA7E8',
     eyeTint: 0.72,
-    colorFilter: 'glaze',
+    colorFilter: 'smooth',
   },
   {
     id: 'demo-naomi',
@@ -91,7 +93,7 @@ const DEMO_PEERS = [
     hairTint: 0.46,
     eyeColor: '#A855F7',
     eyeTint: 0.66,
-    colorFilter: 'glaze',
+    colorFilter: 'smooth',
   },
 ];
 
@@ -936,6 +938,9 @@ export function RoomView({ liveControls, localState, tuning }) {
       className="room-shell"
       aria-label="Codec room"
       data-agent-bridge-channel={agentBridge.channelName}
+      data-agent-bridge-helper="window.tomariAgentBridge"
+      data-agent-bridge-leave-type={AGENT_BRIDGE_LEAVE_TYPE}
+      data-agent-bridge-presence-type={AGENT_BRIDGE_PRESENCE_TYPE}
       data-agent-bridge-protocol={AGENT_BRIDGE_PROTOCOL}
       data-agent-bridge-ready-type={AGENT_BRIDGE_READY_TYPE}
       data-agent-bridge-status={agentBridge.status}

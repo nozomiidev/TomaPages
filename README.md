@@ -117,8 +117,10 @@ Tuning パネルの Appearance で髪色・瞳色、変換フィルター、mix 
 赤・橙・ピンク系のアクセサリ塗り残しは、髪・瞳とは別の accent 色域として検出し、瞳色側の変換に追従します。強い赤を seed、暗い縁を edge、淡いピンク/橙の残りを connected highlight として3段階で拾い、アクセサリー周辺の塗り残しを抑えつつ肌色へ広がりにくくしています。
 
 URL パラメーターでも初期値を指定できます。`#` は URL fragment になるため、色は `#` なしで渡すのが安全です。
+色指定だけを渡した場合は `smooth` が選ばれます。`smooth` は元絵の明暗と線の質感を残す半透明の染色フィルターで、従来の `paint` は比較用の強い色乗せとして残しています。
 
 ```text
+talk.html?filter=smooth&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
 talk.html?filter=glaze&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
 talk.html?filter=natural&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
 talk.html?filter=silk&hair=0F766E&hairMix=0.65&eyes=A855F7&eyeMix=0.85
@@ -170,12 +172,12 @@ channel.postMessage({
     hairMix: 0.65,
     eyes: 'A855F7',
     eyeMix: 0.85,
-    filter: 'glaze'
+    filter: 'smooth'
   }
 });
 ```
 
-同じページ内では `window.tomariAgentBridge.publish(peer)` も使えます。仕様メモは `docs/agent-bridge.md` にあります。
+同じページ内では `window.tomariAgentBridge.publish(peer)` も使えます。`makePresence(peer)` / `makeLeave(peerId)` で sanitized envelope だけを作れるため、MCP adapter 側の実装も手書き payload に依存しにくくしています。仕様メモは `docs/agent-bridge.md` にあります。
 
 MCP adapter やローカル自動化からは `agent-ping` を送ると `agent-bridge-ready` が返るため、Room が開いていること、channel 名、TTL を確認してから agent presence を publish できます。
 

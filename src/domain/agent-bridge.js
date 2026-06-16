@@ -2,6 +2,8 @@ import { sanitizeDisplayName, sanitizeRoomId } from './presence-transport';
 
 export const AGENT_BRIDGE_PROTOCOL = 'tomari-agent-bridge.v1';
 export const AGENT_BRIDGE_PREFIX = 'tomari-studio:agent-bridge';
+export const AGENT_BRIDGE_PRESENCE_TYPE = 'agent-presence';
+export const AGENT_BRIDGE_LEAVE_TYPE = 'agent-leave';
 export const AGENT_BRIDGE_READY_TYPE = 'agent-bridge-ready';
 export const AGENT_PEER_TTL_MS = 22000;
 
@@ -40,7 +42,8 @@ function normalizeHexColor(value, fallback) {
 
 function normalizeFilter(value) {
   const normalized = String(value || '').trim().toLowerCase();
-  if (['glaze', 'smooth', 'blend', 'chroma', 'color'].includes(normalized)) return 'glaze';
+  if (['smooth', 'dye', 'perceptual'].includes(normalized)) return 'smooth';
+  if (['glaze', 'blend', 'chroma', 'color'].includes(normalized)) return 'glaze';
   if (normalized === 'natural') return 'natural';
   if (normalized === 'paint') return 'paint';
   if (normalized === 'soft') return 'soft';
@@ -109,6 +112,30 @@ export function normalizeAgentPeer(input, { now = safeNow } = {}) {
   };
 }
 
+export function makeAgentPresenceMessage({ peer, roomId } = {}) {
+  const safeRoomId = sanitizeRoomId(roomId);
+  const payloadPeer = normalizeAgentPeer(peer, { now: () => 0 });
+  delete payloadPeer.lastSeen;
+  delete payloadPeer.receivedAt;
+  delete payloadPeer.source;
+
+  return {
+    protocol: AGENT_BRIDGE_PROTOCOL,
+    type: AGENT_BRIDGE_PRESENCE_TYPE,
+    roomId: safeRoomId,
+    peer: payloadPeer,
+  };
+}
+
+export function makeAgentLeaveMessage({ peerId, roomId } = {}) {
+  return {
+    protocol: AGENT_BRIDGE_PROTOCOL,
+    type: AGENT_BRIDGE_LEAVE_TYPE,
+    roomId: sanitizeRoomId(roomId),
+    peerId: sanitizeAgentId(peerId),
+  };
+}
+
 export function createAgentBridge({
   channelFactory = makeAgentChannel,
   now = safeNow,
@@ -140,12 +167,12 @@ export function createAgentBridge({
       return;
     }
 
-    if (['agent-leave', 'leave'].includes(message.type)) {
+    if ([AGENT_BRIDGE_LEAVE_TYPE, 'leave'].includes(message.type)) {
       onPeerLeave(sanitizeAgentId(message.peerId ?? message.id));
       return;
     }
 
-    if (['agent-presence', 'agent:update', 'presence'].includes(message.type)) {
+    if ([AGENT_BRIDGE_PRESENCE_TYPE, 'agent:update', 'presence'].includes(message.type)) {
       onPeer(normalizeAgentPeer(message.peer ?? message, { now }));
     }
   };
@@ -153,23 +180,13 @@ export function createAgentBridge({
   channel = channelFactory?.(channelName, receiveMessage);
 
   const publish = (peer) => {
-    const message = {
-      protocol: AGENT_BRIDGE_PROTOCOL,
-      type: 'agent-presence',
-      roomId: safeRoomId,
-      peer,
-    };
+    const message = makeAgentPresenceMessage({ peer, roomId: safeRoomId });
     receiveMessage(message);
     channel?.post(message);
   };
 
   const leave = (peerId) => {
-    const message = {
-      protocol: AGENT_BRIDGE_PROTOCOL,
-      type: 'agent-leave',
-      roomId: safeRoomId,
-      peerId,
-    };
+    const message = makeAgentLeaveMessage({ peerId, roomId: safeRoomId });
     receiveMessage(message);
     channel?.post(message);
   };
@@ -183,6 +200,8 @@ export function createAgentBridge({
     windowRef.tomariAgentBridge = {
       channelName,
       leave,
+      makeLeave: (peerId) => makeAgentLeaveMessage({ peerId, roomId: safeRoomId }),
+      makePresence: (peer) => makeAgentPresenceMessage({ peer, roomId: safeRoomId }),
       ping,
       protocol: AGENT_BRIDGE_PROTOCOL,
       publish,

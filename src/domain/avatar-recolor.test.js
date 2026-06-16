@@ -236,6 +236,34 @@ describe('avatar recolor domain', () => {
     );
   });
 
+  it('smooth filter dyes through a translucent luma-preserving overlay', () => {
+    const darkSource = [58, 60, 58];
+    const midSource = [78, 82, 78];
+    const lightSource = [112, 116, 112];
+    const darkOverlay = renderHairPixel(darkSource, 'smooth');
+    const midOverlay = renderHairPixel(midSource, 'smooth');
+    const lightOverlay = renderHairPixel(lightSource, 'smooth');
+    const darkHair = compositeOverSource(darkSource, darkOverlay);
+    const midHair = compositeOverSource(midSource, midOverlay);
+    const lightHair = compositeOverSource(lightSource, lightOverlay);
+    const paintedDark = compositeOverSource(darkSource, renderHairPixel(darkSource, 'paint'));
+    const paintedLight = compositeOverSource(lightSource, renderHairPixel(lightSource, 'paint'));
+
+    expect(darkOverlay[3]).toBeGreaterThan(55);
+    expect(darkOverlay[3]).toBeLessThan(205);
+    expect(midOverlay[3]).toBeLessThan(205);
+    expect(lightOverlay[3]).toBeLessThan(205);
+    expect(darkHair[1]).toBeGreaterThan(darkHair[0]);
+    expect(midHair[1]).toBeGreaterThan(midHair[0]);
+    expect(luma(midHair)).toBeGreaterThan(luma(darkHair) + 13);
+    expect(luma(lightHair)).toBeGreaterThan(luma(midHair) + 23);
+    expect(Math.abs(luma(darkHair) - luma(darkSource))).toBeLessThan(10);
+    expect(Math.abs(luma(lightHair) - luma(lightSource))).toBeLessThan(10);
+    expect(luma(lightHair) - luma(darkHair)).toBeGreaterThan(
+      luma(paintedLight) - luma(paintedDark) + 12,
+    );
+  });
+
   it('glaze filter keeps the original layer visible while shifting color smoothly', () => {
     const darkSource = [58, 60, 58];
     const midSource = [78, 82, 78];

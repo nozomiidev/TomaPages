@@ -1,6 +1,30 @@
 const APP_ID = 'io.github.nozomiidev.tomapages';
 const P2P_ROOM_PREFIX = 'tomari-studio';
 const ROOM_WORDS = ['codec', 'signal', 'orbit', 'relay', 'uplink', 'vector', 'beacon', 'circuit'];
+const TAB_PEER_ID_KEY = 'tomari-studio:room-peer-id';
+
+function createPeerId() {
+  return crypto.randomUUID ? crypto.randomUUID() : `peer-${Math.random().toString(36).slice(2)}`;
+}
+
+export function createTabPeerIdSession({ randomId = createPeerId } = {}) {
+  let currentPeerId = '';
+
+  return ({ storage } = {}) => {
+    if (!currentPeerId) {
+      currentPeerId = randomId();
+      try {
+        storage?.setItem(TAB_PEER_ID_KEY, currentPeerId);
+      } catch {
+        // Session storage is helpful for diagnostics, but identity must still work without it.
+      }
+    }
+
+    return currentPeerId;
+  };
+}
+
+const readPagePeerId = createTabPeerIdSession();
 
 function safeNow() {
   return Date.now();
@@ -105,13 +129,7 @@ export function makeRoomUrl({ roomId, name, baseUrl } = {}) {
 }
 
 export function getTabPeerId() {
-  const key = 'tomari-studio:room-peer-id';
-  const existing = window.sessionStorage.getItem(key);
-  if (existing) return existing;
-
-  const id = crypto.randomUUID ? crypto.randomUUID() : `peer-${Math.random().toString(36).slice(2)}`;
-  window.sessionStorage.setItem(key, id);
-  return id;
+  return readPagePeerId({ storage: window.sessionStorage });
 }
 
 export function createPresenceTransport({

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  createTabPeerIdSession,
   createOperatorName,
   createPresenceTransport,
   makeRandomRoomId,
@@ -111,6 +112,21 @@ describe('presence transport helpers', () => {
 
   it('creates a short operator label from peer ids', () => {
     expect(createOperatorName('7f3a-9999')).toBe('Operator 7F3A');
+  });
+
+  it('keeps page-lifetime peer ids without reusing copied session storage', () => {
+    const writes = [];
+    const storage = {
+      getItem: () => {
+        throw new Error('copied session ids must not be reused');
+      },
+      setItem: (key, value) => writes.push([key, value]),
+    };
+    const readPeerId = createTabPeerIdSession({ randomId: () => `peer-${writes.length + 1}` });
+
+    expect(readPeerId({ storage })).toBe('peer-1');
+    expect(readPeerId({ storage })).toBe('peer-1');
+    expect(writes).toEqual([['tomari-studio:room-peer-id', 'peer-1']]);
   });
 
   it('exchanges local presence across two same-room transports', async () => {

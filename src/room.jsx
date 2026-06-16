@@ -11,6 +11,7 @@ import {
   readDisplayName,
   readRoomId,
 } from './domain/presence-transport';
+import { readDemoPeerPreference, shouldIncludeDemoPeers } from './domain/room-peers';
 import { useAvatarTintOverlay } from './hooks/use-avatar-tint-overlay';
 import { clamp } from './lib/math';
 
@@ -367,6 +368,7 @@ function RoomRoster({ peers }) {
 
 export function RoomView({ liveControls, localState, tuning }) {
   const roomId = useMemo(() => readRoomId(), []);
+  const demoPeerPreference = useMemo(() => readDemoPeerPreference(window.location.search), []);
   const localPeerId = useMemo(createLocalPeerId, []);
   const localPeerName = useMemo(() => readDisplayName({ fallbackId: localPeerId }), [localPeerId]);
   const canvasRef = useRef(null);
@@ -400,14 +402,21 @@ export function RoomView({ liveControls, localState, tuning }) {
 
   const { remotePeers, transportStatus } = usePresenceRoom({ localPeer, roomId });
   const { agentBridge, agentPeers } = useAgentBridgeRoom({ roomId });
+  const demoPeers = useMemo(() => (
+    shouldIncludeDemoPeers({
+      agentCount: agentPeers.length,
+      preference: demoPeerPreference,
+      remoteCount: remotePeers.length,
+    }) ? DEMO_PEERS : []
+  ), [agentPeers.length, demoPeerPreference, remotePeers.length]);
   const peers = useMemo(() => (
-    [localPeer, ...remotePeers, ...agentPeers, ...DEMO_PEERS]
+    [localPeer, ...remotePeers, ...agentPeers, ...demoPeers]
       .map((peer) => ({
         ...peer,
         cell: hoverCells[peer.id] ?? peer.cell,
       }))
       .sort(peerSort)
-  ), [agentPeers, hoverCells, localPeer, remotePeers]);
+  ), [agentPeers, demoPeers, hoverCells, localPeer, remotePeers]);
   const hoveredPeer = peers.find((peer) => peer.id === hoveredPeerId);
   const peerSnapshotKey = peers.map((peer) => [
     peer.id,

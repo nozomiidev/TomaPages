@@ -1083,17 +1083,30 @@ img {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
 }
 
+.room-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -22px 60px rgba(32, 37, 41, 0.035);
+}
+
 .room-canvas {
   display: block;
   width: 100%;
   height: 100%;
   min-height: 0;
+  cursor: crosshair;
 }
 
 .room-live-layer {
   position: absolute;
   z-index: 2;
   pointer-events: none;
+  transform-origin: 0 0;
+  will-change: transform;
 }
 
 .room-card,

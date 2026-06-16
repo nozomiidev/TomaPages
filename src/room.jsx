@@ -16,15 +16,18 @@ import {
   readDisplayName,
   readRoomId,
 } from './domain/presence-transport';
+import {
+  ROOM_CARD_BASE_HEIGHT,
+  ROOM_CARD_BASE_WIDTH,
+  computeRoomSceneLayout,
+  isPointInLayout,
+} from './domain/room-layout';
 import { readDemoPeerPreference, shouldIncludeDemoPeers } from './domain/room-peers';
 import { getPeerFreshness, summarizeRoomPresence } from './domain/room-presence';
 import { useAvatarTintOverlay } from './hooks/use-avatar-tint-overlay';
 import { clamp } from './lib/math';
 
 const ROOM_NAME = 'Codec Lobby';
-const CARD_WIDTH = 286;
-const CARD_HEIGHT = 184;
-const CARD_GAP = 18;
 const SOURCE_LABELS = {
   agent: 'AI',
   demo: 'SIM',
@@ -93,30 +96,16 @@ function sourceLabel(source) {
   return SOURCE_LABELS[source] ?? String(source || 'PEER').slice(0, 4).toUpperCase();
 }
 
+function sourceAccent(source) {
+  if (source === 'local' || source === 'p2p') return '#0f766e';
+  if (source === 'agent') return '#8b5cf6';
+  return '#aeb5bc';
+}
+
 function rosterMetaLabel(source, freshness) {
   if (source === 'local') return 'you';
   if (source === 'demo') return 'sim';
-  return `${sourceLabel(source)} · ${freshness.label}`;
-}
-
-function computeLayouts(width, height, count) {
-  const cols = width > 1020 ? 3 : width > 660 ? 2 : 1;
-  const rows = Math.ceil(count / cols);
-  const totalWidth = cols * CARD_WIDTH + (cols - 1) * CARD_GAP;
-  const totalHeight = rows * CARD_HEIGHT + (rows - 1) * CARD_GAP;
-  const startX = Math.max(20, (width - totalWidth) / 2);
-  const startY = Math.max(22, (height - totalHeight) / 2);
-
-  return Array.from({ length: count }, (_, index) => {
-    const col = index % cols;
-    const row = Math.floor(index / cols);
-    return {
-      x: startX + col * (CARD_WIDTH + CARD_GAP),
-      y: startY + row * (CARD_HEIGHT + CARD_GAP),
-      width: CARD_WIDTH,
-      height: CARD_HEIGHT,
-    };
-  });
+  return `${sourceLabel(source)} / ${freshness.label}`;
 }
 
 function pointerToCardCell(event, layout, canvas) {
@@ -130,6 +119,78 @@ function pointerToCardCell(event, layout, canvas) {
     x: clamp((localX - centerX) / (layout.width * 0.38), -1, 1),
     y: clamp((localY - centerY) / (layout.height * 0.32), -1, 1),
   });
+}
+
+function drawRoundedRect(context, x, y, width, height, radius) {
+  context.beginPath();
+  if (context.roundRect) {
+    context.roundRect(x, y, width, height, radius);
+    return;
+  }
+
+  const r = Math.min(radius, width / 2, height / 2);
+  context.moveTo(x + r, y);
+  context.lineTo(x + width - r, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + r);
+  context.lineTo(x + width, y + height - r);
+  context.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  context.lineTo(x + r, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - r);
+  context.lineTo(x, y + r);
+  context.quadraticCurveTo(x, y, x + r, y);
+}
+
+function drawFallbackCard(context, layout, peer) {
+  const source = peer.source || 'peer';
+  const accent = sourceAccent(source);
+  const scale = layout.scale || 1;
+  const padding = Math.max(8, 12 * scale);
+  const badgeHeight = Math.max(18, 24 * scale);
+  const avatarRadius = Math.max(22, 44 * scale);
+  const avatarX = layout.x + layout.width / 2;
+  const avatarY = layout.y + layout.height * 0.47;
+
+  context.save();
+  drawRoundedRect(context, layout.x, layout.y, layout.width, layout.height, Math.max(6, 8 * scale));
+  context.fillStyle = 'rgba(255, 255, 255, 0.96)';
+  context.fill();
+  context.strokeStyle = 'rgba(29, 31, 34, 0.12)';
+  context.stroke();
+
+  context.fillStyle = accent;
+  context.fillRect(layout.x, layout.y, layout.width, Math.max(2, 3 * scale));
+
+  drawRoundedRect(context, layout.x + padding, layout.y + padding, Math.max(34, 44 * scale), badgeHeight, 6 * scale);
+  context.fillStyle = source === 'demo' ? 'rgba(246, 247, 248, 0.92)' : 'rgba(239, 250, 247, 0.92)';
+  context.fill();
+  context.strokeStyle = source === 'demo' ? 'rgba(105, 112, 119, 0.18)' : 'rgba(15, 118, 110, 0.18)';
+  context.stroke();
+  context.fillStyle = source === 'demo' ? '#56606a' : accent;
+  context.font = `800 ${Math.max(9, 10 * scale)}px Inter, system-ui, sans-serif`;
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillText(sourceLabel(source), layout.x + padding + Math.max(17, 22 * scale), layout.y + padding + badgeHeight / 2);
+
+  context.beginPath();
+  context.arc(avatarX, avatarY, avatarRadius, 0, Math.PI * 2);
+  context.fillStyle = 'rgba(240, 245, 243, 0.82)';
+  context.fill();
+  context.strokeStyle = 'rgba(15, 118, 110, 0.12)';
+  context.stroke();
+
+  context.beginPath();
+  context.arc(avatarX, avatarY, Math.max(10, 18 * scale), 0, Math.PI * 2);
+  context.fillStyle = 'rgba(15, 118, 110, 0.16)';
+  context.fill();
+
+  context.textAlign = 'left';
+  context.fillStyle = '#202124';
+  context.font = `760 ${Math.max(11, 14 * scale)}px Inter, system-ui, sans-serif`;
+  context.fillText(peer.name || 'Peer', layout.x + padding, layout.y + layout.height - Math.max(22, 28 * scale));
+  context.fillStyle = '#697077';
+  context.font = `720 ${Math.max(9, 11 * scale)}px Inter, system-ui, sans-serif`;
+  context.fillText('syncing snapshot', layout.x + padding, layout.y + layout.height - Math.max(9, 12 * scale));
+  context.restore();
 }
 
 function usePresenceRoom({ localPeer, roomId }) {
@@ -457,6 +518,9 @@ export function RoomView({ liveControls, localState, tuning }) {
   ), [agentPeers, demoPeers, hoverCells, localPeer, remotePeers]);
   const presenceSummary = useMemo(() => summarizeRoomPresence(peers), [peers]);
   const hoveredPeer = peers.find((peer) => peer.id === hoveredPeerId);
+  const roomScene = useMemo(() => (
+    computeRoomSceneLayout(canvasSize.width, canvasSize.height, peers.length)
+  ), [canvasSize.height, canvasSize.width, peers.length]);
   const peerSnapshotKey = peers.map((peer) => [
     peer.id,
     peer.cell?.row,
@@ -567,7 +631,7 @@ export function RoomView({ liveControls, localState, tuning }) {
     }
     context.restore();
 
-    const layouts = computeLayouts(canvasSize.width, canvasSize.height, peers.length);
+    const layouts = roomScene.layouts;
     const nextLayoutMap = new Map();
 
     context.save();
@@ -610,8 +674,7 @@ export function RoomView({ liveControls, localState, tuning }) {
       if (snapshot) {
         context.drawImage(snapshot, layout.x, layout.y, layout.width, layout.height);
       } else {
-        context.fillStyle = '#ffffff';
-        context.fillRect(layout.x, layout.y, layout.width, layout.height);
+        drawFallbackCard(context, layout, peer);
       }
       context.restore();
 
@@ -623,7 +686,7 @@ export function RoomView({ liveControls, localState, tuning }) {
     });
 
     layoutsRef.current = nextLayoutMap;
-  }, [canvasSize.height, canvasSize.width, hoveredPeerId, peers, snapshotVersion]);
+  }, [canvasSize.height, canvasSize.width, hoveredPeerId, peers, roomScene.layouts, snapshotVersion]);
 
   const updateHover = useCallback((event) => {
     const canvas = canvasRef.current;
@@ -632,12 +695,7 @@ export function RoomView({ liveControls, localState, tuning }) {
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-    const match = [...layoutsRef.current.entries()].find(([, layout]) => (
-      x >= layout.x
-      && x <= layout.x + layout.width
-      && y >= layout.y
-      && y <= layout.y + layout.height
-    ));
+    const match = [...layoutsRef.current.entries()].find(([, layout]) => isPointInLayout({ x, y }, layout));
 
     const nextPeerId = match?.[0] ?? '';
     setHoveredPeerId(nextPeerId);
@@ -683,9 +741,13 @@ export function RoomView({ liveControls, localState, tuning }) {
       data-room-agent-peers={presenceSummary.agent}
       data-room-demo-peers={presenceSummary.demo}
       data-room-live-peers={presenceSummary.live}
+      data-room-local-peers={presenceSummary.local}
       data-room-p2p-peers={presenceSummary.p2p}
       data-room-speaking-peers={presenceSummary.speaking}
       data-room-total-peers={presenceSummary.total}
+      data-room-layout-cols={roomScene.cols}
+      data-room-layout-rows={roomScene.rows}
+      data-room-layout-scale={roomScene.scale.toFixed(3)}
     >
       <div className="room-toolbar">
         <div className="room-toolbar__identity">
@@ -742,8 +804,9 @@ export function RoomView({ liveControls, localState, tuning }) {
             style={{
               left: hoveredLayout.x,
               top: hoveredLayout.y,
-              width: hoveredLayout.width,
-              height: hoveredLayout.height,
+              transform: `scale(${hoveredLayout.scale})`,
+              width: ROOM_CARD_BASE_WIDTH,
+              height: ROOM_CARD_BASE_HEIGHT,
             }}
           >
             <RoomCard peer={hoveredPeer} live />

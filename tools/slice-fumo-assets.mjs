@@ -43,7 +43,7 @@ const DEFAULTS = {
   gravityBlend: 0.68,
 };
 
-const REIMU_SLEEVE_FLARE_SHEETS = {
+const REIMU_SLEEVE_REFERENCE_SHEETS = {
   ct_01: 'ce_01',
   cy_01: 'ce_01',
   ot_01: 'om_01',
@@ -54,24 +54,30 @@ const REIMU_SLEEVE_FLARE_SHEETS = {
 
 const REIMU_SLEEVE_STYLE = {
   t: {
-    outputHeightFromSource: 1.92,
-    outputHeightFromTarget: 2.46,
-    outputHeightMin: 134,
-    outputWidthFromSource: 2.08,
-    outputWidthFromTarget: 1.98,
-    outputWidthMin: 166,
-    sideOffsetX: 44,
-    topOffsetY: 24,
+    eraseRadius: 2,
+    heightScale: 1.86,
+    innerOverlap: 3,
+    innerHeightScale: 1,
+    maxHeightFromReference: 1.18,
+    maxWidthFromReference: 1.38,
+    minHeightFromReference: 1.04,
+    minWidthFromReference: 1.16,
+    outerHeightScale: 1.55,
+    topOffsetY: 2,
+    widthScale: 1.10,
   },
   y: {
-    outputHeightFromSource: 2,
-    outputHeightFromTarget: 2.3,
-    outputHeightMin: 150,
-    outputWidthFromSource: 2.14,
-    outputWidthFromTarget: 2,
-    outputWidthMin: 178,
-    sideOffsetX: 50,
-    topOffsetY: 20,
+    eraseRadius: 2,
+    heightScale: 1.72,
+    innerOverlap: 3,
+    innerHeightScale: 1,
+    maxHeightFromReference: 1.20,
+    maxWidthFromReference: 1.46,
+    minHeightFromReference: 1.02,
+    minWidthFromReference: 1.20,
+    outerHeightScale: 1.45,
+    topOffsetY: 1,
+    widthScale: 1.08,
   },
 };
 
@@ -309,7 +315,7 @@ function reimuSleeveComponents(data, width, height) {
   }));
 }
 
-function strongestReimuSleeveComponent(components, side, poseKind) {
+function targetReimuSleeveComponents(components, side, poseKind) {
   return components
     .filter((component) => Math.sign(component.xDist) === side)
     .filter((component) => Math.abs(component.xDist) > 58)
@@ -317,11 +323,10 @@ function strongestReimuSleeveComponent(components, side, poseKind) {
     .filter((component) => component.width > 16 && component.height > 15)
     .filter((component) => (poseKind === 't'
       ? component.yNorm >= 0.50 && component.yNorm <= 0.77
-      : component.yNorm >= 0.38 && component.yNorm <= 0.68))
-    .sort((a, b) => b.pixels.length - a.pixels.length)[0];
+      : component.yNorm >= 0.38 && component.yNorm <= 0.68));
 }
 
-function sourceReimuSleeveComponent(components, side) {
+function referenceReimuSleeveComponent(components, side) {
   return components
     .filter((component) => Math.sign(component.xDist) === side)
     .filter((component) => Math.abs(component.xDist) > 55)
@@ -351,65 +356,6 @@ function dilatedPixelMask(pixels, width, height, radius) {
   }
 
   return mask;
-}
-
-function reimuSleeveCrop({ component, data, height, width }) {
-  const pad = 8;
-  const left = Math.max(0, component.minX - pad);
-  const top = Math.max(0, component.minY - pad);
-  const right = Math.min(width - 1, component.maxX + pad);
-  const bottom = Math.min(height - 1, component.maxY + pad);
-  const cropWidth = right - left + 1;
-  const cropHeight = bottom - top + 1;
-  const dilated = dilatedPixelMask(component.pixels, width, height, 3);
-  const crop = Buffer.alloc(cropWidth * cropHeight * 4);
-
-  for (let y = 0; y < cropHeight; y += 1) {
-    for (let x = 0; x < cropWidth; x += 1) {
-      const sourceIndex = (top + y) * width + left + x;
-      const sourceOffset = sourceIndex * 4;
-      if (!dilated[sourceIndex] || data[sourceOffset + 3] < 20) continue;
-
-      const targetOffset = (y * cropWidth + x) * 4;
-      crop[targetOffset] = data[sourceOffset];
-      crop[targetOffset + 1] = data[sourceOffset + 1];
-      crop[targetOffset + 2] = data[sourceOffset + 2];
-      crop[targetOffset + 3] = Math.min(245, data[sourceOffset + 3]);
-    }
-  }
-
-  return {
-    crop,
-    height: cropHeight,
-    width: cropWidth,
-  };
-}
-
-async function canvasOverlay(input, left, top, canvasWidth, canvasHeight) {
-  const metadata = await sharp(input).metadata();
-  const sourceLeft = Math.max(0, -left);
-  const sourceTop = Math.max(0, -top);
-  const targetLeft = Math.max(0, left);
-  const targetTop = Math.max(0, top);
-  const width = Math.min((metadata.width ?? 0) - sourceLeft, canvasWidth - targetLeft);
-  const height = Math.min((metadata.height ?? 0) - sourceTop, canvasHeight - targetTop);
-
-  if (width <= 0 || height <= 0) return null;
-
-  const cropped = sourceLeft || sourceTop || width !== metadata.width || height !== metadata.height
-    ? await sharp(input).extract({
-      height,
-      left: sourceLeft,
-      top: sourceTop,
-      width,
-    }).png().toBuffer()
-    : input;
-
-  return {
-    input: cropped,
-    left: targetLeft,
-    top: targetTop,
-  };
 }
 
 async function replaceFileWithRetry(sourceFile, targetFile) {
@@ -447,76 +393,283 @@ async function readRgbaFrame(file) {
   };
 }
 
-async function addReimuSleeveFlares({ outputFile, quality, sourceFile, targetFile }) {
-  const poseKind = path.basename(path.dirname(targetFile)).includes('y') ? 'y' : 't';
-  const target = await readRgbaFrame(targetFile);
-  const source = await readRgbaFrame(sourceFile);
-  const targetComponents = reimuSleeveComponents(target.data, target.width, target.height);
-  const sourceComponents = reimuSleeveComponents(source.data, source.width, source.height);
-  const overlays = [];
-  const sleeveStyle = REIMU_SLEEVE_STYLE[poseKind];
+function clampNumber(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
 
-  for (const side of [-1, 1]) {
-    const targetComponent = strongestReimuSleeveComponent(targetComponents, side, poseKind);
-    const sourceComponent = sourceReimuSleeveComponent(sourceComponents, side);
-    if (!targetComponent || !sourceComponent) continue;
+function mergeReimuSleeveComponents(components) {
+  const pixels = [];
+  let maxX = 0;
+  let maxY = 0;
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let sumX = 0;
+  let sumY = 0;
+  let count = 0;
 
-    const sleeve = reimuSleeveCrop({
-      component: sourceComponent,
-      data: source.data,
-      height: source.height,
-      width: source.width,
-    });
-    const outputWidth = Math.round(Math.max(
-      targetComponent.width * sleeveStyle.outputWidthFromTarget,
-      sleeveStyle.outputWidthMin,
-      sleeve.width * sleeveStyle.outputWidthFromSource,
-    ));
-    const outputHeight = Math.round(Math.max(
-      targetComponent.height * sleeveStyle.outputHeightFromTarget,
-      sleeveStyle.outputHeightMin,
-      sleeve.height * sleeveStyle.outputHeightFromSource,
-    ));
-    const sleeveImage = await sharp(sleeve.crop, {
-      raw: {
-        channels: 4,
-        height: sleeve.height,
-        width: sleeve.width,
-      },
-    })
-      .resize(outputWidth, outputHeight, { fit: 'fill', kernel: 'cubic' })
-      .png()
-      .toBuffer();
-    const left = Math.round(
-      targetComponent.centerX - outputWidth / 2 + side * sleeveStyle.sideOffsetX,
-    );
-    const top = Math.round(
-      targetComponent.centerY - outputHeight / 2 + sleeveStyle.topOffsetY,
-    );
-    const overlay = await canvasOverlay(sleeveImage, left, top, target.width, target.height);
+  for (const component of components) {
+    pixels.push(...component.pixels);
+    minX = Math.min(minX, component.minX);
+    minY = Math.min(minY, component.minY);
+    maxX = Math.max(maxX, component.maxX);
+    maxY = Math.max(maxY, component.maxY);
 
-    if (overlay) overlays.push(overlay);
+    for (const index of component.pixels) {
+      sumX += index % component.sourceWidth;
+      sumY += Math.floor(index / component.sourceWidth);
+      count += 1;
+    }
   }
 
-  const original = await sharp(target.data, {
+  if (!count) return null;
+
+  return {
+    centerX: sumX / count,
+    centerY: sumY / count,
+    height: maxY - minY + 1,
+    maxX,
+    maxY,
+    minX,
+    minY,
+    pixels,
+    width: maxX - minX + 1,
+  };
+}
+
+function withComponentSourceWidth(components, width) {
+  return components.map((component) => ({
+    ...component,
+    sourceWidth: width,
+  }));
+}
+
+function reimuSleevePatch({ component, data, height, mask, width }) {
+  const pad = 2;
+  const left = Math.max(0, component.minX - pad);
+  const top = Math.max(0, component.minY - pad);
+  const right = Math.min(width - 1, component.maxX + pad);
+  const bottom = Math.min(height - 1, component.maxY + pad);
+  const patchWidth = right - left + 1;
+  const patchHeight = bottom - top + 1;
+  const patch = Buffer.alloc(patchWidth * patchHeight * 4);
+
+  for (let y = 0; y < patchHeight; y += 1) {
+    for (let x = 0; x < patchWidth; x += 1) {
+      const sourceIndex = (top + y) * width + left + x;
+      const sourceOffset = sourceIndex * 4;
+      if (!mask[sourceIndex] || data[sourceOffset + 3] < 16) continue;
+
+      const targetOffset = (y * patchWidth + x) * 4;
+      patch[targetOffset] = data[sourceOffset];
+      patch[targetOffset + 1] = data[sourceOffset + 1];
+      patch[targetOffset + 2] = data[sourceOffset + 2];
+      patch[targetOffset + 3] = data[sourceOffset + 3];
+    }
+  }
+
+  return {
+    data: patch,
+    height: patchHeight,
+    width: patchWidth,
+  };
+}
+
+function clearSleevePixels(data, mask) {
+  for (let index = 0; index < mask.length; index += 1) {
+    if (!mask[index]) continue;
+
+    const offset = index * 4;
+    if (data[offset + 3] < 16) continue;
+
+    data[offset + 3] = 0;
+  }
+}
+
+function compositeRawPatch({ base, baseHeight, baseWidth, left, patch, patchHeight, patchWidth, top }) {
+  for (let y = 0; y < patchHeight; y += 1) {
+    const baseY = top + y;
+    if (baseY < 0 || baseY >= baseHeight) continue;
+
+    for (let x = 0; x < patchWidth; x += 1) {
+      const baseX = left + x;
+      if (baseX < 0 || baseX >= baseWidth) continue;
+
+      const sourceOffset = (y * patchWidth + x) * 4;
+      const sourceAlpha = patch[sourceOffset + 3] / 255;
+      if (sourceAlpha <= 0.01) continue;
+
+      const targetOffset = (baseY * baseWidth + baseX) * 4;
+      const targetAlpha = base[targetOffset + 3] / 255;
+      const outputAlpha = sourceAlpha + targetAlpha * (1 - sourceAlpha);
+
+      if (outputAlpha <= 0.01) {
+        base[targetOffset + 3] = 0;
+        continue;
+      }
+
+      for (let channel = 0; channel < 3; channel += 1) {
+        base[targetOffset + channel] = Math.round(
+          (patch[sourceOffset + channel] * sourceAlpha
+            + base[targetOffset + channel] * targetAlpha * (1 - sourceAlpha)) / outputAlpha,
+        );
+      }
+      base[targetOffset + 3] = Math.round(outputAlpha * 255);
+    }
+  }
+}
+
+function samplePatchBilinear({ height, patch, width, x, y }) {
+  if (x < 0 || y < 0 || x > width - 1 || y > height - 1) return [0, 0, 0, 0];
+
+  const x0 = Math.floor(x);
+  const y0 = Math.floor(y);
+  const x1 = Math.min(width - 1, x0 + 1);
+  const y1 = Math.min(height - 1, y0 + 1);
+  const wx = x - x0;
+  const wy = y - y0;
+  const samples = [
+    { weight: (1 - wx) * (1 - wy), x: x0, y: y0 },
+    { weight: wx * (1 - wy), x: x1, y: y0 },
+    { weight: (1 - wx) * wy, x: x0, y: y1 },
+    { weight: wx * wy, x: x1, y: y1 },
+  ];
+  const rgba = [0, 0, 0, 0];
+
+  for (const sample of samples) {
+    const offset = (sample.y * width + sample.x) * 4;
+    for (let channel = 0; channel < 4; channel += 1) {
+      rgba[channel] += patch[offset + channel] * sample.weight;
+    }
+  }
+
+  return rgba.map((value) => Math.round(value));
+}
+
+function flaredSleevePatch({
+  innerHeightScale,
+  outerHeightScale,
+  patch,
+  side,
+  sourceHeight,
+  sourceWidth,
+  targetHeight,
+  targetWidth,
+}) {
+  const output = Buffer.alloc(targetWidth * targetHeight * 4);
+  const sourceCenterY = (sourceHeight - 1) / 2;
+  const targetCenterY = (targetHeight - 1) / 2;
+
+  for (let y = 0; y < targetHeight; y += 1) {
+    for (let x = 0; x < targetWidth; x += 1) {
+      const u = targetWidth <= 1 ? 0.5 : x / (targetWidth - 1);
+      const outerness = side < 0 ? 1 - u : u;
+      const localHeightScale = innerHeightScale
+        + (outerHeightScale - innerHeightScale) * Math.sqrt(clampNumber(outerness, 0, 1));
+      const sourceX = targetWidth <= 1 ? 0 : u * (sourceWidth - 1);
+      const sourceY = sourceCenterY + (y - targetCenterY) / localHeightScale;
+      const rgba = samplePatchBilinear({
+        height: sourceHeight,
+        patch,
+        width: sourceWidth,
+        x: sourceX,
+        y: sourceY,
+      });
+      const targetOffset = (y * targetWidth + x) * 4;
+
+      output[targetOffset] = rgba[0];
+      output[targetOffset + 1] = rgba[1];
+      output[targetOffset + 2] = rgba[2];
+      output[targetOffset + 3] = rgba[3];
+    }
+  }
+
+  return output;
+}
+
+async function reshapeReimuPoseSleeves({ outputFile, quality, referenceFile, targetFile }) {
+  const poseKind = path.basename(path.dirname(targetFile)).includes('y') ? 'y' : 't';
+  const target = await readRgbaFrame(targetFile);
+  const reference = await readRgbaFrame(referenceFile);
+  const targetComponents = withComponentSourceWidth(
+    reimuSleeveComponents(target.data, target.width, target.height),
+    target.width,
+  );
+  const referenceComponents = reimuSleeveComponents(reference.data, reference.width, reference.height);
+  const sleeveStyle = REIMU_SLEEVE_STYLE[poseKind];
+  const editedData = Buffer.from(target.data);
+
+  for (const side of [-1, 1]) {
+    const targetSleeve = mergeReimuSleeveComponents(
+      targetReimuSleeveComponents(targetComponents, side, poseKind),
+    );
+    const referenceSleeve = referenceReimuSleeveComponent(referenceComponents, side);
+    if (!targetSleeve || !referenceSleeve) continue;
+
+    const sleeveMask = dilatedPixelMask(targetSleeve.pixels, target.width, target.height, sleeveStyle.eraseRadius);
+    const patch = reimuSleevePatch({
+      component: targetSleeve,
+      data: target.data,
+      height: target.height,
+      mask: sleeveMask,
+      width: target.width,
+    });
+    const minWidth = Math.max(
+      targetSleeve.width,
+      referenceSleeve.width * sleeveStyle.minWidthFromReference,
+    );
+    const maxWidth = Math.max(minWidth, referenceSleeve.width * sleeveStyle.maxWidthFromReference);
+    const outputWidth = Math.round(clampNumber(
+      targetSleeve.width * sleeveStyle.widthScale,
+      minWidth,
+      maxWidth,
+    ));
+    const minHeight = Math.max(
+      targetSleeve.height,
+      referenceSleeve.height * sleeveStyle.minHeightFromReference,
+    );
+    const maxHeight = Math.max(minHeight, referenceSleeve.height * sleeveStyle.maxHeightFromReference);
+    const outputHeight = Math.round(clampNumber(
+      targetSleeve.height * sleeveStyle.heightScale,
+      minHeight,
+      maxHeight,
+    ));
+    const resizedPatch = flaredSleevePatch({
+      innerHeightScale: sleeveStyle.innerHeightScale,
+      outerHeightScale: sleeveStyle.outerHeightScale,
+      patch: patch.data,
+      side,
+      sourceHeight: patch.height,
+      sourceWidth: patch.width,
+      targetHeight: outputHeight,
+      targetWidth: outputWidth,
+    });
+    const left = side < 0
+      ? Math.round(targetSleeve.maxX + sleeveStyle.innerOverlap - outputWidth + 1)
+      : Math.round(targetSleeve.minX - sleeveStyle.innerOverlap);
+    const top = Math.round(targetSleeve.centerY - outputHeight / 2 + sleeveStyle.topOffsetY);
+
+    clearSleevePixels(editedData, sleeveMask);
+    compositeRawPatch({
+      base: editedData,
+      baseHeight: target.height,
+      baseWidth: target.width,
+      left,
+      patch: resizedPatch,
+      patchHeight: outputHeight,
+      patchWidth: outputWidth,
+      top,
+    });
+  }
+
+  const tempOutputFile = `${outputFile}.${process.pid}.tmp.webp`;
+
+  await sharp(editedData, {
     raw: {
       channels: 4,
       height: target.height,
       width: target.width,
     },
-  }).png().toBuffer();
-
-  const tempOutputFile = `${outputFile}.${process.pid}.tmp.webp`;
-
-  await sharp({
-    create: {
-      background: { alpha: 0, b: 0, g: 0, r: 0 },
-      channels: 4,
-      height: target.height,
-      width: target.width,
-    },
   })
-    .composite([{ input: original, left: 0, top: 0 }, ...overlays])
     .webp({
       alphaQuality: quality,
       effort: 5,
@@ -527,17 +680,17 @@ async function addReimuSleeveFlares({ outputFile, quality, sourceFile, targetFil
   await replaceFileWithRetry(tempOutputFile, outputFile);
 }
 
-async function addReimuPoseSleeveFlares({ characterOutputDir, quality, rows, cols }) {
-  for (const [targetSheet, sourceSheet] of Object.entries(REIMU_SLEEVE_FLARE_SHEETS)) {
+async function reshapeReimuPoseSleeveSheets({ characterOutputDir, quality, rows, cols }) {
+  for (const [targetSheet, referenceSheet] of Object.entries(REIMU_SLEEVE_REFERENCE_SHEETS)) {
     for (let row = 0; row < rows; row += 1) {
       for (let col = 0; col < cols; col += 1) {
         const targetFile = path.join(characterOutputDir, targetSheet, `r${row}c${col}.webp`);
-        const sourceFile = path.join(characterOutputDir, sourceSheet, `r${row}c${col}.webp`);
+        const referenceFile = path.join(characterOutputDir, referenceSheet, `r${row}c${col}.webp`);
 
-        await addReimuSleeveFlares({
+        await reshapeReimuPoseSleeves({
           outputFile: targetFile,
           quality,
-          sourceFile,
+          referenceFile,
           targetFile,
         });
       }
@@ -784,13 +937,13 @@ async function main() {
     }
 
     if (characterId === 'reimu') {
-      await addReimuPoseSleeveFlares({
+      await reshapeReimuPoseSleeveSheets({
         characterOutputDir,
         cols: options.cols,
         quality: options.quality,
         rows: options.rows,
       });
-      console.log('reimu: added default-sleeve flares for T/Y pose sheets');
+      console.log('reimu: reshaped T/Y sleeve pixels against plain-pose bounds');
     }
   }
 

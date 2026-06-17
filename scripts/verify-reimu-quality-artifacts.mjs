@@ -22,6 +22,10 @@ const VISUAL_DIMENSIONS = {
   audit: { height: 800, width: 800 },
   compare: { height: 800, width: 1616 },
   frame: { height: 512, width: 512 },
+  inspection: { height: 1800, width: 1024 },
+  issue: { height: 850, width: 960 },
+  referenceForeground: { minHeight: 512, minWidth: 512 },
+  referenceSleeves: { height: 512, width: 512 },
 };
 
 function readOption(args, name, fallback) {
@@ -85,7 +89,7 @@ async function assertFreshFile({ file, failures, referenceMtime }) {
   }
 }
 
-async function assertImageMetadata({ file, failures, format, height, width }) {
+async function assertImageMetadata({ file, failures, format, height, minHeight, minWidth, width }) {
   const relative = path.relative(process.cwd(), file);
 
   try {
@@ -98,6 +102,12 @@ async function assertImageMetadata({ file, failures, format, height, width }) {
     }
     if (height && metadata.height !== height) {
       failures.push(`${relative} height ${metadata.height} !== ${height}`);
+    }
+    if (minWidth && metadata.width < minWidth) {
+      failures.push(`${relative} width ${metadata.width} < ${minWidth}`);
+    }
+    if (minHeight && metadata.height < minHeight) {
+      failures.push(`${relative} height ${metadata.height} < ${minHeight}`);
     }
   } catch (error) {
     failures.push(`${relative} cannot be read as an image: ${error.message}`);
@@ -135,6 +145,25 @@ async function verifyReferenceMetrics(referenceRoot, failures) {
   if (openAiCount < 2) {
     failures.push(`reference audit openai-reference rows ${openAiCount} < 2`);
   }
+
+  const referencePngs = await walkFiles(referenceRoot, '.png');
+  const expectedPngCount = rows.length * 2;
+  if (referencePngs.length !== expectedPngCount) {
+    failures.push(`reference audit PNG count ${referencePngs.length} !== ${expectedPngCount}`);
+  }
+
+  for (const file of referencePngs) {
+    const dimensions = path.basename(file).endsWith('-sleeves.png')
+      ? VISUAL_DIMENSIONS.referenceSleeves
+      : VISUAL_DIMENSIONS.referenceForeground;
+
+    await assertImageMetadata({
+      file,
+      failures,
+      format: 'png',
+      ...dimensions,
+    });
+  }
 }
 
 async function main() {
@@ -171,6 +200,8 @@ async function main() {
   const referenceMtime = await latestMtimeMs([...sourceFrames, ...noreshapeFrames]);
   const auditFiles = expectedAuditFiles(options.auditRoot);
   const compareFiles = expectedCompareFiles(options.compareRoot);
+  const issueOverlayFile = path.join(options.issueRoot, 'reimu-issue-overlay.png');
+  const inspectionZoomFile = path.join(options.inspectionRoot, 'reimu-inspection-zooms.png');
   const requiredFiles = [
     path.join(options.qualityRoot, 'reimu-asset-quality.csv'),
     path.join(options.qualityRoot, 'reimu-asset-quality-summary.json'),
@@ -178,8 +209,8 @@ async function main() {
     path.join(options.qualityRoot, 'reimu-sleeve-guard-summary.json'),
     ...auditFiles,
     ...compareFiles,
-    path.join(options.issueRoot, 'reimu-issue-overlay.png'),
-    path.join(options.inspectionRoot, 'reimu-inspection-zooms.png'),
+    issueOverlayFile,
+    inspectionZoomFile,
     path.join(options.referenceRoot, 'reimu-reference-metrics.csv'),
     path.join(options.referenceRoot, 'reimu-reference-metrics.json'),
   ];
@@ -203,6 +234,18 @@ async function main() {
       ...VISUAL_DIMENSIONS.compare,
     });
   }
+  await assertImageMetadata({
+    file: issueOverlayFile,
+    failures,
+    format: 'png',
+    ...VISUAL_DIMENSIONS.issue,
+  });
+  await assertImageMetadata({
+    file: inspectionZoomFile,
+    failures,
+    format: 'png',
+    ...VISUAL_DIMENSIONS.inspection,
+  });
   await verifyReferenceMetrics(options.referenceRoot, failures);
 
   if (failures.length) {

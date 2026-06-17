@@ -5,7 +5,7 @@ import sharp from 'sharp';
 const DEFAULTS = {
   character: 'reimu',
   expectedFrames: 0,
-  maxDetachedArea: 512,
+  maxDetachedArea: 0,
   maxDetachedSliverArea: 0,
   maxExpressionAlphaSpread: 0.16,
   maxExpressionCenterSpread: 24,

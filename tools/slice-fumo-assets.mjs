@@ -431,9 +431,55 @@ function sanitizeSpriteAlpha(data, width, height) {
     }
   }
 
+  bridgeNearbyDetachedComponents(next, width, height);
   fillSmallInteriorAlphaHoles(next, width, height);
 
   return next;
+}
+
+function bridgeNearbyDetachedComponents(data, width, height) {
+  const alphaMask = new Uint8Array(width * height);
+  for (let index = 0; index < alphaMask.length; index += 1) {
+    if (data[index * 4 + 3] >= 16) alphaMask[index] = 1;
+  }
+
+  const components = findForegroundComponents(alphaMask, width, height);
+  const largest = components[0];
+  if (!largest) return;
+
+  const mainMask = new Uint8Array(width * height);
+  for (const index of largest.pixels) mainMask[index] = 1;
+
+  for (const component of components.slice(1)) {
+    if (
+      component.pixels.length < 64
+      || component.pixels.length > 512
+      || isDetachedSliverComponent(component)
+    ) {
+      continue;
+    }
+
+    const nearest = nearestMainPixel(component, mainMask, width, height, 8);
+    if (!nearest) continue;
+
+    const bridgePixels = bridgeLinePixels(nearest.from, nearest.to, width, height, 1)
+      .filter((index) => data[index * 4 + 3] < 180);
+    if (!bridgePixels.length) continue;
+
+    const color = averageNeighborColor(data, bridgePixels, width, height)
+      ?? averageEndpointColor(data, nearest.from, nearest.to);
+    if (!color) continue;
+
+    for (const index of bridgePixels) {
+      const offset = index * 4;
+      data[offset] = color.red;
+      data[offset + 1] = color.green;
+      data[offset + 2] = color.blue;
+      data[offset + 3] = 255;
+      mainMask[index] = 1;
+    }
+    for (const index of component.pixels) mainMask[index] = 1;
+  }
 }
 
 function fillSmallInteriorAlphaHoles(data, width, height) {
@@ -469,6 +515,66 @@ function fillSmallInteriorAlphaHoles(data, width, height) {
   }
 }
 
+function nearestMainPixel(component, mainMask, width, height, maxDistance) {
+  let nearest = null;
+
+  for (const index of component.pixels) {
+    const x = index % width;
+    const y = Math.floor(index / width);
+
+    for (let dy = -maxDistance; dy <= maxDistance; dy += 1) {
+      for (let dx = -maxDistance; dx <= maxDistance; dx += 1) {
+        const distanceSquared = dx * dx + dy * dy;
+        if (distanceSquared === 0 || distanceSquared > maxDistance * maxDistance) continue;
+        if (nearest && distanceSquared >= nearest.distanceSquared) continue;
+
+        const candidateX = x + dx;
+        const candidateY = y + dy;
+        if (candidateX < 0 || candidateY < 0 || candidateX >= width || candidateY >= height) continue;
+
+        const candidate = candidateY * width + candidateX;
+        if (mainMask[candidate]) {
+          nearest = {
+            distanceSquared,
+            from: index,
+            to: candidate,
+          };
+        }
+      }
+    }
+  }
+
+  return nearest;
+}
+
+function bridgeLinePixels(from, to, width, height, radius) {
+  const fromX = from % width;
+  const fromY = Math.floor(from / width);
+  const toX = to % width;
+  const toY = Math.floor(to / width);
+  const steps = Math.max(Math.abs(toX - fromX), Math.abs(toY - fromY), 1);
+  const pixels = new Set();
+
+  for (let step = 0; step <= steps; step += 1) {
+    const x = Math.round(fromX + ((toX - fromX) * step) / steps);
+    const y = Math.round(fromY + ((toY - fromY) * step) / steps);
+
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        if (dx * dx + dy * dy > radius * radius) continue;
+
+        const candidateX = x + dx;
+        const candidateY = y + dy;
+        if (candidateX < 0 || candidateY < 0 || candidateX >= width || candidateY >= height) continue;
+
+        pixels.add(candidateY * width + candidateX);
+      }
+    }
+  }
+
+  return [...pixels];
+}
+
 function averageNeighborColor(data, pixels, width, height) {
   const inHole = new Set(pixels);
   let blue = 0;
@@ -502,6 +608,32 @@ function averageNeighborColor(data, pixels, width, height) {
         weight += sampleWeight;
       }
     }
+  }
+
+  if (!weight) return null;
+
+  return {
+    blue: Math.round(blue / weight),
+    green: Math.round(green / weight),
+    red: Math.round(red / weight),
+  };
+}
+
+function averageEndpointColor(data, from, to) {
+  let blue = 0;
+  let green = 0;
+  let red = 0;
+  let weight = 0;
+
+  for (const index of [from, to]) {
+    const offset = index * 4;
+    const alpha = data[offset + 3] / 255;
+    if (alpha <= 0) continue;
+
+    red += data[offset] * alpha;
+    green += data[offset + 1] * alpha;
+    blue += data[offset + 2] * alpha;
+    weight += alpha;
   }
 
   if (!weight) return null;

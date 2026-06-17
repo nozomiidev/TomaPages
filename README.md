@@ -153,6 +153,8 @@ This regenerates the no-reshape baseline in `tmp/noreshape`, regenerates the shi
 
 If recovered OpenAI image-generation/editing candidates exist locally under `tmp/recovery/reimu-quality-2026-06-17/openai-generated` or `metaassets/fumo/reimu/reimu_sleeve_reference_imagegen.png`, the same command also writes `tmp/reference-audit`. Those references are treated as proportion and mask guidance for sleeve shape; the shipped 5x5 frames still come from the existing source sheets plus deterministic post-processing so identity, canvas, line weight, and frame grid stay stable.
 
+The Reimu asset audit checks frame count, margins, detached alpha fragments, line-like internal holes, weak alpha, expression-state center/size spread, and neighboring 5x5 direction center steps.
+
 ## Static Build
 
 ```bash

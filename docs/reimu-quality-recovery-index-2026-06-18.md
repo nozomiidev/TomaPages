@@ -58,6 +58,8 @@ Recent quality commits:
   - Alpha-edge contour support proof for all 225 Reimu frames.
 - `docs/reimu-openai-reference-integration-2026-06-18.md`
   - OpenAI-generated Reimu reference workflow, measured sleeve-ratio ranges, target sheet, and controlled-adoption constraints.
+- `docs/reimu-perceptual-consistency-audit-2026-06-18.md`
+  - Reimu drawing-level consistency review gate covering current/no-reshape/diff candidates across weak alpha, expression, neighbor, sleeve, and OpenAI target signals.
 
 ## Local Full-Preserve Bundle
 
@@ -145,6 +147,7 @@ The Reimu quality pass now covers:
 - residual actionable-defect disposition in `tmp/quality-audit/reimu-residual-defect-summary.json`
 - alpha-edge line integrity in `tmp/line-audit`
 - OpenAI reference mask, sleeve-ratio analysis, and controlled-edit target sheet in `tmp/reference-audit`
+- perceptual consistency review sheet in `tmp/perceptual-audit`, combining current/no-reshape/diff heat for top drawing-level candidates
 - weak alpha pixels
 - weak alpha edge support and orphan weak-alpha ghost detection in `tmp/edge-audit`
 - expression-frame diff review in `tmp/expression-audit`
@@ -174,6 +177,7 @@ maxTransparentColored = 0
 actionableDefectFrameCount = 0
 maxUnsupportedEdgeInkPixels = 90
 maxUnsupportedEdgeInkRatio = 0.055
+perceptual severeIssueCount = 0
 ```
 
 Lossless Reimu sleeve guard thresholds are calibrated to decoded lossless masks while keeping absolute width floors:

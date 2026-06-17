@@ -128,6 +128,15 @@ referenceFrames = 150
 referencePngs = 310
 ```
 
+The OpenAI target rows are also consumed by the perceptual consistency audit:
+
+```text
+tmp/perceptual-audit/reimu-perceptual-consistency.png
+tmp/perceptual-audit/reimu-perceptual-consistency-summary.json
+```
+
+That sheet promotes the lowest current sleeve-ratio frames into the same current/no-reshape/diff review board used for drawing-level regression checks.
+
 ## Current Status
 
 The current shipped Reimu frames pass the hard asset audits. OpenAI references are now available as measured, reproducible inputs and target sheets for future controlled local edits instead of being treated as vague visual inspiration.

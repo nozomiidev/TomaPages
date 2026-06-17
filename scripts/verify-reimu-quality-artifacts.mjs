@@ -12,6 +12,7 @@ const DEFAULTS = {
   issueRoot: 'tmp/issues',
   lineRoot: 'tmp/line-audit',
   noreshapeRoot: 'tmp/noreshape/reimu',
+  perceptualRoot: 'tmp/perceptual-audit',
   qualityRoot: 'tmp/quality-audit',
   referenceRoot: 'tmp/reference-audit',
   sourceRoot: 'public/characters/reimu',
@@ -36,6 +37,7 @@ const VISUAL_DIMENSIONS = {
   issue: { height: 850, width: 960 },
   line: { height: 850, width: 960 },
   openAiTargets: { height: 1248, width: 768 },
+  perceptual: { height: 1390, width: 960 },
   referenceForeground: { minHeight: 512, minWidth: 512 },
   referenceSleeves: { height: 512, width: 512 },
   sweep: { height: 1604, width: 1472 },
@@ -206,6 +208,7 @@ async function main() {
     issueRoot: path.resolve(readOption(args, 'issue-root', DEFAULTS.issueRoot)),
     lineRoot: path.resolve(readOption(args, 'line-root', DEFAULTS.lineRoot)),
     noreshapeRoot: path.resolve(readOption(args, 'noreshape-root', DEFAULTS.noreshapeRoot)),
+    perceptualRoot: path.resolve(readOption(args, 'perceptual-root', DEFAULTS.perceptualRoot)),
     qualityRoot: path.resolve(readOption(args, 'quality-root', DEFAULTS.qualityRoot)),
     referenceRoot: path.resolve(readOption(args, 'reference-root', DEFAULTS.referenceRoot)),
     sourceRoot: path.resolve(readOption(args, 'source-root', DEFAULTS.sourceRoot)),
@@ -241,6 +244,7 @@ async function main() {
   const inspectionZoomFile = path.join(options.inspectionRoot, 'reimu-inspection-zooms.png');
   const lineOverlayFile = path.join(options.lineRoot, 'reimu-line-integrity-overlay.png');
   const openAiTargetFile = path.join(options.referenceRoot, 'reimu-openai-reference-targets.png');
+  const perceptualFile = path.join(options.perceptualRoot, 'reimu-perceptual-consistency.png');
   const requiredFiles = [
     path.join(options.qualityRoot, 'reimu-asset-quality.csv'),
     path.join(options.qualityRoot, 'reimu-asset-quality-summary.json'),
@@ -255,6 +259,8 @@ async function main() {
     path.join(options.lineRoot, 'reimu-line-integrity.csv'),
     path.join(options.lineRoot, 'reimu-line-integrity-summary.json'),
     path.join(options.qualityRoot, 'reimu-residual-defect-summary.json'),
+    path.join(options.perceptualRoot, 'reimu-perceptual-consistency.csv'),
+    path.join(options.perceptualRoot, 'reimu-perceptual-consistency-summary.json'),
     ...auditFiles,
     ...compareFiles,
     ...sweepFiles,
@@ -269,6 +275,7 @@ async function main() {
     path.join(options.referenceRoot, 'reimu-openai-reference-targets.csv'),
     path.join(options.referenceRoot, 'reimu-openai-reference-targets-summary.json'),
     openAiTargetFile,
+    perceptualFile,
   ];
 
   for (const file of requiredFiles) {
@@ -340,6 +347,12 @@ async function main() {
     format: 'png',
     ...VISUAL_DIMENSIONS.openAiTargets,
   });
+  await assertImageMetadata({
+    file: perceptualFile,
+    failures,
+    format: 'png',
+    ...VISUAL_DIMENSIONS.perceptual,
+  });
   const referenceMetrics = await verifyReferenceMetrics(options.referenceRoot, failures);
   const openAiTargetSummaryFile = path.join(options.referenceRoot, 'reimu-openai-reference-targets-summary.json');
   const openAiTargetSummary = JSON.parse(await readFile(openAiTargetSummaryFile, 'utf8'));
@@ -355,6 +368,19 @@ async function main() {
     failures.push(
       `OpenAI target sheet current rows ${openAiTargetSummary.currentFrameCount} < ${EXPECTED_REFERENCE_CURRENT_FRAMES}`,
     );
+  }
+  const perceptualSummaryFile = path.join(options.perceptualRoot, 'reimu-perceptual-consistency-summary.json');
+  const perceptualSummary = JSON.parse(await readFile(perceptualSummaryFile, 'utf8'));
+  if (perceptualSummary.coverage?.qualityFrames !== 225) {
+    failures.push(`perceptual audit qualityFrames ${perceptualSummary.coverage?.qualityFrames} !== 225`);
+  }
+  if (perceptualSummary.coverage?.sleeveFrames < EXPECTED_REFERENCE_CURRENT_FRAMES) {
+    failures.push(
+      `perceptual audit sleeveFrames ${perceptualSummary.coverage?.sleeveFrames} < ${EXPECTED_REFERENCE_CURRENT_FRAMES}`,
+    );
+  }
+  if (perceptualSummary.severeIssueCount !== 0) {
+    failures.push(`perceptual audit severeIssueCount ${perceptualSummary.severeIssueCount} !== 0`);
   }
 
   if (failures.length) {
@@ -372,6 +398,7 @@ async function main() {
     noreshapeFrames: noreshapeFrames.length,
     openAiReferenceImages: referenceMetrics.openAiCount,
     openAiTargetRows: openAiTargetRows.length,
+    perceptualCandidates: perceptualSummary.candidateCount,
     publicFrames: sourceFrames.length,
     referenceFrames: referenceMetrics.currentCount,
     referencePngs: referenceMetrics.referencePngCount,

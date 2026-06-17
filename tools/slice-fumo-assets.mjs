@@ -803,6 +803,40 @@ function mergeReimuSleeveComponents(components) {
   };
 }
 
+function reimuSleeveQualityMetric(data, width, height, side, poseKind) {
+  const components = withComponentSourceWidth(
+    reimuSleeveComponents(data, width, height),
+    width,
+  );
+  const sleeve = mergeReimuSleeveComponents(
+    targetReimuSleeveComponents(components, side, poseKind),
+  );
+
+  if (!sleeve) {
+    return {
+      area: 0,
+      height: 0,
+      width: 0,
+    };
+  }
+
+  return {
+    area: sleeve.pixels.length,
+    height: sleeve.height,
+    width: sleeve.width,
+  };
+}
+
+function shouldKeepReimuSleeveEdit(before, after) {
+  if (!before.area) return Boolean(after.area);
+
+  return (
+    after.area >= before.area * 0.96
+    && after.width >= before.width * 0.96
+    && after.height >= before.height * 0.90
+  );
+}
+
 function withComponentSourceWidth(components, width) {
   return components.map((component) => ({
     ...component,
@@ -1028,6 +1062,14 @@ async function reshapeReimuPoseSleeves({ lossless, outputFile, quality, referenc
       ? Math.round(targetSleeve.maxX + sleeveStyle.innerOverlap - outputWidth + 1)
       : Math.round(targetSleeve.minX - sleeveStyle.innerOverlap);
     const top = Math.round(targetSleeve.centerY - outputHeight / 2 + sleeveStyle.topOffsetY);
+    const beforeEditData = Buffer.from(editedData);
+    const beforeMetric = reimuSleeveQualityMetric(
+      beforeEditData,
+      target.width,
+      target.height,
+      side,
+      poseKind,
+    );
 
     clearSleevePixels(editedData, sleeveMask);
     compositeRawPatch({
@@ -1040,6 +1082,17 @@ async function reshapeReimuPoseSleeves({ lossless, outputFile, quality, referenc
       patchWidth: outputWidth,
       top,
     });
+
+    const afterMetric = reimuSleeveQualityMetric(
+      editedData,
+      target.width,
+      target.height,
+      side,
+      poseKind,
+    );
+    if (!shouldKeepReimuSleeveEdit(beforeMetric, afterMetric)) {
+      beforeEditData.copy(editedData);
+    }
   }
 
   await writeSanitizedWebp({

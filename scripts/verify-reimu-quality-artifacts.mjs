@@ -1,5 +1,6 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
+import sharp from 'sharp';
 
 const DEFAULTS = {
   auditRoot: 'tmp/audit',
@@ -17,6 +18,11 @@ const AUDIT_MODES = ['pink', 'dark', 'alpha'];
 const COMPARE_SHEETS = ['pt_01', 'ot_01', 'ct_01', 'py_01', 'oy_01', 'cy_01'];
 const COMPARE_MODES = ['pink', 'dark'];
 const FRESHNESS_TOLERANCE_MS = 5000;
+const VISUAL_DIMENSIONS = {
+  audit: { height: 800, width: 800 },
+  compare: { height: 800, width: 1616 },
+  frame: { height: 512, width: 512 },
+};
 
 function readOption(args, name, fallback) {
   const index = args.indexOf(`--${name}`);
@@ -79,6 +85,25 @@ async function assertFreshFile({ file, failures, referenceMtime }) {
   }
 }
 
+async function assertImageMetadata({ file, failures, format, height, width }) {
+  const relative = path.relative(process.cwd(), file);
+
+  try {
+    const metadata = await sharp(file, { animated: false }).metadata();
+    if (format && metadata.format !== format) {
+      failures.push(`${relative} format ${metadata.format} !== ${format}`);
+    }
+    if (width && metadata.width !== width) {
+      failures.push(`${relative} width ${metadata.width} !== ${width}`);
+    }
+    if (height && metadata.height !== height) {
+      failures.push(`${relative} height ${metadata.height} !== ${height}`);
+    }
+  } catch (error) {
+    failures.push(`${relative} cannot be read as an image: ${error.message}`);
+  }
+}
+
 function expectedAuditFiles(root) {
   return AUDIT_SHEETS.flatMap((sheet) => (
     AUDIT_MODES.map((mode) => path.join(root, `${sheet}-${mode}.png`))
@@ -134,15 +159,25 @@ async function main() {
   if (noreshapeFrames.length !== 225) {
     failures.push(`no-reshape Reimu frame count ${noreshapeFrames.length} !== 225`);
   }
+  for (const file of [...sourceFrames, ...noreshapeFrames]) {
+    await assertImageMetadata({
+      file,
+      failures,
+      format: 'webp',
+      ...VISUAL_DIMENSIONS.frame,
+    });
+  }
 
   const referenceMtime = await latestMtimeMs([...sourceFrames, ...noreshapeFrames]);
+  const auditFiles = expectedAuditFiles(options.auditRoot);
+  const compareFiles = expectedCompareFiles(options.compareRoot);
   const requiredFiles = [
     path.join(options.qualityRoot, 'reimu-asset-quality.csv'),
     path.join(options.qualityRoot, 'reimu-asset-quality-summary.json'),
     path.join(options.qualityRoot, 'reimu-sleeve-guard.csv'),
     path.join(options.qualityRoot, 'reimu-sleeve-guard-summary.json'),
-    ...expectedAuditFiles(options.auditRoot),
-    ...expectedCompareFiles(options.compareRoot),
+    ...auditFiles,
+    ...compareFiles,
     path.join(options.issueRoot, 'reimu-issue-overlay.png'),
     path.join(options.inspectionRoot, 'reimu-inspection-zooms.png'),
     path.join(options.referenceRoot, 'reimu-reference-metrics.csv'),
@@ -151,6 +186,22 @@ async function main() {
 
   for (const file of requiredFiles) {
     await assertFreshFile({ file, failures, referenceMtime });
+  }
+  for (const file of auditFiles) {
+    await assertImageMetadata({
+      file,
+      failures,
+      format: 'png',
+      ...VISUAL_DIMENSIONS.audit,
+    });
+  }
+  for (const file of compareFiles) {
+    await assertImageMetadata({
+      file,
+      failures,
+      format: 'png',
+      ...VISUAL_DIMENSIONS.compare,
+    });
   }
   await verifyReferenceMetrics(options.referenceRoot, failures);
 

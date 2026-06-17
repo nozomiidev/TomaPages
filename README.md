@@ -143,6 +143,14 @@ metaassets/fumo/cirno/cirno_om_01.png
 
 The slicer is `tools/slice-fumo-assets.mjs`. It assigns foreground components to a 5x5 grid, crops full-body plush frames, exports WebP, and applies Reimu T/Y sleeve flare post-processing so arm poses retain wide shrine-maiden sleeves.
 
+For the Reimu quality pass, use:
+
+```bash
+npm run quality:reimu
+```
+
+This regenerates the no-reshape baseline in `tmp/noreshape`, regenerates the shipped Reimu WebP frames, runs the 225-frame asset audit, and rebuilds visual contact sheets in `tmp/audit` plus current-vs-baseline comparison sheets in `tmp/compare`.
+
 ## Static Build
 
 ```bash
@@ -153,7 +161,7 @@ npm run preview
 `npm run check` runs:
 
 ```text
-lint -> test -> build -> verify:pages
+lint -> test -> audit:assets -> build -> verify:pages
 ```
 
 `scripts/verify-pages-build.mjs` checks:

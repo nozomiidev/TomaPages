@@ -783,6 +783,19 @@ const AvatarStage = React.forwardRef(function AvatarStage(
 ) {
   const activeFrameSrc = frameSrc(activeSheet, cell.row, cell.col, character.id);
   const tintOverlaySrc = useAvatarTintOverlay(activeFrameSrc, tint);
+  const orderedFrames = useMemo(() => {
+    const activeIndex = frames.findIndex((frame) => frame.sheet === activeSheet
+      && frame.row === cell.row
+      && frame.col === cell.col);
+    if (activeIndex <= 0) return frames;
+
+    const activeFrame = frames[activeIndex];
+    return [
+      activeFrame,
+      ...frames.slice(0, activeIndex),
+      ...frames.slice(activeIndex + 1),
+    ];
+  }, [activeSheet, cell.col, cell.row, frames]);
 
   return (
     <section className="stage" aria-label="Avatar stage">
@@ -800,25 +813,26 @@ const AvatarStage = React.forwardRef(function AvatarStage(
         onPointerUp={() => setPressed(false)}
         onPointerLeave={() => setPressed(false)}
       >
-        {frames.map((frame) => (
-          <img
-            key={`${frame.sheet}-${frame.row}-${frame.col}`}
-            alt=""
-            aria-hidden="true"
-            className="avatar__frame"
-            draggable="false"
-            decoding="async"
-            loading="eager"
-            src={frame.src}
-            style={{
-              opacity: frame.sheet === activeSheet
-                && frame.row === cell.row
-                && frame.col === cell.col
-                ? 1
-                : 0,
-            }}
-          />
-        ))}
+        {orderedFrames.map((frame) => {
+          const isActiveFrame = frame.sheet === activeSheet
+            && frame.row === cell.row
+            && frame.col === cell.col;
+
+          return (
+            <img
+              key={`${frame.sheet}-${frame.row}-${frame.col}`}
+              alt=""
+              aria-hidden="true"
+              className="avatar__frame"
+              draggable="false"
+              decoding={isActiveFrame ? 'sync' : 'async'}
+              fetchPriority={isActiveFrame ? 'high' : 'low'}
+              loading={isActiveFrame ? 'eager' : 'lazy'}
+              src={frame.src}
+              style={{ opacity: isActiveFrame ? 1 : 0 }}
+            />
+          );
+        })}
         {tintOverlaySrc && (
           <img
             alt=""

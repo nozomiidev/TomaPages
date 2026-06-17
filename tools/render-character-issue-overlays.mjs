@@ -162,6 +162,8 @@ async function readFrame(file, relativeFile, transparentThreshold) {
   const holes = componentList(transparentMask, info.width, info.height)
     .filter((component) => !component.touchEdge);
   const lineLikeHoles = holes.filter(isLineLikeInteriorHole);
+  const holeArea = holes.reduce((sum, component) => sum + component.area, 0);
+  const suspiciousHoleArea = lineLikeHoles.reduce((sum, component) => sum + component.area, 0);
 
   return {
     data,
@@ -172,8 +174,10 @@ async function readFrame(file, relativeFile, transparentThreshold) {
     lineLikeHoles,
     metrics: {
       detachedArea: detached.reduce((sum, component) => sum + component.area, 0),
-      holeArea: holes.reduce((sum, component) => sum + component.area, 0),
-      lineLikeHoleArea: lineLikeHoles.reduce((sum, component) => sum + component.area, 0),
+      holeArea,
+      internalGapArea: holeArea - suspiciousHoleArea,
+      lineLikeHoleArea: suspiciousHoleArea,
+      suspiciousHoleArea,
       weakAlphaPixels: weakAlphaMask.reduce((sum, value) => sum + value, 0),
     },
     relativeFile,
@@ -220,7 +224,7 @@ function selectIssueFrames(rows, maxFrames) {
     }
   };
 
-  addRows(topBy(rows, 'lineLikeHoleArea', 4));
+  addRows(topBy(rows, 'suspiciousHoleArea', 4));
   addRows(topBy(rows, 'detachedArea', 4));
   addRows(topBy(rows, 'weakAlphaPixels', 4));
   addRows(topBy(rows, 'holeArea', maxFrames));
@@ -249,8 +253,8 @@ function overlayFrame(frame) {
     output[offset + 3] = 255;
   }
 
-  for (const component of frame.holes) {
-    const amount = component.area > 128 ? 0.85 : 0.55;
+  for (const component of frame.lineLikeHoles) {
+    const amount = component.area > 128 ? 0.85 : 0.65;
     for (const index of component.pixels) blendPixel(output, index, COLORS.hole, amount);
   }
   for (const component of frame.detached) {
@@ -297,9 +301,9 @@ async function renderTile(frame, cellSize, labelHeight) {
     .resize(cellSize, cellSize, { fit: 'contain', kernel: 'nearest' })
     .png()
     .toBuffer();
-  const label = `${frame.relativeFile} h=${frame.metrics.holeArea} `
-    + `l=${frame.metrics.lineLikeHoleArea} d=${frame.metrics.detachedArea} `
-    + `w=${frame.metrics.weakAlphaPixels}`;
+  const label = `${frame.relativeFile.replace('.webp', '')} `
+    + `s${frame.metrics.suspiciousHoleArea} g${frame.metrics.internalGapArea} `
+    + `d${frame.metrics.detachedArea} w${frame.metrics.weakAlphaPixels}`;
 
   return {
     image,
@@ -320,7 +324,7 @@ async function legendTile(width, height) {
       input: Buffer.from(
         `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">`
         + '<rect x="10" y="10" width="18" height="18" fill="#ef4444"/>'
-        + '<text x="34" y="24" font-family="Arial" font-size="14" fill="#111827">internal transparent holes</text>'
+        + '<text x="34" y="24" font-family="Arial" font-size="14" fill="#111827">suspicious transparent holes</text>'
         + '<rect x="252" y="10" width="18" height="18" fill="#0ea5e9"/>'
         + '<text x="276" y="24" font-family="Arial" font-size="14" fill="#111827">detached alpha fragments</text>'
         + '<rect x="500" y="10" width="18" height="18" fill="#facc15"/>'

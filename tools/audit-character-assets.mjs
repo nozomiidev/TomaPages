@@ -13,6 +13,7 @@ const DEFAULTS = {
   maxExpressionWidthSpread: 72,
   maxLineHoleArea: 0,
   maxNeighborCenterStep: 32,
+  maxSuspiciousHoleArea: 0,
   maxTransparentNonBlack: Number.POSITIVE_INFINITY,
   maxWeakAlpha: 300,
   minMargin: 32,
@@ -187,6 +188,8 @@ async function auditFrame(file, relativeFile, transparentThreshold) {
   const holes = componentList(transparentMask, info.width, info.height)
     .filter((component) => !component.touchEdge);
   const lineLikeHoles = holes.filter(isLineLikeInteriorHole);
+  const holeArea = holes.reduce((sum, component) => sum + component.area, 0);
+  const suspiciousHoleArea = lineLikeHoles.reduce((sum, component) => sum + component.area, 0);
 
   return {
     alphaPixels,
@@ -197,14 +200,17 @@ async function auditFrame(file, relativeFile, transparentThreshold) {
     detachedSliverCount: detachedSlivers.length,
     file: relativeFile,
     height: maxY - minY + 1,
-    holeArea: holes.reduce((sum, component) => sum + component.area, 0),
+    holeArea,
     holeCount: holes.length,
+    internalGapArea: holeArea - suspiciousHoleArea,
     largestArea: largest.area,
     leftMargin: minX,
-    lineLikeHoleArea: lineLikeHoles.reduce((sum, component) => sum + component.area, 0),
+    lineLikeHoleArea: suspiciousHoleArea,
     lineLikeHoleCount: lineLikeHoles.length,
     rightMargin: info.width - 1 - maxX,
     topMargin: minY,
+    suspiciousHoleArea,
+    suspiciousHoleCount: lineLikeHoles.length,
     transparentNonBlack,
     weakAlphaPixels,
     width: maxX - minX + 1,
@@ -226,7 +232,9 @@ function summarize(rows) {
     frameCount: rows.length,
     maxDetachedArea: maxBy('detachedArea'),
     maxDetachedSliverArea: maxBy('detachedSliverArea'),
+    maxInternalGapArea: maxBy('internalGapArea'),
     maxLineLikeHoleArea: maxBy('lineLikeHoleArea'),
+    maxSuspiciousHoleArea: maxBy('suspiciousHoleArea'),
     maxTransparentNonBlack: maxBy('transparentNonBlack'),
     maxWeakAlphaPixels: maxBy('weakAlphaPixels'),
     minMargin: {
@@ -388,6 +396,11 @@ async function main() {
     ),
     maxLineHoleArea: readNumberOption(args, 'max-line-hole-area', DEFAULTS.maxLineHoleArea),
     maxNeighborCenterStep: readNumberOption(args, 'max-neighbor-center-step', DEFAULTS.maxNeighborCenterStep),
+    maxSuspiciousHoleArea: readNumberOption(
+      args,
+      'max-suspicious-hole-area',
+      DEFAULTS.maxSuspiciousHoleArea,
+    ),
     maxTransparentNonBlack: readNumberOption(
       args,
       'max-transparent-non-black',
@@ -463,6 +476,12 @@ async function main() {
     hardFailures.push(
       `${summary.maxLineLikeHoleArea.file} line-like hole area `
       + `${summary.maxLineLikeHoleArea.lineLikeHoleArea} > ${options.maxLineHoleArea}`,
+    );
+  }
+  if (summary.maxSuspiciousHoleArea.suspiciousHoleArea > options.maxSuspiciousHoleArea) {
+    hardFailures.push(
+      `${summary.maxSuspiciousHoleArea.file} suspicious hole area `
+      + `${summary.maxSuspiciousHoleArea.suspiciousHoleArea} > ${options.maxSuspiciousHoleArea}`,
     );
   }
   if (summary.maxTransparentNonBlack.transparentNonBlack > options.maxTransparentNonBlack) {

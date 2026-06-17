@@ -18,6 +18,8 @@ const AUDIT_MODES = ['pink', 'dark', 'alpha'];
 const COMPARE_SHEETS = ['pt_01', 'ot_01', 'ct_01', 'py_01', 'oy_01', 'cy_01'];
 const COMPARE_MODES = ['pink', 'dark'];
 const FRESHNESS_TOLERANCE_MS = 5000;
+const EXPECTED_REFERENCE_CURRENT_FRAMES = COMPARE_SHEETS.length * 25;
+const EXPECTED_OPENAI_REFERENCE_IMAGES = 5;
 const VISUAL_DIMENSIONS = {
   audit: { height: 800, width: 800 },
   compare: { height: 800, width: 1616 },
@@ -139,11 +141,15 @@ async function verifyReferenceMetrics(referenceRoot, failures) {
   const openAiCount = rows.filter((row) => row.group === 'openai-reference').length;
   const currentCount = rows.filter((row) => row.group === 'current-frame').length;
 
-  if (currentCount < 6) {
-    failures.push(`reference audit current-frame rows ${currentCount} < 6`);
+  if (currentCount < EXPECTED_REFERENCE_CURRENT_FRAMES) {
+    failures.push(
+      `reference audit current-frame rows ${currentCount} < ${EXPECTED_REFERENCE_CURRENT_FRAMES}`,
+    );
   }
-  if (openAiCount < 2) {
-    failures.push(`reference audit openai-reference rows ${openAiCount} < 2`);
+  if (openAiCount < EXPECTED_OPENAI_REFERENCE_IMAGES) {
+    failures.push(
+      `reference audit openai-reference rows ${openAiCount} < ${EXPECTED_OPENAI_REFERENCE_IMAGES}`,
+    );
   }
 
   const referencePngs = await walkFiles(referenceRoot, '.png');

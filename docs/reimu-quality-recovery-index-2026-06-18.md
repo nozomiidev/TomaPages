@@ -117,7 +117,7 @@ The Reimu quality pass now covers:
 - current-vs-baseline comparison sheets in `tmp/compare`
 - issue overlays in `tmp/issues`
 - inspection zooms in `tmp/inspection`
-- OpenAI reference metrics in `tmp/reference-audit`
+- OpenAI reference metrics in `tmp/reference-audit`, covering the 5 recovered/reference OpenAI images and all 150 Reimu T/Y pose frames
 
 Current default hard caps include:
 

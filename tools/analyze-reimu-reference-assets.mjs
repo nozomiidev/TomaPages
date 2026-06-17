@@ -1,17 +1,9 @@
-import { mkdir, readdir, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 
 const DEFAULTS = {
   characterSource: 'public/characters/reimu',
-  localFrames: [
-    'pl_01/r2c2.webp',
-    'pt_01/r2c2.webp',
-    'py_01/r2c2.webp',
-    'pt_01/r1c0.webp',
-    'py_01/r1c0.webp',
-    'py_01/r4c4.webp',
-  ],
   outputRoot: 'tmp/reference-audit',
   referenceSources: [
     'metaassets/fumo/reimu/reimu_sleeve_reference_imagegen.png',
@@ -19,6 +11,24 @@ const DEFAULTS = {
     'tmp/recovery/reimu-quality-2026-06-17/openai-generated',
   ],
 };
+
+const TARGET_SHEETS = ['pt_01', 'ot_01', 'ct_01', 'py_01', 'oy_01', 'cy_01'];
+const GRID_ROWS = 5;
+const GRID_COLS = 5;
+
+function allTargetFrames() {
+  const frames = [];
+
+  for (const sheet of TARGET_SHEETS) {
+    for (let row = 0; row < GRID_ROWS; row += 1) {
+      for (let col = 0; col < GRID_COLS; col += 1) {
+        frames.push(`${sheet}/r${row}c${col}.webp`);
+      }
+    }
+  }
+
+  return frames;
+}
 
 function readOption(args, name, fallback) {
   const index = args.indexOf(`--${name}`);
@@ -39,6 +49,21 @@ async function pathExists(file) {
   } catch {
     return false;
   }
+}
+
+function isInside(parent, child) {
+  const relative = path.relative(parent, child);
+  return relative && !relative.startsWith('..') && !path.isAbsolute(relative);
+}
+
+async function prepareOutputRoot(outputRoot) {
+  const tmpRoot = path.resolve('tmp');
+
+  if (isInside(tmpRoot, outputRoot)) {
+    await rm(outputRoot, { force: true, recursive: true });
+  }
+
+  await mkdir(outputRoot, { recursive: true });
 }
 
 async function isImageFileEntry(parentDir, entry) {
@@ -449,10 +474,10 @@ async function main() {
   const outputRoot = path.resolve(readOption(args, 'out', DEFAULTS.outputRoot));
   const referenceSources = readListOption(args, 'reference-sources', DEFAULTS.referenceSources);
   const characterSource = path.resolve(readOption(args, 'character-source', DEFAULTS.characterSource));
-  const localFrames = readListOption(args, 'local-frames', DEFAULTS.localFrames);
+  const localFrames = readListOption(args, 'local-frames', allTargetFrames());
   const rows = [];
 
-  await mkdir(outputRoot, { recursive: true });
+  await prepareOutputRoot(outputRoot);
 
   for (const source of referenceSources) {
     for (const file of await expandSource(source)) {

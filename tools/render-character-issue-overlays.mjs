@@ -122,6 +122,22 @@ function componentList(mask, width, height) {
   return components.sort((a, b) => b.area - a.area);
 }
 
+function isLineLikeInteriorHole(component) {
+  const shortSide = Math.min(component.width, component.height);
+  const longSide = Math.max(component.width, component.height);
+  const aspect = longSide / Math.max(1, shortSide);
+
+  return (
+    component.area <= 128
+    && (component.width <= 10 || component.height <= 24)
+  ) || (
+    component.area <= 256
+    && shortSide <= 12
+    && longSide >= 32
+    && aspect >= 4
+  );
+}
+
 async function readFrame(file, relativeFile, transparentThreshold) {
   const { data, info } = await sharp(file)
     .ensureAlpha()
@@ -145,9 +161,7 @@ async function readFrame(file, relativeFile, transparentThreshold) {
   const detached = alphaComponents.slice(1).filter((component) => component.area >= 16);
   const holes = componentList(transparentMask, info.width, info.height)
     .filter((component) => !component.touchEdge);
-  const lineLikeHoles = holes.filter((component) => (
-    component.area <= 128 && (component.width <= 10 || component.height <= 24)
-  ));
+  const lineLikeHoles = holes.filter(isLineLikeInteriorHole);
 
   return {
     data,

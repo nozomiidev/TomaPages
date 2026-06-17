@@ -499,8 +499,7 @@ function fillSmallInteriorAlphaHoles(data, width, height) {
       continue;
     }
 
-    const lineLike = component.width <= 10 || component.height <= 24;
-    if (!lineLike || component.pixels.length > 128) continue;
+    if (!isLineLikeInteriorHole(component)) continue;
 
     const color = averageNeighborColor(data, component.pixels, width, height);
     if (!color) continue;
@@ -513,6 +512,22 @@ function fillSmallInteriorAlphaHoles(data, width, height) {
       data[offset + 3] = 255;
     }
   }
+}
+
+function isLineLikeInteriorHole(component) {
+  const shortSide = Math.min(component.width, component.height);
+  const longSide = Math.max(component.width, component.height);
+  const aspect = longSide / Math.max(1, shortSide);
+
+  return (
+    component.pixels.length <= 128
+    && (component.width <= 10 || component.height <= 24)
+  ) || (
+    component.pixels.length <= 256
+    && shortSide <= 12
+    && longSide >= 32
+    && aspect >= 4
+  );
 }
 
 function nearestMainPixel(component, mainMask, width, height, maxDistance) {

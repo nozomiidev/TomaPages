@@ -35,3 +35,14 @@ Browser check on local preview:
 - Near-boundary pointer target `x=0.30, y=-0.30`: stayed at `r2 c2`
 - Cross-boundary pointer target `x=0.36, y=-0.36`: moved to `r1 c3`
 - Screenshot: `tmp/screenshots/reimu-stable-cell-local.png`
+
+Browser check on deployed GitHub Pages:
+
+- URL: `https://nozomiidev.github.io/TomaPages/talk.html?avatar=reimu&pose=t&filter=natural&verify=stable-cell-deployed-8ca9f50`
+- Reimu images: 225 loaded / 225 total
+- Broken images: 0
+- Console errors: 0
+- Near-boundary pointer target `x=0.30, y=-0.30`: stayed at `r2 c2`
+- Cross-boundary pointer target `x=0.36, y=-0.36`: moved to `r1 c3`
+- GitHub Pages workflow: `27714806540`, conclusion `success`
+- Screenshot: `tmp/screenshots/reimu-stable-cell-deployed-8ca9f50.png`

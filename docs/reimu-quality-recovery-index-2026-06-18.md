@@ -4,23 +4,21 @@ This index records where the recovered Reimu quality work lives and how it maps 
 
 ## Current Main State
 
-- Latest pushed commit when this index was written: `6fcebdf Tighten Reimu alpha residue audit`
+- Latest Reimu code/assets commit covered by this index: `8ca9f50 Stabilize Reimu direction cell changes`
 - Repository: `https://github.com/nozomiidev/TomaPages.git`
 - Branch: `main`
 - Shipped Reimu frames: `public/characters/reimu`, 9 sheets x 25 frames = 225 WebP files
 - Quality command: `npm run quality:reimu`
 - CI-style command: `npm run check`
+- Latest verified GitHub Pages workflow: `27714806540`, conclusion `success`
 
 Recent quality commits:
 
-- `6fcebdf Tighten Reimu alpha residue audit`
-- `9e3626b Add Reimu sleeve regression audit`
-- `3e006b8 Guard Reimu sleeve reshaping quality`
-- `c6626c2 Reduce Reimu edge residue and first-frame blanking`
-- `339ddad Add Reimu inspection zoom audit`
-- `d88fbdd Refine Reimu issue audit and frame loading`
-- `92f3083 Tighten Reimu interior line-hole cleanup`
-- `35fb72e Track OpenAI sleeve reference ranges`
+- `8ca9f50 Stabilize Reimu direction cell changes`
+- `3b9f75e Document Reimu lossless quality delta`
+- `6a2c8f0 Ship lossless Reimu quality assets`
+- `8d06789 Highlight Reimu internal gap audit`
+- `bd2271a Expand Reimu reference audit coverage`
 
 ## Historical Recovery Notes
 
@@ -34,6 +32,8 @@ Recent quality commits:
   - Before/after proof for the lossless Reimu pass, including metric deltas, rebuilt audit artifacts, browser evidence, and Pages deployment status.
 - `docs/reimu-direction-stability-report-2026-06-18.md`
   - Runtime stability proof for Reimu 5x5 direction changes, including the live pointer boundary check that prevents repeated frame swaps near grid edges.
+- `docs/reimu-goal-evidence-audit-2026-06-18.md`
+  - Requirement-by-requirement evidence audit for the active Reimu recovery goal, including what is proven, what is only partially proven, and why the broader goal remains active.
 
 ## Local Full-Preserve Bundle
 

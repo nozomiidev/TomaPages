@@ -32,6 +32,8 @@ Recent quality commits:
   - It intentionally does not reveal private chain-of-thought. It records observable decisions and artifacts instead.
 - `docs/reimu-lossless-quality-report-2026-06-18.md`
   - Before/after proof for the lossless Reimu pass, including metric deltas, rebuilt audit artifacts, browser evidence, and Pages deployment status.
+- `docs/reimu-direction-stability-report-2026-06-18.md`
+  - Runtime stability proof for Reimu 5x5 direction changes, including the live pointer boundary check that prevents repeated frame swaps near grid edges.
 
 ## Local Full-Preserve Bundle
 

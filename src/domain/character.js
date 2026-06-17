@@ -503,6 +503,39 @@ export function targetToCell(target) {
   };
 }
 
+function targetAxisToStableIndex(value, previousIndex, size, deadband) {
+  const clampedValue = clamp(value, -1, 1);
+  const rawIndex = clamp(
+    Math.round(((clampedValue + 1) / 2) * (size - 1)),
+    0,
+    size - 1,
+  );
+
+  if (!Number.isInteger(previousIndex) || previousIndex < 0 || previousIndex >= size) {
+    return rawIndex;
+  }
+
+  const step = 2 / (size - 1);
+  const previousCenter = -1 + previousIndex * step;
+  const lowerBoundary = previousCenter - step / 2 - deadband;
+  const upperBoundary = previousCenter + step / 2 + deadband;
+
+  if (clampedValue >= lowerBoundary && clampedValue <= upperBoundary) {
+    return previousIndex;
+  }
+
+  return rawIndex;
+}
+
+export function targetToStableCell(target, previousCell, deadband = 0.08) {
+  if (!previousCell) return targetToCell(target);
+
+  return {
+    col: targetAxisToStableIndex(target.x, previousCell.col, CHARACTER.cols, deadband),
+    row: targetAxisToStableIndex(target.y, previousCell.row, CHARACTER.rows, deadband),
+  };
+}
+
 export function mouthFromLevel(level, { thresholdHalf, thresholdFull }) {
   if (level >= thresholdFull) return 2;
   if (level >= thresholdHalf) return 1;

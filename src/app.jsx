@@ -44,7 +44,7 @@ import {
   pointerToTarget,
   poseVariantForCharacter,
   sheetForPose,
-  targetToCell,
+  targetToStableCell,
 } from './domain/character';
 import { makeBuiltInSyncAudit, makeLipSyncSnapshot } from './domain/lip-sync-diagnostics';
 import { useAnimationFrame } from './hooks/use-animation-frame';
@@ -402,12 +402,13 @@ export function StudioApp({ initialMode = detectInitialMode() }) {
       y: lerp(currentRef.current.y, targetRef.current.y, settings.smoothing),
     };
 
-    const nextCell = targetToCell(currentRef.current);
-    setCell((previous) => (
-      previous.row === nextCell.row && previous.col === nextCell.col
+    setCell((previous) => {
+      const nextCell = targetToStableCell(currentRef.current, previous);
+
+      return previous.row === nextCell.row && previous.col === nextCell.col
         ? previous
-        : nextCell
-    ));
+        : nextCell;
+    });
 
     const isAudioMode = modeRef.current === 'talk' || modeRef.current === 'room';
     const raw = isAudioMode ? engine.level() * settings.micGain : 0;

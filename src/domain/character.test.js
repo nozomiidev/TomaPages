@@ -13,6 +13,7 @@ import {
   poseVariantForCharacter,
   sheetForPose,
   targetToCell,
+  targetToStableCell,
 } from './character';
 
 describe('character domain', () => {
@@ -26,6 +27,12 @@ describe('character domain', () => {
     expect(targetToCell({ x: -1, y: -1 })).toEqual({ row: 0, col: 0 });
     expect(targetToCell({ x: 0, y: 0 })).toEqual({ row: 2, col: 2 });
     expect(targetToCell({ x: 1, y: 1 })).toEqual({ row: 4, col: 4 });
+  });
+
+  it('keeps the previous direction cell near grid boundaries', () => {
+    expect(targetToStableCell({ x: 0.3, y: -0.3 }, { row: 2, col: 2 })).toEqual({ row: 2, col: 2 });
+    expect(targetToStableCell({ x: 0.36, y: -0.36 }, { row: 2, col: 2 })).toEqual({ row: 1, col: 3 });
+    expect(targetToStableCell({ x: 1, y: 1 }, { row: 2, col: 2 })).toEqual({ row: 4, col: 4 });
   });
 
   it('keeps the original six pose sheet model', () => {

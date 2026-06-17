@@ -19,7 +19,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "verify:pages": "node scripts/verify-pages-build.mjs",
-    "check": "npm run lint && npm run test && npm run audit:assets && npm run build && npm run verify:pages"
+    "check": "npm run lint && npm run test && npm run audit:assets && npm run audit:assets:sleeves && npm run build && npm run verify:pages"
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

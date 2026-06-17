@@ -6,7 +6,10 @@ const DEFAULTS = {
   baselineSource: 'tmp/noreshape/reimu',
   currentSource: 'public/characters/reimu',
   maxAverageWidthLoss: 0.015,
+  maxSideWidthImbalance: 0.16,
   maxSideWidthLoss: 0.12,
+  minAverageWidthRatio: 0.26,
+  minSideWidthRatio: 0.20,
   outputRoot: 'tmp/quality-audit',
 };
 
@@ -252,6 +255,7 @@ async function collectRows(currentRoot, baselineRoot) {
       const averageWidthLoss = baseline.averageWidthRatio - current.averageWidthRatio;
       const leftWidthLoss = baseline.leftWidthRatio - current.leftWidthRatio;
       const rightWidthLoss = baseline.rightWidthRatio - current.rightWidthRatio;
+      const sideWidthImbalance = Math.abs(current.leftWidthRatio - current.rightWidthRatio);
 
       rows.push({
         averageWidthLoss: Number(averageWidthLoss.toFixed(4)),
@@ -268,6 +272,7 @@ async function collectRows(currentRoot, baselineRoot) {
         file: `${sheetEntry.name}/${fileEntry.name}`,
         leftWidthLoss: Number(leftWidthLoss.toFixed(4)),
         rightWidthLoss: Number(rightWidthLoss.toFixed(4)),
+        sideWidthImbalance: Number(sideWidthImbalance.toFixed(4)),
         sideWidthLoss: Number(Math.max(leftWidthLoss, rightWidthLoss).toFixed(4)),
       });
     }
@@ -280,6 +285,10 @@ function maxBy(rows, key) {
   return [...rows].sort((a, b) => b[key] - a[key])[0];
 }
 
+function minBy(rows, key) {
+  return [...rows].sort((a, b) => a[key] - b[key])[0];
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const options = {
@@ -290,7 +299,18 @@ async function main() {
       'max-average-width-loss',
       DEFAULTS.maxAverageWidthLoss,
     ),
+    maxSideWidthImbalance: readNumberOption(
+      args,
+      'max-side-width-imbalance',
+      DEFAULTS.maxSideWidthImbalance,
+    ),
     maxSideWidthLoss: readNumberOption(args, 'max-side-width-loss', DEFAULTS.maxSideWidthLoss),
+    minAverageWidthRatio: readNumberOption(
+      args,
+      'min-average-width-ratio',
+      DEFAULTS.minAverageWidthRatio,
+    ),
+    minSideWidthRatio: readNumberOption(args, 'min-side-width-ratio', DEFAULTS.minSideWidthRatio),
     outputRoot: path.resolve(readOption(args, 'out', DEFAULTS.outputRoot)),
   };
 
@@ -304,10 +324,21 @@ async function main() {
   const summary = {
     frameCount: rows.length,
     maxAverageWidthLoss: maxBy(rows, 'averageWidthLoss'),
+    maxSideWidthImbalance: maxBy(rows, 'sideWidthImbalance'),
     maxSideWidthLoss: maxBy(rows, 'sideWidthLoss'),
+    minCurrentAverageWidthRatio: minBy(rows, 'currentAverageWidthRatio'),
+    minCurrentSideWidthRatio: [...rows]
+      .map((row) => ({
+        ...row,
+        currentSideWidthRatio: Math.min(row.currentLeftWidthRatio, row.currentRightWidthRatio),
+      }))
+      .sort((a, b) => a.currentSideWidthRatio - b.currentSideWidthRatio)[0],
     thresholds: {
       maxAverageWidthLoss: options.maxAverageWidthLoss,
+      maxSideWidthImbalance: options.maxSideWidthImbalance,
       maxSideWidthLoss: options.maxSideWidthLoss,
+      minAverageWidthRatio: options.minAverageWidthRatio,
+      minSideWidthRatio: options.minSideWidthRatio,
     },
   };
   const headers = Object.keys(rows[0] ?? {});
@@ -337,6 +368,24 @@ async function main() {
     hardFailures.push(
       `${summary.maxSideWidthLoss.file} side sleeve width loss `
       + `${summary.maxSideWidthLoss.sideWidthLoss} > ${options.maxSideWidthLoss}`,
+    );
+  }
+  if (summary.maxSideWidthImbalance.sideWidthImbalance > options.maxSideWidthImbalance) {
+    hardFailures.push(
+      `${summary.maxSideWidthImbalance.file} sleeve side width imbalance `
+      + `${summary.maxSideWidthImbalance.sideWidthImbalance} > ${options.maxSideWidthImbalance}`,
+    );
+  }
+  if (summary.minCurrentAverageWidthRatio.currentAverageWidthRatio < options.minAverageWidthRatio) {
+    hardFailures.push(
+      `${summary.minCurrentAverageWidthRatio.file} average sleeve width ratio `
+      + `${summary.minCurrentAverageWidthRatio.currentAverageWidthRatio} < ${options.minAverageWidthRatio}`,
+    );
+  }
+  if (summary.minCurrentSideWidthRatio.currentSideWidthRatio < options.minSideWidthRatio) {
+    hardFailures.push(
+      `${summary.minCurrentSideWidthRatio.file} side sleeve width ratio `
+      + `${summary.minCurrentSideWidthRatio.currentSideWidthRatio} < ${options.minSideWidthRatio}`,
     );
   }
 

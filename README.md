@@ -149,7 +149,7 @@ For the Reimu quality pass, use:
 npm run quality:reimu
 ```
 
-This regenerates the no-reshape baseline in `tmp/noreshape`, regenerates the shipped Reimu WebP frames at WebP quality 100, runs the 225-frame asset audit, runs a T/Y sleeve-width regression audit against the no-reshape baseline, and rebuilds visual contact sheets in `tmp/audit`, current-vs-baseline comparison sheets in `tmp/compare`, issue overlays in `tmp/issues`, and enlarged metric-driven inspection tiles in `tmp/inspection`. The WebP encoder uses exact transparent-pixel preservation so invisible RGB residue is kept low enough to avoid resize/filter edge bleed. The T/Y sleeve reshaper also keeps a side-level rollback guard: if a generated sleeve edit makes one side narrower or lower-coverage than the sliced source frame, that side is restored instead of shipping the regression. The slicer also accepts `--lossless` for forensic experiments, but the default quality pass keeps the shipped assets lighter.
+This regenerates the no-reshape baseline in `tmp/noreshape`, regenerates the shipped Reimu WebP frames at WebP quality 100, runs the 225-frame asset audit, runs a T/Y sleeve-width regression audit against the no-reshape baseline, and rebuilds visual contact sheets in `tmp/audit`, current-vs-baseline comparison sheets in `tmp/compare`, issue overlays in `tmp/issues`, and enlarged metric-driven inspection tiles in `tmp/inspection`. The WebP encoder uses exact transparent-pixel preservation so invisible RGB residue is kept low enough to avoid resize/filter edge bleed. The T/Y sleeve guard also checks absolute sleeve width and left/right balance, so a future edit cannot quietly regress back toward narrow long-shirt sleeves merely because the no-reshape baseline was also narrow. The T/Y sleeve reshaper keeps a side-level rollback guard: if a generated sleeve edit makes one side narrower or lower-coverage than the sliced source frame, that side is restored instead of shipping the regression. The slicer also accepts `--lossless` for forensic experiments, but the default quality pass keeps the shipped assets lighter.
 
 If recovered OpenAI image-generation/editing candidates exist locally under `tmp/recovery/reimu-quality-2026-06-17/openai-generated` or `metaassets/fumo/reimu/reimu_sleeve_reference_imagegen*.png`, the same command also writes `tmp/reference-audit`. Those references are treated as proportion guidance, mask guidance, and controlled edit inputs for sleeve shape; the shipped 5x5 frames still come from the existing source sheets plus deterministic post-processing so identity, canvas, line weight, and frame grid stay stable.
 
@@ -167,7 +167,7 @@ npm run preview
 `npm run check` runs:
 
 ```text
-lint -> test -> audit:assets -> build -> verify:pages
+lint -> test -> audit:assets -> audit:assets:sleeves -> build -> verify:pages
 ```
 
 `scripts/verify-pages-build.mjs` checks:

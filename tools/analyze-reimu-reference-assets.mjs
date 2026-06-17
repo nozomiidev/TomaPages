@@ -40,6 +40,17 @@ async function pathExists(file) {
   }
 }
 
+async function isImageFileEntry(parentDir, entry) {
+  if (!/\.(png|webp|jpe?g)$/iu.test(entry.name)) return false;
+  if (entry.isFile()) return true;
+
+  try {
+    return (await stat(path.join(parentDir, entry.name))).isFile();
+  } catch {
+    return false;
+  }
+}
+
 function slugForFile(file) {
   return path
     .relative(process.cwd(), file)
@@ -58,10 +69,14 @@ async function expandSource(source) {
   if (!sourceStat.isDirectory()) return [];
 
   const entries = await readdir(resolved, { withFileTypes: true });
-  return entries
-    .filter((entry) => entry.isFile() && /\.(png|webp|jpe?g)$/iu.test(entry.name))
-    .map((entry) => path.join(resolved, entry.name))
-    .sort((a, b) => a.localeCompare(b));
+  const images = [];
+  for (const entry of entries) {
+    if (await isImageFileEntry(resolved, entry)) {
+      images.push(path.join(resolved, entry.name));
+    }
+  }
+
+  return images.sort((a, b) => a.localeCompare(b));
 }
 
 function isGreenScreen(data, index) {

@@ -1,4 +1,4 @@
-import { mkdir, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 
@@ -6,6 +6,7 @@ const DEFAULTS = {
   character: 'reimu',
   expectedFrames: 0,
   maxDetachedArea: 512,
+  maxDetachedSliverArea: 0,
   maxExpressionAlphaSpread: 0.16,
   maxExpressionCenterSpread: 24,
   maxExpressionHeightSpread: 32,
@@ -92,8 +93,37 @@ function componentList(mask, width, height) {
   return components.sort((a, b) => b.area - a.area);
 }
 
+function isDetachedSliverComponent(component) {
+  const shortSide = Math.min(component.width, component.height);
+  const longSide = Math.max(component.width, component.height);
+
+  return shortSide <= 16 && longSide >= 8;
+}
+
 function csvCell(value) {
   return `"${String(value).replaceAll('"', '""')}"`;
+}
+
+async function isDirectoryEntry(parentDir, entry) {
+  if (entry.isDirectory()) return true;
+  if (entry.isFile()) return false;
+
+  try {
+    return (await stat(path.join(parentDir, entry.name))).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+async function isWebpFileEntry(parentDir, entry) {
+  if (!entry.name.endsWith('.webp')) return false;
+  if (entry.isFile()) return true;
+
+  try {
+    return (await stat(path.join(parentDir, entry.name))).isFile();
+  } catch {
+    return false;
+  }
 }
 
 async function auditFrame(file, relativeFile, transparentThreshold) {
@@ -137,6 +167,7 @@ async function auditFrame(file, relativeFile, transparentThreshold) {
   const components = componentList(alphaMask, info.width, info.height);
   const largest = components[0] ?? { area: 0 };
   const detached = components.slice(1).filter((component) => component.area >= 16);
+  const detachedSlivers = detached.filter(isDetachedSliverComponent);
   const holes = componentList(transparentMask, info.width, info.height)
     .filter((component) => !component.touchEdge);
   const lineLikeHoles = holes.filter((component) => (
@@ -148,6 +179,8 @@ async function auditFrame(file, relativeFile, transparentThreshold) {
     bottomMargin: info.height - 1 - maxY,
     detachedArea: detached.reduce((sum, component) => sum + component.area, 0),
     detachedCount: detached.length,
+    detachedSliverArea: detachedSlivers.reduce((sum, component) => sum + component.area, 0),
+    detachedSliverCount: detachedSlivers.length,
     file: relativeFile,
     height: maxY - minY + 1,
     holeArea: holes.reduce((sum, component) => sum + component.area, 0),
@@ -178,6 +211,7 @@ function summarize(rows) {
   return {
     frameCount: rows.length,
     maxDetachedArea: maxBy('detachedArea'),
+    maxDetachedSliverArea: maxBy('detachedSliverArea'),
     maxLineLikeHoleArea: maxBy('lineLikeHoleArea'),
     maxTransparentNonBlack: maxBy('transparentNonBlack'),
     maxWeakAlphaPixels: maxBy('weakAlphaPixels'),
@@ -313,6 +347,11 @@ async function main() {
     character: readOption(args, 'character', DEFAULTS.character),
     expectedFrames: readNumberOption(args, 'expected-frames', DEFAULTS.expectedFrames),
     maxDetachedArea: readNumberOption(args, 'max-detached-area', DEFAULTS.maxDetachedArea),
+    maxDetachedSliverArea: readNumberOption(
+      args,
+      'max-detached-sliver-area',
+      DEFAULTS.maxDetachedSliverArea,
+    ),
     maxExpressionAlphaSpread: readNumberOption(
       args,
       'max-expression-alpha-spread',
@@ -350,11 +389,11 @@ async function main() {
   const rows = [];
 
   for (const sheetEntry of await readdir(characterRoot, { withFileTypes: true })) {
-    if (!sheetEntry.isDirectory()) continue;
-
     const sheetDir = path.join(characterRoot, sheetEntry.name);
+    if (!await isDirectoryEntry(characterRoot, sheetEntry)) continue;
+
     for (const fileEntry of await readdir(sheetDir, { withFileTypes: true })) {
-      if (!fileEntry.isFile() || !fileEntry.name.endsWith('.webp')) continue;
+      if (!await isWebpFileEntry(sheetDir, fileEntry)) continue;
 
       const relativeFile = `${sheetEntry.name}/${fileEntry.name}`;
       rows.push(await auditFrame(
@@ -398,6 +437,12 @@ async function main() {
     hardFailures.push(
       `${summary.maxDetachedArea.file} detached area `
       + `${summary.maxDetachedArea.detachedArea} > ${options.maxDetachedArea}`,
+    );
+  }
+  if (summary.maxDetachedSliverArea.detachedSliverArea > options.maxDetachedSliverArea) {
+    hardFailures.push(
+      `${summary.maxDetachedSliverArea.file} detached sliver area `
+      + `${summary.maxDetachedSliverArea.detachedSliverArea} > ${options.maxDetachedSliverArea}`,
     );
   }
   if (summary.maxLineLikeHoleArea.lineLikeHoleArea > options.maxLineHoleArea) {

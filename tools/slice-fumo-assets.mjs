@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, rename, rm } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import sharp from 'sharp';
@@ -374,7 +374,12 @@ function largestComponentMask(mask, width, height) {
 
   const minPixels = Math.max(64, Math.round(largest.pixels.length * 0.006));
   for (const component of components) {
-    if (component !== largest && component.pixels.length < minPixels) continue;
+    if (component !== largest && (
+      component.pixels.length < minPixels
+      || isDetachedSliverComponent(component)
+    )) {
+      continue;
+    }
 
     for (const index of component.pixels) {
       keep[index] = 1;
@@ -382,6 +387,13 @@ function largestComponentMask(mask, width, height) {
   }
 
   return keep;
+}
+
+function isDetachedSliverComponent(component) {
+  const shortSide = Math.min(component.width, component.height);
+  const longSide = Math.max(component.width, component.height);
+
+  return shortSide <= 16 && longSide >= 8;
 }
 
 function sanitizeSpriteAlpha(data, width, height) {
@@ -531,6 +543,17 @@ async function readRgbaFrame(file) {
   };
 }
 
+async function isDirectoryEntry(parentDir, entry) {
+  if (entry.isDirectory()) return true;
+  if (entry.isFile()) return false;
+
+  try {
+    return (await stat(path.join(parentDir, entry.name))).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 function webpOptions({ lossless, quality }) {
   return {
     alphaQuality: 100,
@@ -539,6 +562,49 @@ function webpOptions({ lossless, quality }) {
     quality,
     smartSubsample: !lossless,
   };
+}
+
+async function encodeRawWebp(data, width, height, outputFile, { lossless, quality }) {
+  await sharp(data, {
+    raw: {
+      channels: 4,
+      height,
+      width,
+    },
+  })
+    .webp(webpOptions({ lossless, quality }))
+    .toFile(outputFile);
+}
+
+async function encodeRawWebpBuffer(data, width, height, { lossless, quality }) {
+  return sharp(data, {
+    raw: {
+      channels: 4,
+      height,
+      width,
+    },
+  })
+    .webp(webpOptions({ lossless, quality }))
+    .toBuffer();
+}
+
+async function writeSanitizedWebp({ data, height, lossless, outputFile, quality, width }) {
+  const tempOutputFile = `${outputFile}.${process.pid}.tmp.webp`;
+
+  try {
+    const firstPassData = sanitizeSpriteAlpha(data, width, height);
+    const encodedBuffer = await encodeRawWebpBuffer(firstPassData, width, height, { lossless, quality });
+
+    const { data: decodedData, info } = await sharp(encodedBuffer)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const finalData = sanitizeSpriteAlpha(decodedData, info.width, info.height);
+    await encodeRawWebp(finalData, info.width, info.height, tempOutputFile, { lossless, quality });
+    await replaceFileWithRetry(tempOutputFile, outputFile);
+  } finally {
+    await rm(tempOutputFile, { force: true });
+  }
 }
 
 function clampNumber(value, min, max) {
@@ -823,20 +889,14 @@ async function reshapeReimuPoseSleeves({ lossless, outputFile, quality, referenc
     });
   }
 
-  const tempOutputFile = `${outputFile}.${process.pid}.tmp.webp`;
-
-  const sanitizedData = sanitizeSpriteAlpha(editedData, target.width, target.height);
-
-  await sharp(sanitizedData, {
-    raw: {
-      channels: 4,
-      height: target.height,
-      width: target.width,
-    },
-  })
-    .webp(webpOptions({ lossless, quality }))
-    .toFile(tempOutputFile);
-  await replaceFileWithRetry(tempOutputFile, outputFile);
+  await writeSanitizedWebp({
+    data: editedData,
+    height: target.height,
+    lossless,
+    outputFile,
+    quality,
+    width: target.width,
+  });
 }
 
 async function reshapeReimuPoseSleeveSheets({ characterOutputDir, cols, lossless, quality, rows }) {
@@ -975,7 +1035,12 @@ function copyAssignedWindow({ anchorX, anchorY, assignments, cellIndex, data, he
 
 async function assertKnownCharacters(sourceRoot, characterIds) {
   const entries = await readdir(sourceRoot, { withFileTypes: true });
-  const known = new Set(entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name.toLowerCase()));
+  const known = new Set();
+  for (const entry of entries) {
+    if (await isDirectoryEntry(sourceRoot, entry)) {
+      known.add(entry.name.toLowerCase());
+    }
+  }
 
   for (const characterId of characterIds) {
     if (!known.has(characterId)) {
@@ -1046,17 +1111,14 @@ async function sliceSheet({
         .sharpen()
         .raw()
         .toBuffer({ resolveWithObject: true });
-      const sanitizedData = sanitizeSpriteAlpha(resizedData, resizedInfo.width, resizedInfo.height);
-
-      await sharp(sanitizedData, {
-        raw: {
-          channels: 4,
-          height: resizedInfo.height,
-          width: resizedInfo.width,
-        },
-      })
-        .webp(webpOptions({ lossless, quality }))
-        .toFile(outputFile);
+      await writeSanitizedWebp({
+        data: resizedData,
+        height: resizedInfo.height,
+        lossless,
+        outputFile,
+        quality,
+        width: resizedInfo.width,
+      });
     }
   }
 }

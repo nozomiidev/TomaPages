@@ -1,4 +1,4 @@
-import { mkdir, readdir } from 'node:fs/promises';
+import { mkdir, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 
@@ -36,6 +36,28 @@ function escapeText(value) {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;');
+}
+
+async function isDirectoryEntry(parentDir, entry) {
+  if (entry.isDirectory()) return true;
+  if (entry.isFile()) return false;
+
+  try {
+    return (await stat(path.join(parentDir, entry.name))).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+async function isWebpFileEntry(parentDir, entry) {
+  if (!entry.name.endsWith('.webp')) return false;
+  if (entry.isFile()) return true;
+
+  try {
+    return (await stat(path.join(parentDir, entry.name))).isFile();
+  } catch {
+    return false;
+  }
 }
 
 function componentList(mask, width, height) {
@@ -149,11 +171,11 @@ async function scanFrames(characterRoot, transparentThreshold) {
   const rows = [];
 
   for (const sheetEntry of await readdir(characterRoot, { withFileTypes: true })) {
-    if (!sheetEntry.isDirectory()) continue;
-
     const sheetRoot = path.join(characterRoot, sheetEntry.name);
+    if (!await isDirectoryEntry(characterRoot, sheetEntry)) continue;
+
     for (const fileEntry of await readdir(sheetRoot, { withFileTypes: true })) {
-      if (!fileEntry.isFile() || !fileEntry.name.endsWith('.webp')) continue;
+      if (!await isWebpFileEntry(sheetRoot, fileEntry)) continue;
 
       const relativeFile = `${sheetEntry.name}/${fileEntry.name}`;
       const frame = await readFrame(

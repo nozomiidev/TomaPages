@@ -58,6 +58,17 @@ async function resolveCharacterRoot(root, character) {
   return resolvedRoot;
 }
 
+async function isWebpFileEntry(parentDir, entry) {
+  if (!entry.name.endsWith('.webp')) return false;
+  if (entry.isFile()) return true;
+
+  try {
+    return (await stat(path.join(parentDir, entry.name))).isFile();
+  } catch {
+    return false;
+  }
+}
+
 function framePosition(fileName) {
   const match = /^r(\d+)c(\d+)\.webp$/u.exec(fileName);
   if (!match) return null;
@@ -70,14 +81,19 @@ function framePosition(fileName) {
 
 async function sheetFrames(sheetRoot) {
   const entries = await readdir(sheetRoot, { withFileTypes: true });
+  const frames = [];
 
-  return entries
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.webp'))
-    .map((entry) => ({
+  for (const entry of entries) {
+    if (!await isWebpFileEntry(sheetRoot, entry)) continue;
+
+    frames.push({
       file: path.join(sheetRoot, entry.name),
       name: entry.name,
       position: framePosition(entry.name),
-    }))
+    });
+  }
+
+  return frames
     .filter((frame) => frame.position)
     .sort((a, b) => (
       a.position.row - b.position.row || a.position.col - b.position.col

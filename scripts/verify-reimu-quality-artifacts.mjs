@@ -239,6 +239,7 @@ async function main() {
     path.join(options.expressionRoot, 'reimu-expression-diff-audit-summary.json'),
     path.join(options.gapRoot, 'reimu-reference-covered-gap.csv'),
     path.join(options.gapRoot, 'reimu-reference-covered-gap-summary.json'),
+    path.join(options.qualityRoot, 'reimu-residual-defect-summary.json'),
     ...auditFiles,
     ...compareFiles,
     ...sweepFiles,

@@ -4,7 +4,7 @@ This index records where the recovered Reimu quality work lives and how it maps 
 
 ## Current Main State
 
-- Latest Reimu code/assets state covered by this index: current `main` after the reference-covered-gap quality pass
+- Latest Reimu code/assets state covered by this index: current `main` after the residual-defect audit pass
 - Repository: `https://github.com/nozomiidev/TomaPages.git`
 - Branch: `main`
 - Shipped Reimu frames: `public/characters/reimu`, 9 sheets x 25 frames = 225 WebP files
@@ -14,6 +14,7 @@ This index records where the recovered Reimu quality work lives and how it maps 
 
 Recent quality commits:
 
+- residual-defect audit pass, separating actionable Reimu defects from supported antialiasing and original negative-space review candidates
 - reference-covered-gap quality pass, restoring same-frame reference pixels where post-processing introduced closed transparent gaps
 - light-interior-gap quality pass, filling small white-sleeve transparent holes and adding a hard audit cap
 - expression-stability quality pass, adding base-body expression stabilization and diff audit
@@ -50,6 +51,8 @@ Recent quality commits:
   - Small white-sleeve internal transparent gap cleanup proof and the matching audit guard.
 - `docs/reimu-reference-covered-gap-audit-2026-06-18.md`
   - Same-frame reference-covered internal gap cleanup proof and the matching no-reshape comparison audit.
+- `docs/reimu-residual-defect-audit-2026-06-18.md`
+  - Machine-checkable proof that remaining issue-overlay candidates are review-only and actionable residual defects are zero.
 
 ## Local Full-Preserve Bundle
 
@@ -134,6 +137,7 @@ The Reimu quality pass now covers:
 - larger internal transparent gap cap and overlay review
 - small light-cloth internal transparent gap hard cap
 - reference-covered internal gap hard cap against `tmp/noreshape/reimu`
+- residual actionable-defect disposition in `tmp/quality-audit/reimu-residual-defect-summary.json`
 - weak alpha pixels
 - weak alpha edge support and orphan weak-alpha ghost detection in `tmp/edge-audit`
 - expression-frame diff review in `tmp/expression-audit`
@@ -160,6 +164,7 @@ maxTransparentNonBlack = 0
 maxWeakAlpha = 320
 maxOrphanWeakAlpha = 0
 maxTransparentColored = 0
+actionableDefectFrameCount = 0
 ```
 
 Lossless Reimu sleeve guard thresholds are calibrated to decoded lossless masks while keeping absolute width floors:

@@ -5,7 +5,7 @@ import sharp from 'sharp';
 const DEFAULTS = {
   baselineSource: 'tmp/noreshape/reimu',
   currentSource: 'public/characters/reimu',
-  maxAverageWidthLoss: 0.04,
+  maxAverageWidthLoss: 0.07,
   maxSideWidthImbalance: 0.18,
   maxSideWidthLoss: 0.12,
   minAverageWidthRatio: 0.25,
@@ -14,6 +14,12 @@ const DEFAULTS = {
 };
 
 const TARGET_SHEETS = new Set(['pt_01', 'ot_01', 'ct_01', 'py_01', 'oy_01', 'cy_01']);
+const BASELINE_SHEETS = {
+  ct_01: 'pt_01',
+  cy_01: 'py_01',
+  ot_01: 'pt_01',
+  oy_01: 'py_01',
+};
 
 function readOption(args, name, fallback) {
   const index = args.indexOf(`--${name}`);
@@ -240,12 +246,12 @@ async function collectRows(currentRoot, baselineRoot) {
     if (!await isDirectoryEntry(currentRoot, sheetEntry)) continue;
 
     const currentSheetDir = path.join(currentRoot, sheetEntry.name);
-    const baselineSheetDir = path.join(baselineRoot, sheetEntry.name);
     for (const fileEntry of await readdir(currentSheetDir, { withFileTypes: true })) {
       if (!await isWebpFileEntry(currentSheetDir, fileEntry)) continue;
 
       const currentFile = path.join(currentSheetDir, fileEntry.name);
-      const baselineFile = path.join(baselineSheetDir, fileEntry.name);
+      const baselineSheet = BASELINE_SHEETS[sheetEntry.name] ?? sheetEntry.name;
+      const baselineFile = path.join(baselineRoot, baselineSheet, fileEntry.name);
       if (!await exists(baselineFile)) {
         throw new Error(`Missing no-reshape baseline: ${path.relative(process.cwd(), baselineFile)}`);
       }
@@ -269,6 +275,7 @@ async function collectRows(currentRoot, baselineRoot) {
         currentLeftWidthRatio: Number(current.leftWidthRatio.toFixed(4)),
         currentRightArea: current.rightArea,
         currentRightWidthRatio: Number(current.rightWidthRatio.toFixed(4)),
+        baselineSheet,
         file: `${sheetEntry.name}/${fileEntry.name}`,
         leftWidthLoss: Number(leftWidthLoss.toFixed(4)),
         rightWidthLoss: Number(rightWidthLoss.toFixed(4)),

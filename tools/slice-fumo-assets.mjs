@@ -53,6 +53,15 @@ const REIMU_SLEEVE_REFERENCE_SHEETS = {
   py_01: 'pl_01',
 };
 
+const REIMU_EXPRESSION_REFERENCE_SHEETS = {
+  ce_01: 'pl_01',
+  ct_01: 'pt_01',
+  cy_01: 'py_01',
+  om_01: 'pl_01',
+  ot_01: 'pt_01',
+  oy_01: 'py_01',
+};
+
 const REIMU_SLEEVE_STYLE = {
   t: {
     cornerFeather: 0.10,
@@ -424,6 +433,15 @@ function sanitizeSpriteAlpha(data, width, height) {
       next[offset + 1] = 0;
       next[offset + 2] = 0;
       next[offset + 3] = 0;
+    } else if (
+      alpha > 0
+      && alpha < 32
+      && !hasNearbyAlpha(next, width, height, index, 32, 2)
+    ) {
+      next[offset] = 0;
+      next[offset + 1] = 0;
+      next[offset + 2] = 0;
+      next[offset + 3] = 0;
     } else if (alpha === 0) {
       next[offset] = 0;
       next[offset + 1] = 0;
@@ -435,6 +453,24 @@ function sanitizeSpriteAlpha(data, width, height) {
   fillSmallInteriorAlphaHoles(next, width, height);
 
   return next;
+}
+
+function hasNearbyAlpha(data, width, height, index, minAlpha, radius) {
+  const x = index % width;
+  const y = Math.floor(index / width);
+
+  for (let dy = -radius; dy <= radius; dy += 1) {
+    const candidateY = y + dy;
+    if (candidateY < 0 || candidateY >= height) continue;
+
+    for (let dx = -radius; dx <= radius; dx += 1) {
+      const candidateX = x + dx;
+      if (candidateX < 0 || candidateX >= width) continue;
+      if (data[(candidateY * width + candidateX) * 4 + 3] >= minAlpha) return true;
+    }
+  }
+
+  return false;
 }
 
 function bridgeNearbyDetachedComponents(data, width, height) {
@@ -842,6 +878,95 @@ function withComponentSourceWidth(components, width) {
     ...component,
     sourceWidth: width,
   }));
+}
+
+function reimuExpressionBlendAmount(x, y, bounds) {
+  const boundsWidth = bounds.maxX - bounds.minX + 1;
+  const boundsHeight = bounds.maxY - bounds.minY + 1;
+  const centerX = (bounds.minX + bounds.maxX) / 2;
+  const centerY = bounds.minY + boundsHeight * 0.39;
+  const radiusX = boundsWidth * 0.34;
+  const radiusY = boundsHeight * 0.27;
+  const distance = Math.hypot((x - centerX) / radiusX, (y - centerY) / radiusY);
+
+  if (distance <= 0.72) return 1;
+  if (distance >= 1.08) return 0;
+
+  const feather = (1.08 - distance) / (1.08 - 0.72);
+  return feather * feather * (3 - 2 * feather);
+}
+
+function stabilizeReimuExpressionData(base, target) {
+  if (base.width !== target.width || base.height !== target.height) {
+    throw new Error('Reimu expression stabilization requires matching frame dimensions');
+  }
+
+  const bounds = alphaBounds(base.data, base.width, base.height);
+  const output = Buffer.from(base.data);
+
+  for (let index = 0; index < base.width * base.height; index += 1) {
+    const x = index % base.width;
+    const y = Math.floor(index / base.width);
+    const blend = reimuExpressionBlendAmount(x, y, bounds);
+    if (blend <= 0) continue;
+
+    const offset = index * 4;
+    const baseAlpha = base.data[offset + 3] / 255;
+    const targetAlpha = target.data[offset + 3] / 255;
+    const outputAlpha = targetAlpha * blend + baseAlpha * (1 - blend);
+
+    if (outputAlpha <= 0.001) {
+      output[offset] = 0;
+      output[offset + 1] = 0;
+      output[offset + 2] = 0;
+      output[offset + 3] = 0;
+      continue;
+    }
+
+    for (let channel = 0; channel < 3; channel += 1) {
+      output[offset + channel] = Math.round(
+        (target.data[offset + channel] * targetAlpha * blend
+          + base.data[offset + channel] * baseAlpha * (1 - blend)) / outputAlpha,
+      );
+    }
+    output[offset + 3] = Math.round(outputAlpha * 255);
+  }
+
+  return output;
+}
+
+async function stabilizeReimuExpressionFrame({ baseFile, lossless, outputFile, quality, targetFile }) {
+  const base = await readRgbaFrame(baseFile);
+  const target = await readRgbaFrame(targetFile);
+  const editedData = stabilizeReimuExpressionData(base, target);
+
+  await writeSanitizedWebp({
+    data: editedData,
+    height: target.height,
+    lossless,
+    outputFile,
+    quality,
+    width: target.width,
+  });
+}
+
+async function stabilizeReimuExpressionSheets({ characterOutputDir, cols, lossless, quality, rows }) {
+  for (const [targetSheet, baseSheet] of Object.entries(REIMU_EXPRESSION_REFERENCE_SHEETS)) {
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        const targetFile = path.join(characterOutputDir, targetSheet, `r${row}c${col}.webp`);
+        const baseFile = path.join(characterOutputDir, baseSheet, `r${row}c${col}.webp`);
+
+        await stabilizeReimuExpressionFrame({
+          baseFile,
+          lossless,
+          outputFile: targetFile,
+          quality,
+          targetFile,
+        });
+      }
+    }
+  }
 }
 
 function reimuSleevePatch({ component, data, height, mask, width }) {
@@ -1392,6 +1517,14 @@ async function main() {
         rows: options.rows,
       });
       console.log('reimu: reshaped T/Y sleeve pixels against plain-pose bounds');
+      await stabilizeReimuExpressionSheets({
+        characterOutputDir,
+        cols: options.cols,
+        lossless: options.lossless,
+        quality: options.quality,
+        rows: options.rows,
+      });
+      console.log('reimu: stabilized expression frames against base-pose body pixels');
     }
   }
 

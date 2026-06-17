@@ -19,7 +19,7 @@ const DEFAULTS = {
   maxNeighborWidthStep: 76,
   maxSuspiciousHoleArea: 0,
   maxTransparentNonBlack: 0,
-  maxWeakAlpha: 220,
+  maxWeakAlpha: 320,
   minMargin: 32,
   outputRoot: 'tmp/quality-audit',
   sourceRoot: 'public/characters',

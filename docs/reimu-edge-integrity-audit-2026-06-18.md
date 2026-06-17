@@ -36,8 +36,8 @@ Summary:
 
 ```text
 frameCount = 225
-maxWeakAlphaPixels = 185 at ct_01/r0c3.webp
-maxEdgeWeakAlphaPixels = 185 at ct_01/r0c3.webp
+maxWeakAlphaPixels = 302 at oy_01/r0c2.webp
+maxEdgeWeakAlphaPixels = 302 at oy_01/r0c2.webp
 maxOrphanWeakAlphaPixels = 0
 maxTransparentColoredPixels = 0
 ```

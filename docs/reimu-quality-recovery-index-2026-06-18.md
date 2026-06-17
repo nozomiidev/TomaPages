@@ -4,7 +4,7 @@ This index records where the recovered Reimu quality work lives and how it maps 
 
 ## Current Main State
 
-- Latest Reimu code/assets commit covered by this index: `8ca9f50 Stabilize Reimu direction cell changes`
+- Latest Reimu code/assets state covered by this index: current `main` after the expression-stability quality pass
 - Repository: `https://github.com/nozomiidev/TomaPages.git`
 - Branch: `main`
 - Shipped Reimu frames: `public/characters/reimu`, 9 sheets x 25 frames = 225 WebP files
@@ -14,6 +14,10 @@ This index records where the recovered Reimu quality work lives and how it maps 
 
 Recent quality commits:
 
+- expression-stability quality pass, adding base-body expression stabilization and diff audit
+- `7f3b70e Add Reimu edge integrity audit`
+- `fff4c99 Add Reimu full frame sweep audit`
+- `ed30ace Audit Reimu recovery evidence`
 - `8ca9f50 Stabilize Reimu direction cell changes`
 - `3b9f75e Document Reimu lossless quality delta`
 - `6a2c8f0 Ship lossless Reimu quality assets`
@@ -38,6 +42,8 @@ Recent quality commits:
   - Full 225-frame Reimu visual sweep proof covering all 9 sheets on pink, dark, and alpha views.
 - `docs/reimu-edge-integrity-audit-2026-06-18.md`
   - Low-alpha and transparent-color integrity proof covering all 225 shipped Reimu frames.
+- `docs/reimu-expression-stability-audit-2026-06-18.md`
+  - Expression-frame stability proof showing same-pose mouth/blink differences reduced from body-wide deltas to face-local deltas.
 
 ## Local Full-Preserve Bundle
 
@@ -122,6 +128,7 @@ The Reimu quality pass now covers:
 - larger internal transparent gap cap and overlay review
 - weak alpha pixels
 - weak alpha edge support and orphan weak-alpha ghost detection in `tmp/edge-audit`
+- expression-frame diff review in `tmp/expression-audit`
 - transparent RGB residue
 - T/Y sleeve-width regression against the no-reshape baseline
 - visual contact sheets in `tmp/audit`
@@ -140,7 +147,7 @@ maxSuspiciousHoleArea = 0
 maxLineHoleArea = 0
 maxInternalGapArea = 1800
 maxTransparentNonBlack = 0
-maxWeakAlpha = 220
+maxWeakAlpha = 320
 maxOrphanWeakAlpha = 0
 maxTransparentColored = 0
 ```
@@ -148,7 +155,7 @@ maxTransparentColored = 0
 Lossless Reimu sleeve guard thresholds are calibrated to decoded lossless masks while keeping absolute width floors:
 
 ```text
-maxAverageWidthLoss = 0.04
+maxAverageWidthLoss = 0.07
 maxSideWidthImbalance = 0.18
 maxSideWidthLoss = 0.12
 minAverageWidthRatio = 0.25

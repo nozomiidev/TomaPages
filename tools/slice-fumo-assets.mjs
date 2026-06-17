@@ -79,12 +79,12 @@ const REIMU_SLEEVE_STYLE = {
     maxHeightFromReference: 1.18,
     maxWidthFromReference: 1.40,
     minHeightFromReference: 1.02,
-    minWidthFromReference: 1.16,
+    minWidthFromReference: 1.22,
     outerHeightScale: 1.36,
     outerSilhouette: 0.97,
     innerSilhouette: 0.78,
     topOffsetY: 1,
-    widthScale: 1.08,
+    widthScale: 1.11,
   },
 };
 

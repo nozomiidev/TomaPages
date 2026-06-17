@@ -11,6 +11,7 @@ const DEFAULTS = {
   qualityRoot: 'tmp/quality-audit',
   referenceRoot: 'tmp/reference-audit',
   sourceRoot: 'public/characters/reimu',
+  sweepRoot: 'tmp/sweep',
 };
 
 const AUDIT_SHEETS = ['pl_01', 'pt_01', 'py_01', 'oy_01', 'ot_01', 'cy_01', 'ct_01'];
@@ -28,6 +29,7 @@ const VISUAL_DIMENSIONS = {
   issue: { height: 850, width: 960 },
   referenceForeground: { minHeight: 512, minWidth: 512 },
   referenceSleeves: { height: 512, width: 512 },
+  sweep: { height: 1604, width: 1472 },
 };
 
 function readOption(args, name, fallback) {
@@ -128,6 +130,10 @@ function expectedCompareFiles(root) {
   ));
 }
 
+function expectedSweepFiles(root) {
+  return ['pink', 'dark', 'alpha'].map((mode) => path.join(root, `reimu-full-sweep-${mode}.png`));
+}
+
 async function verifyReferenceMetrics(referenceRoot, failures) {
   const metricsFile = path.join(referenceRoot, 'reimu-reference-metrics.json');
   const metricsStat = await pathStat(metricsFile);
@@ -183,6 +189,7 @@ async function main() {
     qualityRoot: path.resolve(readOption(args, 'quality-root', DEFAULTS.qualityRoot)),
     referenceRoot: path.resolve(readOption(args, 'reference-root', DEFAULTS.referenceRoot)),
     sourceRoot: path.resolve(readOption(args, 'source-root', DEFAULTS.sourceRoot)),
+    sweepRoot: path.resolve(readOption(args, 'sweep-root', DEFAULTS.sweepRoot)),
   };
   const sourceFrames = await walkFiles(options.sourceRoot, '.webp');
   const noreshapeFrames = await walkFiles(options.noreshapeRoot, '.webp');
@@ -206,6 +213,7 @@ async function main() {
   const referenceMtime = await latestMtimeMs([...sourceFrames, ...noreshapeFrames]);
   const auditFiles = expectedAuditFiles(options.auditRoot);
   const compareFiles = expectedCompareFiles(options.compareRoot);
+  const sweepFiles = expectedSweepFiles(options.sweepRoot);
   const issueOverlayFile = path.join(options.issueRoot, 'reimu-issue-overlay.png');
   const inspectionZoomFile = path.join(options.inspectionRoot, 'reimu-inspection-zooms.png');
   const requiredFiles = [
@@ -215,6 +223,7 @@ async function main() {
     path.join(options.qualityRoot, 'reimu-sleeve-guard-summary.json'),
     ...auditFiles,
     ...compareFiles,
+    ...sweepFiles,
     issueOverlayFile,
     inspectionZoomFile,
     path.join(options.referenceRoot, 'reimu-reference-metrics.csv'),
@@ -238,6 +247,14 @@ async function main() {
       failures,
       format: 'png',
       ...VISUAL_DIMENSIONS.compare,
+    });
+  }
+  for (const file of sweepFiles) {
+    await assertImageMetadata({
+      file,
+      failures,
+      format: 'png',
+      ...VISUAL_DIMENSIONS.sweep,
     });
   }
   await assertImageMetadata({
@@ -264,6 +281,7 @@ async function main() {
     compareSheets: COMPARE_SHEETS.length * COMPARE_MODES.length,
     noreshapeFrames: noreshapeFrames.length,
     publicFrames: sourceFrames.length,
+    sweepSheets: sweepFiles.length,
   }, null, 2));
 }
 

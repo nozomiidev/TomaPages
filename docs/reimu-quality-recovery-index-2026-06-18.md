@@ -34,6 +34,8 @@ Recent quality commits:
   - Runtime stability proof for Reimu 5x5 direction changes, including the live pointer boundary check that prevents repeated frame swaps near grid edges.
 - `docs/reimu-goal-evidence-audit-2026-06-18.md`
   - Requirement-by-requirement evidence audit for the active Reimu recovery goal, including what is proven, what is only partially proven, and why the broader goal remains active.
+- `docs/reimu-full-sweep-audit-2026-06-18.md`
+  - Full 225-frame Reimu visual sweep proof covering all 9 sheets on pink, dark, and alpha views.
 
 ## Local Full-Preserve Bundle
 
@@ -123,6 +125,7 @@ The Reimu quality pass now covers:
 - current-vs-baseline comparison sheets in `tmp/compare`
 - issue overlays in `tmp/issues`
 - inspection zooms in `tmp/inspection`
+- full 225-frame visual sweeps in `tmp/sweep`
 - OpenAI reference metrics in `tmp/reference-audit`, covering the 5 recovered/reference OpenAI images and all 150 Reimu T/Y pose frames
 
 Current default hard caps include:

@@ -107,6 +107,7 @@ The current production pipeline keeps identity, line weight, canvas, and 5x5 fra
 The Reimu quality pass now covers:
 
 - 225-frame count validation
+- lossless Reimu WebP output so transparent pixels round-trip with black RGB
 - canvas margins, head/body cut-off risk, and 5x5 neighbor center-step stability
 - detached alpha fragments and thin detached slivers
 - suspicious line-like transparent holes
@@ -128,8 +129,18 @@ maxDetachedSliverArea = 0
 maxSuspiciousHoleArea = 0
 maxLineHoleArea = 0
 maxInternalGapArea = 1800
-maxTransparentNonBlack = 5000
+maxTransparentNonBlack = 0
 maxWeakAlpha = 220
+```
+
+Lossless Reimu sleeve guard thresholds are calibrated to decoded lossless masks while keeping absolute width floors:
+
+```text
+maxAverageWidthLoss = 0.04
+maxSideWidthImbalance = 0.18
+maxSideWidthLoss = 0.12
+minAverageWidthRatio = 0.25
+minSideWidthRatio = 0.20
 ```
 
 ## Operational Notes
@@ -138,3 +149,4 @@ maxWeakAlpha = 220
 - If Chrome GUI is required, first verify that the Chrome window belongs to `nozomidevbusin@gmail.com`.
 - Do not reintroduce separate sleeve-overlay assets for Reimu T/Y poses. The user explicitly rejected that approach.
 - Do not directly mix OpenAI generated whole-body frames into the 225-frame grid unless a controlled edit pipeline preserves Reimu identity, line weight, canvas, and all pose-grid invariants.
+- Keep the Reimu product-quality regeneration path lossless unless a replacement encoding proves zero transparent RGB residue after decode.

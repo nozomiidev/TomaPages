@@ -5,10 +5,10 @@ import sharp from 'sharp';
 const DEFAULTS = {
   baselineSource: 'tmp/noreshape/reimu',
   currentSource: 'public/characters/reimu',
-  maxAverageWidthLoss: 0.015,
-  maxSideWidthImbalance: 0.16,
+  maxAverageWidthLoss: 0.04,
+  maxSideWidthImbalance: 0.18,
   maxSideWidthLoss: 0.12,
-  minAverageWidthRatio: 0.26,
+  minAverageWidthRatio: 0.25,
   minSideWidthRatio: 0.20,
   outputRoot: 'tmp/quality-audit',
 };

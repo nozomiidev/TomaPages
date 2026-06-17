@@ -18,7 +18,7 @@ const DEFAULTS = {
   maxNeighborHeightStep: 80,
   maxNeighborWidthStep: 76,
   maxSuspiciousHoleArea: 0,
-  maxTransparentNonBlack: 5000,
+  maxTransparentNonBlack: 0,
   maxWeakAlpha: 220,
   minMargin: 32,
   outputRoot: 'tmp/quality-audit',

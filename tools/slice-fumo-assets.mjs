@@ -471,40 +471,45 @@ function fillSmallInteriorAlphaHoles(data, width, height) {
 
 function averageNeighborColor(data, pixels, width, height) {
   const inHole = new Set(pixels);
-  let count = 0;
-  let red = 0;
-  let green = 0;
   let blue = 0;
+  let green = 0;
+  let red = 0;
+  let weight = 0;
 
   for (const index of pixels) {
     const x = index % width;
     const y = Math.floor(index / width);
-    const neighbors = [
-      x > 0 ? index - 1 : -1,
-      x + 1 < width ? index + 1 : -1,
-      y > 0 ? index - width : -1,
-      y + 1 < height ? index + width : -1,
-    ];
 
-    for (const neighbor of neighbors) {
-      if (neighbor < 0 || inHole.has(neighbor)) continue;
+    for (let dy = -4; dy <= 4; dy += 1) {
+      for (let dx = -4; dx <= 4; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
 
-      const offset = neighbor * 4;
-      if (data[offset + 3] < 180) continue;
+        const candidateX = x + dx;
+        const candidateY = y + dy;
+        if (candidateX < 0 || candidateY < 0 || candidateX >= width || candidateY >= height) continue;
 
-      red += data[offset];
-      green += data[offset + 1];
-      blue += data[offset + 2];
-      count += 1;
+        const neighbor = candidateY * width + candidateX;
+        if (inHole.has(neighbor)) continue;
+
+        const offset = neighbor * 4;
+        const alpha = data[offset + 3];
+        if (alpha < 16) continue;
+
+        const sampleWeight = (alpha / 255) / (1 + Math.hypot(dx, dy));
+        red += data[offset] * sampleWeight;
+        green += data[offset + 1] * sampleWeight;
+        blue += data[offset + 2] * sampleWeight;
+        weight += sampleWeight;
+      }
     }
   }
 
-  if (!count) return null;
+  if (!weight) return null;
 
   return {
-    blue: Math.round(blue / count),
-    green: Math.round(green / count),
-    red: Math.round(red / count),
+    blue: Math.round(blue / weight),
+    green: Math.round(green / weight),
+    red: Math.round(red / weight),
   };
 }
 

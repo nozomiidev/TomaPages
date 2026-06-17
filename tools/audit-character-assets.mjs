@@ -11,7 +11,7 @@ const DEFAULTS = {
   maxExpressionCenterSpread: 24,
   maxExpressionHeightSpread: 32,
   maxExpressionWidthSpread: 72,
-  maxLineHoleArea: 64,
+  maxLineHoleArea: 0,
   maxNeighborCenterStep: 32,
   maxTransparentNonBlack: Number.POSITIVE_INFINITY,
   maxWeakAlpha: 300,

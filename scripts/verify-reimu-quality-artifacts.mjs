@@ -1,0 +1,170 @@
+import { readdir, readFile, stat } from 'node:fs/promises';
+import path from 'node:path';
+
+const DEFAULTS = {
+  auditRoot: 'tmp/audit',
+  compareRoot: 'tmp/compare',
+  inspectionRoot: 'tmp/inspection',
+  issueRoot: 'tmp/issues',
+  noreshapeRoot: 'tmp/noreshape/reimu',
+  qualityRoot: 'tmp/quality-audit',
+  referenceRoot: 'tmp/reference-audit',
+  sourceRoot: 'public/characters/reimu',
+};
+
+const AUDIT_SHEETS = ['pl_01', 'pt_01', 'py_01', 'oy_01', 'ot_01', 'cy_01', 'ct_01'];
+const AUDIT_MODES = ['pink', 'dark', 'alpha'];
+const COMPARE_SHEETS = ['pt_01', 'ot_01', 'ct_01', 'py_01', 'oy_01', 'cy_01'];
+const COMPARE_MODES = ['pink', 'dark'];
+const FRESHNESS_TOLERANCE_MS = 5000;
+
+function readOption(args, name, fallback) {
+  const index = args.indexOf(`--${name}`);
+  if (index === -1) return fallback;
+  return args[index + 1] ?? fallback;
+}
+
+async function pathStat(file) {
+  try {
+    return await stat(file);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
+async function walkFiles(root, extension) {
+  const files = [];
+  const resolvedRoot = path.resolve(root);
+  const rootStat = await pathStat(resolvedRoot);
+  if (!rootStat?.isDirectory()) return files;
+
+  async function visit(dir) {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      const file = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await visit(file);
+      } else if (!extension || entry.name.endsWith(extension)) {
+        files.push(file);
+      }
+    }
+  }
+
+  await visit(resolvedRoot);
+  return files.sort((a, b) => a.localeCompare(b));
+}
+
+async function latestMtimeMs(files) {
+  let latest = 0;
+  for (const file of files) {
+    const fileStat = await pathStat(file);
+    if (fileStat?.isFile()) latest = Math.max(latest, fileStat.mtimeMs);
+  }
+  return latest;
+}
+
+async function assertFreshFile({ file, failures, referenceMtime }) {
+  const fileStat = await pathStat(file);
+  const relative = path.relative(process.cwd(), file);
+
+  if (!fileStat?.isFile()) {
+    failures.push(`missing ${relative}`);
+    return;
+  }
+  if (fileStat.size <= 0) {
+    failures.push(`empty ${relative}`);
+  }
+  if (referenceMtime && fileStat.mtimeMs + FRESHNESS_TOLERANCE_MS < referenceMtime) {
+    failures.push(`stale ${relative}`);
+  }
+}
+
+function expectedAuditFiles(root) {
+  return AUDIT_SHEETS.flatMap((sheet) => (
+    AUDIT_MODES.map((mode) => path.join(root, `${sheet}-${mode}.png`))
+  ));
+}
+
+function expectedCompareFiles(root) {
+  return COMPARE_SHEETS.flatMap((sheet) => (
+    COMPARE_MODES.map((mode) => path.join(root, `${sheet}-${mode}-compare.png`))
+  ));
+}
+
+async function verifyReferenceMetrics(referenceRoot, failures) {
+  const metricsFile = path.join(referenceRoot, 'reimu-reference-metrics.json');
+  const metricsStat = await pathStat(metricsFile);
+  if (!metricsStat?.isFile()) {
+    failures.push(`missing ${path.relative(process.cwd(), metricsFile)}`);
+    return;
+  }
+
+  const metrics = JSON.parse(await readFile(metricsFile, 'utf8'));
+  const rows = Array.isArray(metrics.rows) ? metrics.rows : [];
+  const openAiCount = rows.filter((row) => row.group === 'openai-reference').length;
+  const currentCount = rows.filter((row) => row.group === 'current-frame').length;
+
+  if (currentCount < 6) {
+    failures.push(`reference audit current-frame rows ${currentCount} < 6`);
+  }
+  if (openAiCount < 2) {
+    failures.push(`reference audit openai-reference rows ${openAiCount} < 2`);
+  }
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  const options = {
+    auditRoot: path.resolve(readOption(args, 'audit-root', DEFAULTS.auditRoot)),
+    compareRoot: path.resolve(readOption(args, 'compare-root', DEFAULTS.compareRoot)),
+    inspectionRoot: path.resolve(readOption(args, 'inspection-root', DEFAULTS.inspectionRoot)),
+    issueRoot: path.resolve(readOption(args, 'issue-root', DEFAULTS.issueRoot)),
+    noreshapeRoot: path.resolve(readOption(args, 'noreshape-root', DEFAULTS.noreshapeRoot)),
+    qualityRoot: path.resolve(readOption(args, 'quality-root', DEFAULTS.qualityRoot)),
+    referenceRoot: path.resolve(readOption(args, 'reference-root', DEFAULTS.referenceRoot)),
+    sourceRoot: path.resolve(readOption(args, 'source-root', DEFAULTS.sourceRoot)),
+  };
+  const sourceFrames = await walkFiles(options.sourceRoot, '.webp');
+  const noreshapeFrames = await walkFiles(options.noreshapeRoot, '.webp');
+  const failures = [];
+
+  if (sourceFrames.length !== 225) {
+    failures.push(`public Reimu frame count ${sourceFrames.length} !== 225`);
+  }
+  if (noreshapeFrames.length !== 225) {
+    failures.push(`no-reshape Reimu frame count ${noreshapeFrames.length} !== 225`);
+  }
+
+  const referenceMtime = await latestMtimeMs([...sourceFrames, ...noreshapeFrames]);
+  const requiredFiles = [
+    path.join(options.qualityRoot, 'reimu-asset-quality.csv'),
+    path.join(options.qualityRoot, 'reimu-asset-quality-summary.json'),
+    path.join(options.qualityRoot, 'reimu-sleeve-guard.csv'),
+    path.join(options.qualityRoot, 'reimu-sleeve-guard-summary.json'),
+    ...expectedAuditFiles(options.auditRoot),
+    ...expectedCompareFiles(options.compareRoot),
+    path.join(options.issueRoot, 'reimu-issue-overlay.png'),
+    path.join(options.inspectionRoot, 'reimu-inspection-zooms.png'),
+    path.join(options.referenceRoot, 'reimu-reference-metrics.csv'),
+    path.join(options.referenceRoot, 'reimu-reference-metrics.json'),
+  ];
+
+  for (const file of requiredFiles) {
+    await assertFreshFile({ file, failures, referenceMtime });
+  }
+  await verifyReferenceMetrics(options.referenceRoot, failures);
+
+  if (failures.length) {
+    throw new Error(`Reimu quality artifact verification failed:\n- ${failures.join('\n- ')}`);
+  }
+
+  console.log('Reimu quality artifact verification passed.');
+  console.log(JSON.stringify({
+    auditSheets: AUDIT_SHEETS.length * AUDIT_MODES.length,
+    compareSheets: COMPARE_SHEETS.length * COMPARE_MODES.length,
+    noreshapeFrames: noreshapeFrames.length,
+    publicFrames: sourceFrames.length,
+  }, null, 2));
+}
+
+await main();

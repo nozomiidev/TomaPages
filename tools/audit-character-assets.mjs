@@ -12,7 +12,10 @@ const DEFAULTS = {
   maxExpressionHeightSpread: 32,
   maxExpressionWidthSpread: 72,
   maxLineHoleArea: 0,
+  maxNeighborAlphaStep: 0.28,
   maxNeighborCenterStep: 32,
+  maxNeighborHeightStep: 80,
+  maxNeighborWidthStep: 76,
   maxSuspiciousHoleArea: 0,
   maxTransparentNonBlack: 5000,
   maxWeakAlpha: 220,
@@ -340,19 +343,28 @@ function summarizeNeighborStability(rows) {
         if (!neighbor) continue;
 
         steps.push({
+          alphaStepRatio: Number((
+            Math.abs(neighbor.alphaPixels - row.alphaPixels)
+            / Math.max(neighbor.alphaPixels, row.alphaPixels, 1)
+          ).toFixed(4)),
           centerStep: Number(Math.hypot(
             neighbor.centerX - row.centerX,
             neighbor.centerY - row.centerY,
           ).toFixed(2)),
           files: [row.file, neighbor.file],
+          heightStep: Math.abs(neighbor.height - row.height),
           key: `${sheet}/r${row.parsed.row}c${row.parsed.col}->r${neighbor.parsed.row}c${neighbor.parsed.col}`,
+          widthStep: Math.abs(neighbor.width - row.width),
         });
       }
     }
   }
 
   return {
+    maxAlphaStepRatio: maxByValue(steps, 'alphaStepRatio'),
     maxCenterStep: maxByValue(steps, 'centerStep'),
+    maxHeightStep: maxByValue(steps, 'heightStep'),
+    maxWidthStep: maxByValue(steps, 'widthStep'),
   };
 }
 
@@ -395,7 +407,10 @@ async function main() {
       DEFAULTS.maxExpressionWidthSpread,
     ),
     maxLineHoleArea: readNumberOption(args, 'max-line-hole-area', DEFAULTS.maxLineHoleArea),
+    maxNeighborAlphaStep: readNumberOption(args, 'max-neighbor-alpha-step', DEFAULTS.maxNeighborAlphaStep),
     maxNeighborCenterStep: readNumberOption(args, 'max-neighbor-center-step', DEFAULTS.maxNeighborCenterStep),
+    maxNeighborHeightStep: readNumberOption(args, 'max-neighbor-height-step', DEFAULTS.maxNeighborHeightStep),
+    maxNeighborWidthStep: readNumberOption(args, 'max-neighbor-width-step', DEFAULTS.maxNeighborWidthStep),
     maxSuspiciousHoleArea: readNumberOption(
       args,
       'max-suspicious-hole-area',
@@ -525,6 +540,24 @@ async function main() {
     hardFailures.push(
       `${summary.stability.neighbor.maxCenterStep.key} neighbor center step `
       + `${summary.stability.neighbor.maxCenterStep.centerStep} > ${options.maxNeighborCenterStep}`,
+    );
+  }
+  if (summary.stability.neighbor.maxAlphaStepRatio.alphaStepRatio > options.maxNeighborAlphaStep) {
+    hardFailures.push(
+      `${summary.stability.neighbor.maxAlphaStepRatio.key} neighbor alpha step `
+      + `${summary.stability.neighbor.maxAlphaStepRatio.alphaStepRatio} > ${options.maxNeighborAlphaStep}`,
+    );
+  }
+  if (summary.stability.neighbor.maxWidthStep.widthStep > options.maxNeighborWidthStep) {
+    hardFailures.push(
+      `${summary.stability.neighbor.maxWidthStep.key} neighbor width step `
+      + `${summary.stability.neighbor.maxWidthStep.widthStep} > ${options.maxNeighborWidthStep}`,
+    );
+  }
+  if (summary.stability.neighbor.maxHeightStep.heightStep > options.maxNeighborHeightStep) {
+    hardFailures.push(
+      `${summary.stability.neighbor.maxHeightStep.key} neighbor height step `
+      + `${summary.stability.neighbor.maxHeightStep.heightStep} > ${options.maxNeighborHeightStep}`,
     );
   }
 

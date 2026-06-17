@@ -30,6 +30,8 @@ Recent quality commits:
 - `docs/reimu-quality-process-reconstruction-2026-06-17.md`
   - Reconstructed process log from surviving session data, tool output, diffs, generated assets, and visual checks.
   - It intentionally does not reveal private chain-of-thought. It records observable decisions and artifacts instead.
+- `docs/reimu-lossless-quality-report-2026-06-18.md`
+  - Before/after proof for the lossless Reimu pass, including metric deltas, rebuilt audit artifacts, browser evidence, and Pages deployment status.
 
 ## Local Full-Preserve Bundle
 

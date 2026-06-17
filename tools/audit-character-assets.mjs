@@ -11,6 +11,7 @@ const DEFAULTS = {
   maxExpressionCenterSpread: 24,
   maxExpressionHeightSpread: 32,
   maxExpressionWidthSpread: 72,
+  maxInternalGapArea: 1800,
   maxLineHoleArea: 0,
   maxNeighborAlphaStep: 0.28,
   maxNeighborCenterStep: 32,
@@ -406,6 +407,11 @@ async function main() {
       'max-expression-width-spread',
       DEFAULTS.maxExpressionWidthSpread,
     ),
+    maxInternalGapArea: readNumberOption(
+      args,
+      'max-internal-gap-area',
+      DEFAULTS.maxInternalGapArea,
+    ),
     maxLineHoleArea: readNumberOption(args, 'max-line-hole-area', DEFAULTS.maxLineHoleArea),
     maxNeighborAlphaStep: readNumberOption(args, 'max-neighbor-alpha-step', DEFAULTS.maxNeighborAlphaStep),
     maxNeighborCenterStep: readNumberOption(args, 'max-neighbor-center-step', DEFAULTS.maxNeighborCenterStep),
@@ -497,6 +503,12 @@ async function main() {
     hardFailures.push(
       `${summary.maxSuspiciousHoleArea.file} suspicious hole area `
       + `${summary.maxSuspiciousHoleArea.suspiciousHoleArea} > ${options.maxSuspiciousHoleArea}`,
+    );
+  }
+  if (summary.maxInternalGapArea.internalGapArea > options.maxInternalGapArea) {
+    hardFailures.push(
+      `${summary.maxInternalGapArea.file} internal transparent gap area `
+      + `${summary.maxInternalGapArea.internalGapArea} > ${options.maxInternalGapArea}`,
     );
   }
   if (summary.maxTransparentNonBlack.transparentNonBlack > options.maxTransparentNonBlack) {

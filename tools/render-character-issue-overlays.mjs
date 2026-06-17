@@ -13,9 +13,10 @@ const DEFAULTS = {
 };
 
 const COLORS = {
-  background: [247, 196, 224],
+  background: [248, 250, 252],
   detached: [14, 165, 233],
   hole: [239, 68, 68],
+  internalGap: [168, 85, 247],
   weakAlpha: [250, 204, 21],
 };
 
@@ -253,6 +254,9 @@ function overlayFrame(frame) {
     output[offset + 3] = 255;
   }
 
+  for (const component of frame.holes) {
+    for (const index of component.pixels) blendPixel(output, index, COLORS.internalGap, 0.72);
+  }
   for (const component of frame.lineLikeHoles) {
     const amount = component.area > 128 ? 0.85 : 0.65;
     for (const index of component.pixels) blendPixel(output, index, COLORS.hole, amount);
@@ -329,6 +333,8 @@ async function legendTile(width, height) {
         + '<text x="276" y="24" font-family="Arial" font-size="14" fill="#111827">detached alpha fragments</text>'
         + '<rect x="500" y="10" width="18" height="18" fill="#facc15"/>'
         + '<text x="524" y="24" font-family="Arial" font-size="14" fill="#111827">weak alpha pixels</text>'
+        + '<rect x="700" y="10" width="18" height="18" fill="#a855f7"/>'
+        + '<text x="724" y="24" font-family="Arial" font-size="14" fill="#111827">internal transparent gaps</text>'
         + '</svg>',
       ),
       left: 0,

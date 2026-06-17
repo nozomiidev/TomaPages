@@ -110,6 +110,7 @@ The Reimu quality pass now covers:
 - canvas margins, head/body cut-off risk, and 5x5 neighbor center-step stability
 - detached alpha fragments and thin detached slivers
 - suspicious line-like transparent holes
+- larger internal transparent gap cap and overlay review
 - weak alpha pixels
 - transparent RGB residue
 - T/Y sleeve-width regression against the no-reshape baseline
@@ -126,6 +127,7 @@ maxDetachedArea = 0
 maxDetachedSliverArea = 0
 maxSuspiciousHoleArea = 0
 maxLineHoleArea = 0
+maxInternalGapArea = 1800
 maxTransparentNonBlack = 5000
 maxWeakAlpha = 220
 ```

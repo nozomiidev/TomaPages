@@ -5,6 +5,7 @@ const DEFAULTS = {
   edgeSummary: 'tmp/edge-audit/reimu-edge-integrity-summary.json',
   expectedFrames: 225,
   gapSummary: 'tmp/gap-audit/reimu-reference-covered-gap-summary.json',
+  lineSummary: 'tmp/line-audit/reimu-line-integrity-summary.json',
   outputRoot: 'tmp/quality-audit',
   qualityCsv: 'tmp/quality-audit/reimu-asset-quality.csv',
   qualitySummary: 'tmp/quality-audit/reimu-asset-quality-summary.json',
@@ -105,16 +106,25 @@ async function main() {
     edgeSummary: path.resolve(readOption(args, 'edge-summary', DEFAULTS.edgeSummary)),
     expectedFrames: readNumberOption(args, 'expected-frames', DEFAULTS.expectedFrames),
     gapSummary: path.resolve(readOption(args, 'gap-summary', DEFAULTS.gapSummary)),
+    lineSummary: path.resolve(readOption(args, 'line-summary', DEFAULTS.lineSummary)),
     outputRoot: path.resolve(readOption(args, 'out', DEFAULTS.outputRoot)),
     qualityCsv: path.resolve(readOption(args, 'quality-csv', DEFAULTS.qualityCsv)),
     qualitySummary: path.resolve(readOption(args, 'quality-summary', DEFAULTS.qualitySummary)),
     sleeveSummary: path.resolve(readOption(args, 'sleeve-summary', DEFAULTS.sleeveSummary)),
   };
 
-  const [qualitySummary, edgeSummary, gapSummary, sleeveSummary, qualityCsv] = await Promise.all([
+  const [
+    qualitySummary,
+    edgeSummary,
+    gapSummary,
+    lineSummary,
+    sleeveSummary,
+    qualityCsv,
+  ] = await Promise.all([
     readJson(options.qualitySummary),
     readJson(options.edgeSummary),
     readJson(options.gapSummary),
+    readJson(options.lineSummary),
     readJson(options.sleeveSummary),
     readFile(options.qualityCsv, 'utf8'),
   ]);
@@ -132,6 +142,14 @@ async function main() {
     frameCount: rows.length === options.expectedFrames && qualitySummary.frameCount === options.expectedFrames,
     lightInteriorGapArea: maxMetric(qualitySummary, 'maxLightInteriorGapArea', 'lightInteriorGapArea') === 0,
     lineLikeHoleArea: maxMetric(qualitySummary, 'maxLineLikeHoleArea', 'lineLikeHoleArea') === 0,
+    lineIntegrityPixels: (
+      Number(lineSummary.maxUnsupportedEdgeInkPixels?.unsupportedEdgeInkPixels ?? 0)
+      <= Number(lineSummary.thresholds?.maxUnsupportedEdgeInkPixels ?? 0)
+    ),
+    lineIntegrityRatio: (
+      Number(lineSummary.maxUnsupportedEdgeInkRatio?.unsupportedEdgeInkRatio ?? 0)
+      <= Number(lineSummary.thresholds?.maxUnsupportedEdgeInkRatio ?? 0)
+    ),
     orphanWeakAlpha: maxMetric(edgeSummary, 'maxOrphanWeakAlphaPixels', 'orphanWeakAlphaPixels') === 0,
     referenceCoveredGapArea: Number(gapSummary.totalReferenceCoveredGapArea ?? 0) === 0,
     referenceCoveredGapCount: Number(gapSummary.totalReferenceCoveredGapCount ?? 0) === 0,
@@ -149,6 +167,16 @@ async function main() {
     frameCount: rows.length,
     originalInternalGapReviewFrameCount: rows.filter((row) => numberValue(row, 'internalGapArea') > 0).length,
     reviewOnlyFrameCount: reviewOnlyRows.length,
+    lineIntegrityHeadroom: {
+      unsupportedEdgeInkPixels: Number((
+        Number(lineSummary.thresholds.maxUnsupportedEdgeInkPixels)
+        - Number(lineSummary.maxUnsupportedEdgeInkPixels.unsupportedEdgeInkPixels)
+      ).toFixed(4)),
+      unsupportedEdgeInkRatio: Number((
+        Number(lineSummary.thresholds.maxUnsupportedEdgeInkRatio)
+        - Number(lineSummary.maxUnsupportedEdgeInkRatio.unsupportedEdgeInkRatio)
+      ).toFixed(4)),
+    },
     sleeveGuardHeadroom: {
       averageWidthLoss: Number((Number(sleeveSummary.thresholds.maxAverageWidthLoss)
         - Number(sleeveSummary.maxAverageWidthLoss.averageWidthLoss)).toFixed(4)),

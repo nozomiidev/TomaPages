@@ -14,6 +14,7 @@ This index records where the recovered Reimu quality work lives and how it maps 
 
 Recent quality commits:
 
+- line-integrity audit pass, checking that alpha edges stay near visible ink/trim support across all Reimu frames
 - residual-defect audit pass, separating actionable Reimu defects from supported antialiasing and original negative-space review candidates
 - reference-covered-gap quality pass, restoring same-frame reference pixels where post-processing introduced closed transparent gaps
 - light-interior-gap quality pass, filling small white-sleeve transparent holes and adding a hard audit cap
@@ -53,6 +54,8 @@ Recent quality commits:
   - Same-frame reference-covered internal gap cleanup proof and the matching no-reshape comparison audit.
 - `docs/reimu-residual-defect-audit-2026-06-18.md`
   - Machine-checkable proof that remaining issue-overlay candidates are review-only and actionable residual defects are zero.
+- `docs/reimu-line-integrity-audit-2026-06-18.md`
+  - Alpha-edge contour support proof for all 225 Reimu frames.
 
 ## Local Full-Preserve Bundle
 
@@ -138,6 +141,7 @@ The Reimu quality pass now covers:
 - small light-cloth internal transparent gap hard cap
 - reference-covered internal gap hard cap against `tmp/noreshape/reimu`
 - residual actionable-defect disposition in `tmp/quality-audit/reimu-residual-defect-summary.json`
+- alpha-edge line integrity in `tmp/line-audit`
 - weak alpha pixels
 - weak alpha edge support and orphan weak-alpha ghost detection in `tmp/edge-audit`
 - expression-frame diff review in `tmp/expression-audit`
@@ -165,6 +169,8 @@ maxWeakAlpha = 320
 maxOrphanWeakAlpha = 0
 maxTransparentColored = 0
 actionableDefectFrameCount = 0
+maxUnsupportedEdgeInkPixels = 90
+maxUnsupportedEdgeInkRatio = 0.055
 ```
 
 Lossless Reimu sleeve guard thresholds are calibrated to decoded lossless masks while keeping absolute width floors:

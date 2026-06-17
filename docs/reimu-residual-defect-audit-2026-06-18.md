@@ -21,6 +21,7 @@ tmp/quality-audit/reimu-asset-quality.csv
 tmp/quality-audit/reimu-asset-quality-summary.json
 tmp/edge-audit/reimu-edge-integrity-summary.json
 tmp/gap-audit/reimu-reference-covered-gap-summary.json
+tmp/line-audit/reimu-line-integrity-summary.json
 tmp/quality-audit/reimu-sleeve-guard-summary.json
 ```
 
@@ -44,6 +45,8 @@ referenceCoveredGapCount = 0
 suspiciousHoleArea = 0
 transparentColoredPixels = 0
 transparentNonBlack = 0
+lineIntegrityPixels = true
+lineIntegrityRatio = true
 ```
 
 ## Result
@@ -65,6 +68,10 @@ Latest residual summary:
     "averageWidthLoss": 0.0094,
     "sideWidthImbalance": 0.0037,
     "sideWidthLoss": 0.0179
+  },
+  "lineIntegrityHeadroom": {
+    "unsupportedEdgeInkPixels": 24,
+    "unsupportedEdgeInkRatio": 0.0083
   }
 }
 ```
@@ -74,6 +81,7 @@ The single internal-gap review candidate is the `pt_01/r0c1.webp` pose negative 
 Verified commands:
 
 ```bash
+npm.cmd run audit:assets:lines
 npm.cmd run audit:assets:residuals
 npm.cmd run verify:reimu:quality
 npm.cmd run test

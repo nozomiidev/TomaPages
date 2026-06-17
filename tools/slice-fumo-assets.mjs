@@ -710,6 +710,7 @@ function webpOptions({ lossless, quality }) {
   return {
     alphaQuality: 100,
     effort: lossless ? 3 : 5,
+    exact: true,
     lossless,
     quality,
     smartSubsample: !lossless,

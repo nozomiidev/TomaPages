@@ -782,6 +782,8 @@ const AvatarStage = React.forwardRef(function AvatarStage(
   avatarRef,
 ) {
   const activeFrameSrc = frameSrc(activeSheet, cell.row, cell.col, character.id);
+  const activeFrameKey = `${activeSheet}-${cell.row}-${cell.col}`;
+  const [preloadRemainingFrames, setPreloadRemainingFrames] = useState(false);
   const tintOverlaySrc = useAvatarTintOverlay(activeFrameSrc, tint);
   const orderedFrames = useMemo(() => {
     const activeIndex = frames.findIndex((frame) => frame.sheet === activeSheet
@@ -796,6 +798,9 @@ const AvatarStage = React.forwardRef(function AvatarStage(
       ...frames.slice(activeIndex + 1),
     ];
   }, [activeSheet, cell.col, cell.row, frames]);
+  const visibleFrames = preloadRemainingFrames
+    ? orderedFrames
+    : orderedFrames.filter((frame) => `${frame.sheet}-${frame.row}-${frame.col}` === activeFrameKey);
 
   return (
     <section className="stage" aria-label="Avatar stage">
@@ -813,7 +818,7 @@ const AvatarStage = React.forwardRef(function AvatarStage(
         onPointerUp={() => setPressed(false)}
         onPointerLeave={() => setPressed(false)}
       >
-        {orderedFrames.map((frame) => {
+        {visibleFrames.map((frame) => {
           const isActiveFrame = frame.sheet === activeSheet
             && frame.row === cell.row
             && frame.col === cell.col;
@@ -825,9 +830,10 @@ const AvatarStage = React.forwardRef(function AvatarStage(
               aria-hidden="true"
               className="avatar__frame"
               draggable="false"
-              decoding={isActiveFrame ? 'sync' : 'async'}
+              decoding="async"
               fetchPriority={isActiveFrame ? 'high' : 'low'}
               loading={isActiveFrame ? 'eager' : 'lazy'}
+              onLoad={isActiveFrame ? () => setPreloadRemainingFrames(true) : undefined}
               src={frame.src}
               style={{ opacity: isActiveFrame ? 1 : 0 }}
             />

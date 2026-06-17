@@ -33,6 +33,7 @@ import { AudioLevelEngine, smoothAudioEnvelope } from './domain/audio-engine';
 import {
   allFrames,
   assetManifest,
+  avatarFrameRenderQueue,
   characterForId,
   CHARACTER_OPTIONS,
   frameSrc,
@@ -782,25 +783,15 @@ const AvatarStage = React.forwardRef(function AvatarStage(
   avatarRef,
 ) {
   const activeFrameSrc = frameSrc(activeSheet, cell.row, cell.col, character.id);
-  const activeFrameKey = `${activeSheet}-${cell.row}-${cell.col}`;
   const [preloadRemainingFrames, setPreloadRemainingFrames] = useState(false);
   const tintOverlaySrc = useAvatarTintOverlay(activeFrameSrc, tint);
-  const orderedFrames = useMemo(() => {
-    const activeIndex = frames.findIndex((frame) => frame.sheet === activeSheet
-      && frame.row === cell.row
-      && frame.col === cell.col);
-    if (activeIndex <= 0) return frames;
-
-    const activeFrame = frames[activeIndex];
-    return [
-      activeFrame,
-      ...frames.slice(0, activeIndex),
-      ...frames.slice(activeIndex + 1),
-    ];
-  }, [activeSheet, cell.col, cell.row, frames]);
-  const visibleFrames = preloadRemainingFrames
-    ? orderedFrames
-    : orderedFrames.filter((frame) => `${frame.sheet}-${frame.row}-${frame.col}` === activeFrameKey);
+  const visibleFrames = useMemo(() => avatarFrameRenderQueue({
+    activeSheet,
+    col: cell.col,
+    frames,
+    preloadRemainingFrames,
+    row: cell.row,
+  }), [activeSheet, cell.col, cell.row, frames, preloadRemainingFrames]);
 
   return (
     <section className="stage" aria-label="Avatar stage">

@@ -433,6 +433,32 @@ export function allFrames({ characterId = 'tomari', includeMouthStates = true } 
   return frames;
 }
 
+function avatarFrameKey({ sheet, row, col }) {
+  return `${sheet}-${row}-${col}`;
+}
+
+export function avatarFrameRenderQueue({
+  activeSheet,
+  col,
+  frames,
+  preloadRemainingFrames = false,
+  row,
+}) {
+  const activeKey = avatarFrameKey({ col, row, sheet: activeSheet });
+  const activeIndex = frames.findIndex((frame) => avatarFrameKey(frame) === activeKey);
+  const orderedFrames = activeIndex <= 0
+    ? frames
+    : [
+      frames[activeIndex],
+      ...frames.slice(0, activeIndex),
+      ...frames.slice(activeIndex + 1),
+    ];
+
+  return preloadRemainingFrames
+    ? orderedFrames
+    : orderedFrames.filter((frame) => avatarFrameKey(frame) === activeKey);
+}
+
 export function pointerToTarget({ clientX, clientY, element, range }) {
   const rect = element.getBoundingClientRect();
   const centerX = rect.left + rect.width / 2;

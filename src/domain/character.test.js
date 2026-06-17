@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   allFrames,
   assetManifest,
+  avatarFrameRenderQueue,
   CHARACTER_OPTIONS,
   characterForId,
   frameSrc,
@@ -41,6 +42,33 @@ describe('character domain', () => {
     expect(assetManifest('reimu').every((item) => item.frameCount === 25)).toBe(true);
     expect(frameSrc('pl_01', 2, 2, 'reimu')).toContain('characters/reimu/pl_01/r2c2.webp');
     expect(frameSrc('py_01', 0, 4, 'reimu')).toContain('characters/reimu/py_01/r0c4.webp');
+  });
+
+  it('renders the active Reimu frame first before preloading pose frames', () => {
+    const frames = allFrames({ characterId: 'reimu' });
+    const active = { activeSheet: 'py_01', col: 4, row: 4 };
+    const initialQueue = avatarFrameRenderQueue({
+      ...active,
+      frames,
+      preloadRemainingFrames: false,
+    });
+    const preloadQueue = avatarFrameRenderQueue({
+      ...active,
+      frames,
+      preloadRemainingFrames: true,
+    });
+
+    expect(initialQueue).toEqual([
+      expect.objectContaining({
+        sheet: 'py_01',
+        row: 4,
+        col: 4,
+        src: expect.stringContaining('characters/reimu/py_01/r4c4.webp'),
+      }),
+    ]);
+    expect(preloadQueue).toHaveLength(225);
+    expect(preloadQueue[0]).toMatchObject({ sheet: 'py_01', row: 4, col: 4 });
+    expect(new Set(preloadQueue.map((frame) => frame.src)).size).toBe(225);
   });
 
   it('maps Reimu talk, blink, and arm pose variants onto the plush sheet set', () => {

@@ -15,6 +15,7 @@ const DEFAULTS = {
   outputRoot: 'tmp/reference-audit',
   referenceSources: [
     'metaassets/fumo/reimu/reimu_sleeve_reference_imagegen.png',
+    'metaassets/fumo/reimu/reimu_sleeve_reference_imagegen_tpose_20260617.png',
     'tmp/recovery/reimu-quality-2026-06-17/openai-generated',
   ],
 };
@@ -431,6 +432,18 @@ function csvCell(value) {
   return `"${String(value ?? '').replaceAll('"', '""')}"`;
 }
 
+function rangeForRows(rows) {
+  const values = rows
+    .map((row) => row.averageSleeveWidthRatio)
+    .filter((value) => Number.isFinite(value));
+  if (!values.length) return null;
+
+  return {
+    max: Number(Math.max(...values).toFixed(3)),
+    min: Number(Math.min(...values).toFixed(3)),
+  };
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const outputRoot = path.resolve(readOption(args, 'out', DEFAULTS.outputRoot));
@@ -471,9 +484,13 @@ async function main() {
   const summary = {
     generatedAt: new Date().toISOString(),
     notes: [
-      'OpenAI references are analyzed as proportion/mask guides only.',
+      'OpenAI references are analyzed as proportion/mask guides and controlled edit targets.',
       'The shipped 5x5 WebP frames remain generated from the existing Reimu source sheets and deterministic post-processing.',
     ],
+    ranges: {
+      currentFrames: rangeForRows(rows.filter((row) => row.group === 'current-frame')),
+      openAiReferences: rangeForRows(rows.filter((row) => row.group === 'openai-reference')),
+    },
     rows,
   };
 

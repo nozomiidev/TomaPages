@@ -33,6 +33,16 @@ tmp/reference-audit/*-foreground.png
 tmp/reference-audit/*-sleeves.png
 ```
 
+`tools/render-reimu-openai-reference-targets.mjs` then renders a controlled-edit target sheet:
+
+```text
+tmp/reference-audit/reimu-openai-reference-targets.png
+tmp/reference-audit/reimu-openai-reference-targets.csv
+tmp/reference-audit/reimu-openai-reference-targets-summary.json
+```
+
+The target sheet keeps OpenAI reference masks and the lowest current Reimu sleeve-ratio frames in the same visual review surface. This is intentionally a review surface, not an automatic replacement pass.
+
 ## Current Metrics
 
 Latest regenerated reference audit:
@@ -40,8 +50,10 @@ Latest regenerated reference audit:
 ```text
 OpenAI references: 5
 Current T/Y frames: 150
+OpenAI target rows: 17
 OpenAI sleeve width ratio range: 0.144 - 0.294
 Current sleeve width ratio range: 0.098 - 0.260
+Current low sleeve-ratio review frames at <= 0.18: 22
 ```
 
 Useful OpenAI reference readings:
@@ -87,6 +99,7 @@ The intended OpenAI-assisted route is:
 
 ```bash
 npm.cmd run audit:assets:references
+npm.cmd run audit:assets:openai-targets
 npm.cmd run quality:reimu
 npm.cmd run verify:reimu:quality
 ```
@@ -106,6 +119,15 @@ tmp/inspection
 tmp/sweep
 ```
 
+`verify:reimu:quality` requires the OpenAI target sheet and reports:
+
+```text
+openAiReferenceImages = 5
+openAiTargetRows = 17
+referenceFrames = 150
+referencePngs = 310
+```
+
 ## Current Status
 
-The current shipped Reimu frames pass the hard asset audits. OpenAI references are now available as measured, reproducible inputs for future controlled local edits instead of being treated as vague visual inspiration.
+The current shipped Reimu frames pass the hard asset audits. OpenAI references are now available as measured, reproducible inputs and target sheets for future controlled local edits instead of being treated as vague visual inspiration.

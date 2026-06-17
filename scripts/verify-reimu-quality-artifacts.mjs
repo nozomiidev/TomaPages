@@ -35,6 +35,7 @@ const VISUAL_DIMENSIONS = {
   inspection: { height: 1800, width: 1024 },
   issue: { height: 850, width: 960 },
   line: { height: 850, width: 960 },
+  openAiTargets: { height: 1248, width: 768 },
   referenceForeground: { minHeight: 512, minWidth: 512 },
   referenceSleeves: { height: 512, width: 512 },
   sweep: { height: 1604, width: 1472 },
@@ -166,7 +167,8 @@ async function verifyReferenceMetrics(referenceRoot, failures) {
     );
   }
 
-  const referencePngs = await walkFiles(referenceRoot, '.png');
+  const referencePngs = (await walkFiles(referenceRoot, '.png'))
+    .filter((file) => /-(foreground|sleeves)\.png$/u.test(path.basename(file)));
   const expectedPngCount = rows.length * 2;
   if (referencePngs.length !== expectedPngCount) {
     failures.push(`reference audit PNG count ${referencePngs.length} !== ${expectedPngCount}`);
@@ -238,6 +240,7 @@ async function main() {
   const gapOverlayFile = path.join(options.gapRoot, 'reimu-reference-covered-gap-overlay.png');
   const inspectionZoomFile = path.join(options.inspectionRoot, 'reimu-inspection-zooms.png');
   const lineOverlayFile = path.join(options.lineRoot, 'reimu-line-integrity-overlay.png');
+  const openAiTargetFile = path.join(options.referenceRoot, 'reimu-openai-reference-targets.png');
   const requiredFiles = [
     path.join(options.qualityRoot, 'reimu-asset-quality.csv'),
     path.join(options.qualityRoot, 'reimu-asset-quality-summary.json'),
@@ -263,6 +266,9 @@ async function main() {
     inspectionZoomFile,
     path.join(options.referenceRoot, 'reimu-reference-metrics.csv'),
     path.join(options.referenceRoot, 'reimu-reference-metrics.json'),
+    path.join(options.referenceRoot, 'reimu-openai-reference-targets.csv'),
+    path.join(options.referenceRoot, 'reimu-openai-reference-targets-summary.json'),
+    openAiTargetFile,
   ];
 
   for (const file of requiredFiles) {
@@ -328,7 +334,28 @@ async function main() {
     format: 'png',
     ...VISUAL_DIMENSIONS.inspection,
   });
+  await assertImageMetadata({
+    file: openAiTargetFile,
+    failures,
+    format: 'png',
+    ...VISUAL_DIMENSIONS.openAiTargets,
+  });
   const referenceMetrics = await verifyReferenceMetrics(options.referenceRoot, failures);
+  const openAiTargetSummaryFile = path.join(options.referenceRoot, 'reimu-openai-reference-targets-summary.json');
+  const openAiTargetSummary = JSON.parse(await readFile(openAiTargetSummaryFile, 'utf8'));
+  const openAiTargetRows = Array.isArray(openAiTargetSummary.reviewRows)
+    ? openAiTargetSummary.reviewRows
+    : [];
+  if (openAiTargetSummary.openAiReferenceCount < EXPECTED_OPENAI_REFERENCE_IMAGES) {
+    failures.push(
+      `OpenAI target sheet reference rows ${openAiTargetSummary.openAiReferenceCount} < ${EXPECTED_OPENAI_REFERENCE_IMAGES}`,
+    );
+  }
+  if (openAiTargetSummary.currentFrameCount < EXPECTED_REFERENCE_CURRENT_FRAMES) {
+    failures.push(
+      `OpenAI target sheet current rows ${openAiTargetSummary.currentFrameCount} < ${EXPECTED_REFERENCE_CURRENT_FRAMES}`,
+    );
+  }
 
   if (failures.length) {
     throw new Error(`Reimu quality artifact verification failed:\n- ${failures.join('\n- ')}`);
@@ -344,6 +371,7 @@ async function main() {
     lineSheets: 1,
     noreshapeFrames: noreshapeFrames.length,
     openAiReferenceImages: referenceMetrics.openAiCount,
+    openAiTargetRows: openAiTargetRows.length,
     publicFrames: sourceFrames.length,
     referenceFrames: referenceMetrics.currentCount,
     referencePngs: referenceMetrics.referencePngCount,

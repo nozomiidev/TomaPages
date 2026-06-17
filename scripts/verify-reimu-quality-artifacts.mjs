@@ -7,6 +7,7 @@ const DEFAULTS = {
   compareRoot: 'tmp/compare',
   edgeRoot: 'tmp/edge-audit',
   expressionRoot: 'tmp/expression-audit',
+  gapRoot: 'tmp/gap-audit',
   inspectionRoot: 'tmp/inspection',
   issueRoot: 'tmp/issues',
   noreshapeRoot: 'tmp/noreshape/reimu',
@@ -29,6 +30,7 @@ const VISUAL_DIMENSIONS = {
   edge: { height: 850, width: 960 },
   expression: { height: 864, width: 1440 },
   frame: { height: 512, width: 512 },
+  gap: { height: 850, width: 960 },
   inspection: { height: 1800, width: 1024 },
   issue: { height: 850, width: 960 },
   referenceForeground: { minHeight: 512, minWidth: 512 },
@@ -189,6 +191,7 @@ async function main() {
     compareRoot: path.resolve(readOption(args, 'compare-root', DEFAULTS.compareRoot)),
     edgeRoot: path.resolve(readOption(args, 'edge-root', DEFAULTS.edgeRoot)),
     expressionRoot: path.resolve(readOption(args, 'expression-root', DEFAULTS.expressionRoot)),
+    gapRoot: path.resolve(readOption(args, 'gap-root', DEFAULTS.gapRoot)),
     inspectionRoot: path.resolve(readOption(args, 'inspection-root', DEFAULTS.inspectionRoot)),
     issueRoot: path.resolve(readOption(args, 'issue-root', DEFAULTS.issueRoot)),
     noreshapeRoot: path.resolve(readOption(args, 'noreshape-root', DEFAULTS.noreshapeRoot)),
@@ -223,6 +226,7 @@ async function main() {
   const issueOverlayFile = path.join(options.issueRoot, 'reimu-issue-overlay.png');
   const edgeOverlayFile = path.join(options.edgeRoot, 'reimu-edge-integrity-overlay.png');
   const expressionDiffFile = path.join(options.expressionRoot, 'reimu-expression-diff-audit.png');
+  const gapOverlayFile = path.join(options.gapRoot, 'reimu-reference-covered-gap-overlay.png');
   const inspectionZoomFile = path.join(options.inspectionRoot, 'reimu-inspection-zooms.png');
   const requiredFiles = [
     path.join(options.qualityRoot, 'reimu-asset-quality.csv'),
@@ -233,11 +237,14 @@ async function main() {
     path.join(options.edgeRoot, 'reimu-edge-integrity-summary.json'),
     path.join(options.expressionRoot, 'reimu-expression-diff-audit.csv'),
     path.join(options.expressionRoot, 'reimu-expression-diff-audit-summary.json'),
+    path.join(options.gapRoot, 'reimu-reference-covered-gap.csv'),
+    path.join(options.gapRoot, 'reimu-reference-covered-gap-summary.json'),
     ...auditFiles,
     ...compareFiles,
     ...sweepFiles,
     edgeOverlayFile,
     expressionDiffFile,
+    gapOverlayFile,
     issueOverlayFile,
     inspectionZoomFile,
     path.join(options.referenceRoot, 'reimu-reference-metrics.csv'),
@@ -284,6 +291,12 @@ async function main() {
     ...VISUAL_DIMENSIONS.expression,
   });
   await assertImageMetadata({
+    file: gapOverlayFile,
+    failures,
+    format: 'png',
+    ...VISUAL_DIMENSIONS.gap,
+  });
+  await assertImageMetadata({
     file: issueOverlayFile,
     failures,
     format: 'png',
@@ -307,6 +320,7 @@ async function main() {
     compareSheets: COMPARE_SHEETS.length * COMPARE_MODES.length,
     edgeSheets: 1,
     expressionSheets: 1,
+    gapSheets: 1,
     noreshapeFrames: noreshapeFrames.length,
     publicFrames: sourceFrames.length,
     sweepSheets: sweepFiles.length,

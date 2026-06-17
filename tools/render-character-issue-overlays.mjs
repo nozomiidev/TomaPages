@@ -347,7 +347,7 @@ async function legendTile(width, height) {
 async function renderIssueSheet(frames, options) {
   const labelHeight = 30;
   const legendHeight = 40;
-  const rows = Math.ceil(frames.length / options.cols);
+  const rows = Math.ceil(options.maxFrames / options.cols);
   const width = options.cols * options.cellSize;
   const height = legendHeight + rows * (options.cellSize + labelHeight);
   const composites = [{ input: await legendTile(width, legendHeight), left: 0, top: 0 }];

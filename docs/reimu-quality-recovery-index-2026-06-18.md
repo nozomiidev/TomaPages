@@ -4,7 +4,7 @@ This index records where the recovered Reimu quality work lives and how it maps 
 
 ## Current Main State
 
-- Latest Reimu code/assets state covered by this index: current `main` after the light-interior-gap quality pass
+- Latest Reimu code/assets state covered by this index: current `main` after the reference-covered-gap quality pass
 - Repository: `https://github.com/nozomiidev/TomaPages.git`
 - Branch: `main`
 - Shipped Reimu frames: `public/characters/reimu`, 9 sheets x 25 frames = 225 WebP files
@@ -14,6 +14,7 @@ This index records where the recovered Reimu quality work lives and how it maps 
 
 Recent quality commits:
 
+- reference-covered-gap quality pass, restoring same-frame reference pixels where post-processing introduced closed transparent gaps
 - light-interior-gap quality pass, filling small white-sleeve transparent holes and adding a hard audit cap
 - expression-stability quality pass, adding base-body expression stabilization and diff audit
 - `7f3b70e Add Reimu edge integrity audit`
@@ -47,6 +48,8 @@ Recent quality commits:
   - Expression-frame stability proof showing same-pose mouth/blink differences reduced from body-wide deltas to face-local deltas.
 - `docs/reimu-light-interior-gap-audit-2026-06-18.md`
   - Small white-sleeve internal transparent gap cleanup proof and the matching audit guard.
+- `docs/reimu-reference-covered-gap-audit-2026-06-18.md`
+  - Same-frame reference-covered internal gap cleanup proof and the matching no-reshape comparison audit.
 
 ## Local Full-Preserve Bundle
 
@@ -130,6 +133,7 @@ The Reimu quality pass now covers:
 - suspicious line-like transparent holes
 - larger internal transparent gap cap and overlay review
 - small light-cloth internal transparent gap hard cap
+- reference-covered internal gap hard cap against `tmp/noreshape/reimu`
 - weak alpha pixels
 - weak alpha edge support and orphan weak-alpha ghost detection in `tmp/edge-audit`
 - expression-frame diff review in `tmp/expression-audit`
@@ -151,6 +155,7 @@ maxSuspiciousHoleArea = 0
 maxLineHoleArea = 0
 maxInternalGapArea = 1800
 maxLightInteriorGapArea = 0
+maxReferenceCoveredGapArea = 0
 maxTransparentNonBlack = 0
 maxWeakAlpha = 320
 maxOrphanWeakAlpha = 0

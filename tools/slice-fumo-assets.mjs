@@ -645,6 +645,62 @@ function isLightClothPixel(red, green, blue) {
   );
 }
 
+function fillReferenceCoveredInteriorGaps(data, referenceData, width, height) {
+  const transparentMask = new Uint8Array(width * height);
+
+  for (let index = 0; index < transparentMask.length; index += 1) {
+    if (data[index * 4 + 3] < 16) transparentMask[index] = 1;
+  }
+
+  for (const component of findForegroundComponents(transparentMask, width, height)) {
+    if (
+      component.minX === 0
+      || component.minY === 0
+      || component.maxX === width - 1
+      || component.maxY === height - 1
+    ) {
+      continue;
+    }
+    if (component.pixels.length > 1200 || component.width > 150 || component.height > 80) continue;
+
+    const coverage = referenceCoverage(referenceData, component.pixels);
+    if (coverage < 0.65) continue;
+
+    for (const index of component.pixels) {
+      const offset = index * 4;
+      if (referenceData[offset + 3] >= 16) {
+        data[offset] = referenceData[offset];
+        data[offset + 1] = referenceData[offset + 1];
+        data[offset + 2] = referenceData[offset + 2];
+        data[offset + 3] = referenceData[offset + 3];
+      }
+    }
+
+    const color = averageNeighborColor(data, component.pixels, width, height);
+    if (!color) continue;
+
+    for (const index of component.pixels) {
+      const offset = index * 4;
+      if (data[offset + 3] >= 16) continue;
+
+      data[offset] = color.red;
+      data[offset + 1] = color.green;
+      data[offset + 2] = color.blue;
+      data[offset + 3] = 255;
+    }
+  }
+}
+
+function referenceCoverage(referenceData, pixels) {
+  let covered = 0;
+
+  for (const index of pixels) {
+    if (referenceData[index * 4 + 3] >= 16) covered += 1;
+  }
+
+  return covered / Math.max(1, pixels.length);
+}
+
 function isLineLikeInteriorHole(component) {
   const shortSide = Math.min(component.width, component.height);
   const longSide = Math.max(component.width, component.height);
@@ -1034,6 +1090,7 @@ async function stabilizeReimuExpressionFrame({ baseFile, lossless, outputFile, q
   const base = await readRgbaFrame(baseFile);
   const target = await readRgbaFrame(targetFile);
   const editedData = stabilizeReimuExpressionData(base, target);
+  fillReferenceCoveredInteriorGaps(editedData, target.data, target.width, target.height);
 
   await writeSanitizedWebp({
     data: editedData,
@@ -1314,6 +1371,8 @@ async function reshapeReimuPoseSleeves({ lossless, outputFile, quality, referenc
       beforeEditData.copy(editedData);
     }
   }
+
+  fillReferenceCoveredInteriorGaps(editedData, target.data, target.width, target.height);
 
   await writeSanitizedWebp({
     data: editedData,

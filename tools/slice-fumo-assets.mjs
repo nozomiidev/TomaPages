@@ -54,28 +54,34 @@ const REIMU_SLEEVE_REFERENCE_SHEETS = {
 
 const REIMU_SLEEVE_STYLE = {
   t: {
+    cornerFeather: 0.10,
     eraseRadius: 2,
-    heightScale: 1.86,
+    heightScale: 1.64,
+    innerOverlap: 3,
+    innerHeightScale: 1,
+    maxHeightFromReference: 1.16,
+    maxWidthFromReference: 1.34,
+    minHeightFromReference: 1.02,
+    minWidthFromReference: 1.14,
+    outerHeightScale: 1.42,
+    outerSilhouette: 0.98,
+    innerSilhouette: 0.80,
+    topOffsetY: 2,
+    widthScale: 1.09,
+  },
+  y: {
+    cornerFeather: 0.10,
+    eraseRadius: 2,
+    heightScale: 1.56,
     innerOverlap: 3,
     innerHeightScale: 1,
     maxHeightFromReference: 1.18,
-    maxWidthFromReference: 1.38,
-    minHeightFromReference: 1.04,
-    minWidthFromReference: 1.16,
-    outerHeightScale: 1.55,
-    topOffsetY: 2,
-    widthScale: 1.10,
-  },
-  y: {
-    eraseRadius: 2,
-    heightScale: 1.72,
-    innerOverlap: 3,
-    innerHeightScale: 1,
-    maxHeightFromReference: 1.20,
-    maxWidthFromReference: 1.46,
+    maxWidthFromReference: 1.40,
     minHeightFromReference: 1.02,
-    minWidthFromReference: 1.20,
-    outerHeightScale: 1.45,
+    minWidthFromReference: 1.16,
+    outerHeightScale: 1.36,
+    outerSilhouette: 0.97,
+    innerSilhouette: 0.78,
     topOffsetY: 1,
     widthScale: 1.08,
   },
@@ -358,6 +364,137 @@ function dilatedPixelMask(pixels, width, height, radius) {
   return mask;
 }
 
+function largestComponentMask(mask, width, height) {
+  const components = findForegroundComponents(mask, width, height);
+  const largest = components.sort((a, b) => b.pixels.length - a.pixels.length)[0];
+  const keep = new Uint8Array(width * height);
+
+  if (!largest) return keep;
+
+  const minPixels = Math.max(64, Math.round(largest.pixels.length * 0.006));
+  for (const component of components) {
+    if (component !== largest && component.pixels.length < minPixels) continue;
+
+    for (const index of component.pixels) {
+      keep[index] = 1;
+    }
+  }
+
+  return keep;
+}
+
+function sanitizeSpriteAlpha(data, width, height) {
+  const alphaMask = new Uint8Array(width * height);
+  const strongMask = new Uint8Array(width * height);
+
+  for (let index = 0; index < alphaMask.length; index += 1) {
+    const alpha = data[index * 4 + 3];
+    if (alpha >= 16) alphaMask[index] = 1;
+    if (alpha >= 180) strongMask[index] = 1;
+  }
+
+  const mainMask = largestComponentMask(alphaMask, width, height);
+  const strongNeighborhood = dilatedPixelMask(
+    Array.from(strongMask.keys()).filter((index) => strongMask[index]),
+    width,
+    height,
+    3,
+  );
+  const next = Buffer.from(data);
+
+  for (let index = 0; index < mainMask.length; index += 1) {
+    const offset = index * 4;
+    const alpha = next[offset + 3];
+
+    if (!mainMask[index] || (alpha > 0 && alpha < 180 && !strongNeighborhood[index])) {
+      next[offset] = 0;
+      next[offset + 1] = 0;
+      next[offset + 2] = 0;
+      next[offset + 3] = 0;
+    } else if (alpha === 0) {
+      next[offset] = 0;
+      next[offset + 1] = 0;
+      next[offset + 2] = 0;
+    }
+  }
+
+  fillSmallInteriorAlphaHoles(next, width, height);
+
+  return next;
+}
+
+function fillSmallInteriorAlphaHoles(data, width, height) {
+  const transparentMask = new Uint8Array(width * height);
+
+  for (let index = 0; index < transparentMask.length; index += 1) {
+    if (data[index * 4 + 3] < 16) transparentMask[index] = 1;
+  }
+
+  for (const component of findForegroundComponents(transparentMask, width, height)) {
+    if (
+      component.minX === 0
+      || component.minY === 0
+      || component.maxX === width - 1
+      || component.maxY === height - 1
+    ) {
+      continue;
+    }
+
+    const lineLike = component.width <= 10 || component.height <= 24;
+    if (!lineLike || component.pixels.length > 128) continue;
+
+    const color = averageNeighborColor(data, component.pixels, width, height);
+    if (!color) continue;
+
+    for (const index of component.pixels) {
+      const offset = index * 4;
+      data[offset] = color.red;
+      data[offset + 1] = color.green;
+      data[offset + 2] = color.blue;
+      data[offset + 3] = 255;
+    }
+  }
+}
+
+function averageNeighborColor(data, pixels, width, height) {
+  const inHole = new Set(pixels);
+  let count = 0;
+  let red = 0;
+  let green = 0;
+  let blue = 0;
+
+  for (const index of pixels) {
+    const x = index % width;
+    const y = Math.floor(index / width);
+    const neighbors = [
+      x > 0 ? index - 1 : -1,
+      x + 1 < width ? index + 1 : -1,
+      y > 0 ? index - width : -1,
+      y + 1 < height ? index + width : -1,
+    ];
+
+    for (const neighbor of neighbors) {
+      if (neighbor < 0 || inHole.has(neighbor)) continue;
+
+      const offset = neighbor * 4;
+      if (data[offset + 3] < 180) continue;
+
+      red += data[offset];
+      green += data[offset + 1];
+      blue += data[offset + 2];
+      count += 1;
+    }
+  }
+
+  if (!count) return null;
+
+  return {
+    blue: Math.round(blue / count),
+    green: Math.round(green / count),
+    red: Math.round(red / count),
+  };
+}
+
 async function replaceFileWithRetry(sourceFile, targetFile) {
   let lastError;
 
@@ -546,7 +683,10 @@ function samplePatchBilinear({ height, patch, width, x, y }) {
 }
 
 function flaredSleevePatch({
+  cornerFeather,
+  innerSilhouette,
   innerHeightScale,
+  outerSilhouette,
   outerHeightScale,
   patch,
   side,
@@ -574,12 +714,20 @@ function flaredSleevePatch({
         x: sourceX,
         y: sourceY,
       });
+      const verticalDistance = Math.abs(y - targetCenterY) / Math.max(1, targetHeight / 2);
+      const sleeveSilhouette = innerSilhouette
+        + (outerSilhouette - innerSilhouette) * Math.pow(clampNumber(outerness, 0, 1), 0.72);
+      const silhouetteAlpha = clampNumber(
+        (sleeveSilhouette + cornerFeather - verticalDistance) / Math.max(0.001, cornerFeather),
+        0,
+        1,
+      );
       const targetOffset = (y * targetWidth + x) * 4;
 
       output[targetOffset] = rgba[0];
       output[targetOffset + 1] = rgba[1];
       output[targetOffset + 2] = rgba[2];
-      output[targetOffset + 3] = rgba[3];
+      output[targetOffset + 3] = Math.round(rgba[3] * silhouetteAlpha);
     }
   }
 
@@ -634,7 +782,10 @@ async function reshapeReimuPoseSleeves({ outputFile, quality, referenceFile, tar
       maxHeight,
     ));
     const resizedPatch = flaredSleevePatch({
+      cornerFeather: sleeveStyle.cornerFeather,
+      innerSilhouette: sleeveStyle.innerSilhouette,
       innerHeightScale: sleeveStyle.innerHeightScale,
+      outerSilhouette: sleeveStyle.outerSilhouette,
       outerHeightScale: sleeveStyle.outerHeightScale,
       patch: patch.data,
       side,
@@ -663,7 +814,9 @@ async function reshapeReimuPoseSleeves({ outputFile, quality, referenceFile, tar
 
   const tempOutputFile = `${outputFile}.${process.pid}.tmp.webp`;
 
-  await sharp(editedData, {
+  const sanitizedData = sanitizeSpriteAlpha(editedData, target.width, target.height);
+
+  await sharp(sanitizedData, {
     raw: {
       channels: 4,
       height: target.height,
@@ -671,7 +824,7 @@ async function reshapeReimuPoseSleeves({ outputFile, quality, referenceFile, tar
     },
   })
     .webp({
-      alphaQuality: quality,
+      alphaQuality: 100,
       effort: 5,
       quality,
       smartSubsample: true,
@@ -865,7 +1018,7 @@ async function sliceSheet({ sourceFile, sheetOutputDir, rows, cols, outputSize, 
         windowSize,
       });
 
-      await sharp(windowData, {
+      const { data: resizedData, info: resizedInfo } = await sharp(windowData, {
         raw: {
           width: windowSize,
           height: windowSize,
@@ -874,8 +1027,19 @@ async function sliceSheet({ sourceFile, sheetOutputDir, rows, cols, outputSize, 
       })
         .resize(outputSize, outputSize, { fit: 'fill' })
         .sharpen()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      const sanitizedData = sanitizeSpriteAlpha(resizedData, resizedInfo.width, resizedInfo.height);
+
+      await sharp(sanitizedData, {
+        raw: {
+          channels: 4,
+          height: resizedInfo.height,
+          width: resizedInfo.width,
+        },
+      })
         .webp({
-          alphaQuality: quality,
+          alphaQuality: 100,
           effort: 5,
           quality,
           smartSubsample: true,
@@ -906,6 +1070,7 @@ async function main() {
     cols: readNumberOption(args, 'cols', DEFAULTS.cols),
     outputSize: readNumberOption(args, 'size', DEFAULTS.outputSize),
     quality: Math.min(100, readNumberOption(args, 'quality', DEFAULTS.quality)),
+    skipReimuPoseReshape: hasOption(args, 'skip-reimu-pose-reshape'),
     windowScale: readNumberOption(args, 'window-scale', DEFAULTS.windowScale),
     gravityBlend: Math.min(1, readNumberOption(args, 'gravity-blend', DEFAULTS.gravityBlend)),
   };
@@ -936,7 +1101,7 @@ async function main() {
       console.log(`${characterId}/${sheetId}: ${options.rows * options.cols} webp frames`);
     }
 
-    if (characterId === 'reimu') {
+    if (characterId === 'reimu' && !options.skipReimuPoseReshape) {
       await reshapeReimuPoseSleeveSheets({
         characterOutputDir,
         cols: options.cols,

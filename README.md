@@ -149,11 +149,11 @@ For the Reimu quality pass, use:
 npm run quality:reimu
 ```
 
-This regenerates the no-reshape baseline in `tmp/noreshape`, regenerates the shipped Reimu WebP frames at WebP quality 100, runs the 225-frame asset audit, and rebuilds visual contact sheets in `tmp/audit` plus current-vs-baseline comparison sheets in `tmp/compare`. The slicer also accepts `--lossless` for forensic experiments, but the default quality pass keeps the shipped assets lighter.
+This regenerates the no-reshape baseline in `tmp/noreshape`, regenerates the shipped Reimu WebP frames at WebP quality 100, runs the 225-frame asset audit, and rebuilds visual contact sheets in `tmp/audit`, current-vs-baseline comparison sheets in `tmp/compare`, and issue overlays in `tmp/issues`. The slicer also accepts `--lossless` for forensic experiments, but the default quality pass keeps the shipped assets lighter.
 
 If recovered OpenAI image-generation/editing candidates exist locally under `tmp/recovery/reimu-quality-2026-06-17/openai-generated` or `metaassets/fumo/reimu/reimu_sleeve_reference_imagegen.png`, the same command also writes `tmp/reference-audit`. Those references are treated as proportion and mask guidance for sleeve shape; the shipped 5x5 frames still come from the existing source sheets plus deterministic post-processing so identity, canvas, line weight, and frame grid stay stable.
 
-The Reimu asset audit checks frame count, margins, detached alpha fragments, line-like internal holes, weak alpha, expression-state center/size spread, and neighboring 5x5 direction center steps. It also reports transparent RGB residue for forensic cleanup, but does not gate on that WebP decoder-dependent value by default.
+The Reimu asset audit checks frame count, margins, detached alpha fragments, line-like internal holes, weak alpha, expression-state center/size spread, and neighboring 5x5 direction center steps. It also reports transparent RGB residue for forensic cleanup, but does not gate on that WebP decoder-dependent value by default. The issue overlay colors internal transparent holes red, detached alpha fragments blue, and weak-alpha pixels yellow so questionable frames can be reviewed without guessing from CSV numbers alone.
 
 ## Static Build
 

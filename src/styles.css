@@ -451,21 +451,27 @@ img {
   z-index: 1;
 }
 
+.studio[data-character-id='reimu'] .avatar,
+.studio[data-character-id='cirno'] .avatar {
+  width: min(calc(var(--avatar-size) * 0.86), 78%, 62vmin, 760px);
+  max-height: min(82%, calc(100vh - 152px));
+}
+
 .studio[data-character-id='reimu'][data-pose-variant='t'] .avatar,
 .studio[data-character-id='reimu'][data-pose-variant='y'] .avatar {
-  width: min(calc(var(--avatar-size) * 1.42), 88%, 86vmin, 960px);
+  width: min(calc(var(--avatar-size) * 0.98), 82%, 68vmin, 820px);
   --pose-spread-scale-x: 1;
   --pose-spread-scale-y: 1;
 }
 
 .studio[data-character-id='reimu'][data-pose-variant='y'] .avatar {
-  width: min(calc(var(--avatar-size) * 1.5), 90%, 88vmin, 980px);
+  width: min(calc(var(--avatar-size) * 1.04), 84%, 70vmin, 840px);
   --pose-spread-scale-x: 1;
   --pose-spread-scale-y: 1;
 }
 
 .studio[data-character-id='reimu'][data-pose-variant='t'] .avatar {
-  width: min(calc(var(--avatar-size) * 1.42), 88%, 86vmin, 960px);
+  width: min(calc(var(--avatar-size) * 0.98), 82%, 68vmin, 820px);
   --pose-spread-scale-x: 1;
 }
 

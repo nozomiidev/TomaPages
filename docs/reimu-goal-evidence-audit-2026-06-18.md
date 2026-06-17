@@ -23,6 +23,7 @@ This audit maps the active Reimu recovery goal to current evidence on `main`. It
 | Rebuild `tmp/audit` and `tmp/compare` | `verify:reimu:quality` reports 21 audit sheets and 12 compare sheets; dimensions are checked by `scripts/verify-reimu-quality-artifacts.mjs` | Proven by command |
 | Compare before/after and verify fewer artifacts | `docs/reimu-lossless-quality-report-2026-06-18.md` records transparent RGB residue `567074 -> 0`, weak alpha `23755 -> 23585`, internal gap `8052 -> 6608` | Proven for measured metrics |
 | Remove transparent RGB residue that can create invisible inner contour bleed | `maxTransparentNonBlack = 0` in `tmp/quality-audit/reimu-asset-quality-summary.json`; default hard cap is 0 | Proven by audit |
+| Prevent low-alpha ghost contours and hidden colored transparent residue | `tmp/edge-audit/reimu-edge-integrity-summary.json` reports `maxOrphanWeakAlphaPixels = 0` and `maxTransparentColoredPixels = 0`; `verify:reimu:quality` requires the edge-integrity overlay and metrics | Proven by audit |
 | Prevent detached alpha fragments and thin stray parts | `detachedArea = 0`, `detachedSliverArea = 0`; default hard caps are 0 | Proven by audit |
 | Prevent suspicious line-like transparent holes | `suspiciousHoleArea = 0`, `lineLikeHoleArea = 0`; default hard caps are 0 | Proven by audit |
 | Preserve larger legitimate internal gaps instead of blindly filling everything | Internal gap cap remains explicit; issue overlay review is generated in `tmp/issues/reimu-issue-overlay.png` | Strong evidence |
@@ -37,6 +38,7 @@ This audit maps the active Reimu recovery goal to current evidence on `main`. It
 
 ```bash
 npm.cmd run verify:reimu:quality
+npm.cmd run audit:assets:edge
 npm.cmd run audit:assets:sweep
 npm.cmd run check
 ```
@@ -51,6 +53,6 @@ npm.cmd run check
 
 ## Completion Assessment
 
-The Reimu-specific technical recovery has strong evidence across frame count, artifact regeneration, transparent RGB cleanup, detached-fragment cleanup, line-hole cleanup, sleeve regression guards, direction stability, full-frame visual sweep artifacts, and deployed Pages behavior.
+The Reimu-specific technical recovery has strong evidence across frame count, artifact regeneration, transparent RGB cleanup, weak-alpha ghost contour detection, detached-fragment cleanup, line-hole cleanup, sleeve regression guards, direction stability, full-frame visual sweep artifacts, and deployed Pages behavior.
 
-The full active goal should remain open because "product-level quality" and "all visual breakage" still require either user acceptance of the full sweep/contact sheets or a stricter visual classifier than the current deterministic gates. The next strongest completion evidence would be explicit review acceptance of the generated full sweep sheets or an additional automated perceptual anomaly detector over the full 225-frame set.
+The full active goal should remain open because "product-level quality" and "all visual breakage" still require either user acceptance of the full sweep/contact sheets or a broader perceptual anomaly detector over the full 225-frame set. The next strongest completion evidence would be explicit review acceptance of the generated full sweep sheets or an automated detector that reasons about drawing-level consistency rather than alpha/mask integrity alone.

@@ -36,6 +36,8 @@ Recent quality commits:
   - Requirement-by-requirement evidence audit for the active Reimu recovery goal, including what is proven, what is only partially proven, and why the broader goal remains active.
 - `docs/reimu-full-sweep-audit-2026-06-18.md`
   - Full 225-frame Reimu visual sweep proof covering all 9 sheets on pink, dark, and alpha views.
+- `docs/reimu-edge-integrity-audit-2026-06-18.md`
+  - Low-alpha and transparent-color integrity proof covering all 225 shipped Reimu frames.
 
 ## Local Full-Preserve Bundle
 
@@ -119,6 +121,7 @@ The Reimu quality pass now covers:
 - suspicious line-like transparent holes
 - larger internal transparent gap cap and overlay review
 - weak alpha pixels
+- weak alpha edge support and orphan weak-alpha ghost detection in `tmp/edge-audit`
 - transparent RGB residue
 - T/Y sleeve-width regression against the no-reshape baseline
 - visual contact sheets in `tmp/audit`
@@ -138,6 +141,8 @@ maxLineHoleArea = 0
 maxInternalGapArea = 1800
 maxTransparentNonBlack = 0
 maxWeakAlpha = 220
+maxOrphanWeakAlpha = 0
+maxTransparentColored = 0
 ```
 
 Lossless Reimu sleeve guard thresholds are calibrated to decoded lossless masks while keeping absolute width floors:

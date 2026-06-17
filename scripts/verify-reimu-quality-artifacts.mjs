@@ -5,6 +5,7 @@ import sharp from 'sharp';
 const DEFAULTS = {
   auditRoot: 'tmp/audit',
   compareRoot: 'tmp/compare',
+  edgeRoot: 'tmp/edge-audit',
   inspectionRoot: 'tmp/inspection',
   issueRoot: 'tmp/issues',
   noreshapeRoot: 'tmp/noreshape/reimu',
@@ -24,6 +25,7 @@ const EXPECTED_OPENAI_REFERENCE_IMAGES = 5;
 const VISUAL_DIMENSIONS = {
   audit: { height: 800, width: 800 },
   compare: { height: 800, width: 1616 },
+  edge: { height: 850, width: 960 },
   frame: { height: 512, width: 512 },
   inspection: { height: 1800, width: 1024 },
   issue: { height: 850, width: 960 },
@@ -183,6 +185,7 @@ async function main() {
   const options = {
     auditRoot: path.resolve(readOption(args, 'audit-root', DEFAULTS.auditRoot)),
     compareRoot: path.resolve(readOption(args, 'compare-root', DEFAULTS.compareRoot)),
+    edgeRoot: path.resolve(readOption(args, 'edge-root', DEFAULTS.edgeRoot)),
     inspectionRoot: path.resolve(readOption(args, 'inspection-root', DEFAULTS.inspectionRoot)),
     issueRoot: path.resolve(readOption(args, 'issue-root', DEFAULTS.issueRoot)),
     noreshapeRoot: path.resolve(readOption(args, 'noreshape-root', DEFAULTS.noreshapeRoot)),
@@ -215,15 +218,19 @@ async function main() {
   const compareFiles = expectedCompareFiles(options.compareRoot);
   const sweepFiles = expectedSweepFiles(options.sweepRoot);
   const issueOverlayFile = path.join(options.issueRoot, 'reimu-issue-overlay.png');
+  const edgeOverlayFile = path.join(options.edgeRoot, 'reimu-edge-integrity-overlay.png');
   const inspectionZoomFile = path.join(options.inspectionRoot, 'reimu-inspection-zooms.png');
   const requiredFiles = [
     path.join(options.qualityRoot, 'reimu-asset-quality.csv'),
     path.join(options.qualityRoot, 'reimu-asset-quality-summary.json'),
     path.join(options.qualityRoot, 'reimu-sleeve-guard.csv'),
     path.join(options.qualityRoot, 'reimu-sleeve-guard-summary.json'),
+    path.join(options.edgeRoot, 'reimu-edge-integrity.csv'),
+    path.join(options.edgeRoot, 'reimu-edge-integrity-summary.json'),
     ...auditFiles,
     ...compareFiles,
     ...sweepFiles,
+    edgeOverlayFile,
     issueOverlayFile,
     inspectionZoomFile,
     path.join(options.referenceRoot, 'reimu-reference-metrics.csv'),
@@ -258,6 +265,12 @@ async function main() {
     });
   }
   await assertImageMetadata({
+    file: edgeOverlayFile,
+    failures,
+    format: 'png',
+    ...VISUAL_DIMENSIONS.edge,
+  });
+  await assertImageMetadata({
     file: issueOverlayFile,
     failures,
     format: 'png',
@@ -279,6 +292,7 @@ async function main() {
   console.log(JSON.stringify({
     auditSheets: AUDIT_SHEETS.length * AUDIT_MODES.length,
     compareSheets: COMPARE_SHEETS.length * COMPARE_MODES.length,
+    edgeSheets: 1,
     noreshapeFrames: noreshapeFrames.length,
     publicFrames: sourceFrames.length,
     sweepSheets: sweepFiles.length,

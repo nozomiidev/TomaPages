@@ -8,6 +8,7 @@
     "dev": "vite",
     "build:assets:fumo": "node tools/slice-fumo-assets.mjs",
     "audit:assets": "node tools/audit-character-assets.mjs --character reimu --expected-frames 225",
+    "audit:assets:edge": "node tools/audit-character-edge-integrity.mjs --character reimu --expected-frames 225",
     "audit:assets:sleeves": "node tools/audit-reimu-sleeve-guards.mjs",
     "audit:assets:visuals": "node tools/render-character-audit.mjs --character reimu --compare-source tmp/noreshape",
     "audit:assets:issues": "node tools/render-character-issue-overlays.mjs --character reimu",
@@ -15,13 +16,13 @@
     "audit:assets:sweep": "node tools/render-character-frame-sweep.mjs --character reimu",
     "audit:assets:references": "node tools/analyze-reimu-reference-assets.mjs",
     "verify:reimu:quality": "node scripts/verify-reimu-quality-artifacts.mjs",
-    "quality:reimu": "npm run build:assets:fumo -- --characters reimu --out tmp/noreshape --skip-reimu-pose-reshape --lossless --quality 100 && npm run build:assets:fumo -- --characters reimu --lossless --quality 100 && npm run audit:assets && npm run audit:assets:sleeves && npm run audit:assets:visuals && npm run audit:assets:issues && npm run audit:assets:zooms && npm run audit:assets:sweep && npm run audit:assets:references && npm run verify:reimu:quality",
+    "quality:reimu": "npm run build:assets:fumo -- --characters reimu --out tmp/noreshape --skip-reimu-pose-reshape --lossless --quality 100 && npm run build:assets:fumo -- --characters reimu --lossless --quality 100 && npm run audit:assets && npm run audit:assets:edge && npm run audit:assets:sleeves && npm run audit:assets:visuals && npm run audit:assets:issues && npm run audit:assets:zooms && npm run audit:assets:sweep && npm run audit:assets:references && npm run verify:reimu:quality",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1",
     "lint": "eslint .",
     "test": "vitest run",
     "verify:pages": "node scripts/verify-pages-build.mjs",
-    "check": "npm run lint && npm run test && npm run audit:assets && npm run audit:assets:sleeves && npm run build && npm run verify:pages"
+    "check": "npm run lint && npm run test && npm run audit:assets && npm run audit:assets:edge && npm run audit:assets:sleeves && npm run build && npm run verify:pages"
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

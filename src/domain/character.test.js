@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   allFrames,
   assetManifest,
+  avatarFrameDisplayKey,
+  avatarFrameKey,
   avatarFrameRenderQueue,
   CHARACTER_OPTIONS,
   characterForId,
@@ -69,6 +71,32 @@ describe('character domain', () => {
     expect(preloadQueue).toHaveLength(225);
     expect(preloadQueue[0]).toMatchObject({ sheet: 'py_01', row: 4, col: 4 });
     expect(new Set(preloadQueue.map((frame) => frame.src)).size).toBe(225);
+  });
+
+  it('keeps a loaded fallback frame visible until a new active pose frame is loaded', () => {
+    const previousKey = avatarFrameKey({
+      characterId: 'reimu',
+      sheet: 'pl_01',
+      row: 2,
+      col: 2,
+    });
+    const nextKey = avatarFrameKey({
+      characterId: 'reimu',
+      sheet: 'py_01',
+      row: 4,
+      col: 4,
+    });
+
+    expect(avatarFrameDisplayKey({
+      activeFrameKey: nextKey,
+      fallbackFrameKey: previousKey,
+      loadedFrameKeys: [previousKey],
+    })).toBe(previousKey);
+    expect(avatarFrameDisplayKey({
+      activeFrameKey: nextKey,
+      fallbackFrameKey: previousKey,
+      loadedFrameKeys: [previousKey, nextKey],
+    })).toBe(nextKey);
   });
 
   it('maps Reimu talk, blink, and arm pose variants onto the plush sheet set', () => {

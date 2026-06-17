@@ -33,6 +33,8 @@ import { AudioLevelEngine, smoothAudioEnvelope } from './domain/audio-engine';
 import {
   allFrames,
   assetManifest,
+  avatarFrameDisplayKey,
+  avatarFrameKey,
   avatarFrameRenderQueue,
   characterForId,
   CHARACTER_OPTIONS,
@@ -783,8 +785,22 @@ const AvatarStage = React.forwardRef(function AvatarStage(
   avatarRef,
 ) {
   const activeFrameSrc = frameSrc(activeSheet, cell.row, cell.col, character.id);
+  const activeFrameKey = avatarFrameKey({
+    characterId: character.id,
+    col: cell.col,
+    row: cell.row,
+    sheet: activeSheet,
+  });
   const [preloadRemainingFrames, setPreloadRemainingFrames] = useState(false);
+  const [loadedFrameKeys, setLoadedFrameKeys] = useState(() => new Set());
+  const [fallbackFrameKey, setFallbackFrameKey] = useState(activeFrameKey);
+  const previousCharacterIdRef = useRef(character.id);
   const tintOverlaySrc = useAvatarTintOverlay(activeFrameSrc, tint);
+  const displayFrameKey = useMemo(() => avatarFrameDisplayKey({
+    activeFrameKey,
+    fallbackFrameKey,
+    loadedFrameKeys,
+  }), [activeFrameKey, fallbackFrameKey, loadedFrameKeys]);
   const visibleFrames = useMemo(() => avatarFrameRenderQueue({
     activeSheet,
     col: cell.col,
@@ -792,6 +808,31 @@ const AvatarStage = React.forwardRef(function AvatarStage(
     preloadRemainingFrames,
     row: cell.row,
   }), [activeSheet, cell.col, cell.row, frames, preloadRemainingFrames]);
+  const handleFrameLoad = useCallback((frameKey) => {
+    setLoadedFrameKeys((current) => {
+      if (current.has(frameKey)) return current;
+      const next = new Set(current);
+      next.add(frameKey);
+      return next;
+    });
+    if (frameKey === activeFrameKey) {
+      setFallbackFrameKey(frameKey);
+      setPreloadRemainingFrames(true);
+    }
+  }, [activeFrameKey]);
+
+  useEffect(() => {
+    if (previousCharacterIdRef.current === character.id) return;
+
+    previousCharacterIdRef.current = character.id;
+    setPreloadRemainingFrames(false);
+    setLoadedFrameKeys(new Set());
+    setFallbackFrameKey(activeFrameKey);
+  }, [activeFrameKey, character.id]);
+
+  useEffect(() => {
+    if (loadedFrameKeys.has(activeFrameKey)) setFallbackFrameKey(activeFrameKey);
+  }, [activeFrameKey, loadedFrameKeys]);
 
   return (
     <section className="stage" aria-label="Avatar stage">
@@ -810,23 +851,25 @@ const AvatarStage = React.forwardRef(function AvatarStage(
         onPointerLeave={() => setPressed(false)}
       >
         {visibleFrames.map((frame) => {
+          const frameKey = avatarFrameKey(frame);
           const isActiveFrame = frame.sheet === activeSheet
             && frame.row === cell.row
             && frame.col === cell.col;
+          const isDisplayFrame = frameKey === displayFrameKey;
 
           return (
             <img
-              key={`${frame.sheet}-${frame.row}-${frame.col}`}
+              key={frameKey}
               alt=""
               aria-hidden="true"
               className="avatar__frame"
               draggable="false"
               decoding="async"
               fetchPriority={isActiveFrame ? 'high' : 'low'}
-              loading={isActiveFrame ? 'eager' : 'lazy'}
-              onLoad={isActiveFrame ? () => setPreloadRemainingFrames(true) : undefined}
+              loading={isActiveFrame || isDisplayFrame ? 'eager' : 'lazy'}
+              onLoad={() => handleFrameLoad(frameKey)}
               src={frame.src}
-              style={{ opacity: isActiveFrame ? 1 : 0 }}
+              style={{ opacity: isDisplayFrame ? 1 : 0 }}
             />
           );
         })}

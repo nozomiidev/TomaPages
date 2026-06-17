@@ -433,8 +433,20 @@ export function allFrames({ characterId = 'tomari', includeMouthStates = true } 
   return frames;
 }
 
-function avatarFrameKey({ sheet, row, col }) {
-  return `${sheet}-${row}-${col}`;
+export function avatarFrameKey({ characterId = '', sheet, row, col }) {
+  return `${characterId}:${sheet}-${row}-${col}`;
+}
+
+export function avatarFrameDisplayKey({
+  activeFrameKey,
+  fallbackFrameKey,
+  loadedFrameKeys = [],
+}) {
+  const loadedKeys = loadedFrameKeys instanceof Set
+    ? loadedFrameKeys
+    : new Set(loadedFrameKeys);
+
+  return loadedKeys.has(activeFrameKey) ? activeFrameKey : (fallbackFrameKey ?? activeFrameKey);
 }
 
 export function avatarFrameRenderQueue({
@@ -444,7 +456,13 @@ export function avatarFrameRenderQueue({
   preloadRemainingFrames = false,
   row,
 }) {
-  const activeKey = avatarFrameKey({ col, row, sheet: activeSheet });
+  const characterId = frames[0]?.characterId ?? '';
+  const activeKey = avatarFrameKey({
+    characterId,
+    col,
+    row,
+    sheet: activeSheet,
+  });
   const activeIndex = frames.findIndex((frame) => avatarFrameKey(frame) === activeKey);
   const orderedFrames = activeIndex <= 0
     ? frames

@@ -41,6 +41,7 @@ const DEFAULTS = {
   quality: 94,
   windowScale: 1.55,
   gravityBlend: 0.68,
+  lossless: false,
 };
 
 const REIMU_SLEEVE_REFERENCE_SHEETS = {
@@ -530,6 +531,16 @@ async function readRgbaFrame(file) {
   };
 }
 
+function webpOptions({ lossless, quality }) {
+  return {
+    alphaQuality: 100,
+    effort: lossless ? 3 : 5,
+    lossless,
+    quality,
+    smartSubsample: !lossless,
+  };
+}
+
 function clampNumber(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -734,7 +745,7 @@ function flaredSleevePatch({
   return output;
 }
 
-async function reshapeReimuPoseSleeves({ outputFile, quality, referenceFile, targetFile }) {
+async function reshapeReimuPoseSleeves({ lossless, outputFile, quality, referenceFile, targetFile }) {
   const poseKind = path.basename(path.dirname(targetFile)).includes('y') ? 'y' : 't';
   const target = await readRgbaFrame(targetFile);
   const reference = await readRgbaFrame(referenceFile);
@@ -823,17 +834,12 @@ async function reshapeReimuPoseSleeves({ outputFile, quality, referenceFile, tar
       width: target.width,
     },
   })
-    .webp({
-      alphaQuality: 100,
-      effort: 5,
-      quality,
-      smartSubsample: true,
-    })
+    .webp(webpOptions({ lossless, quality }))
     .toFile(tempOutputFile);
   await replaceFileWithRetry(tempOutputFile, outputFile);
 }
 
-async function reshapeReimuPoseSleeveSheets({ characterOutputDir, quality, rows, cols }) {
+async function reshapeReimuPoseSleeveSheets({ characterOutputDir, cols, lossless, quality, rows }) {
   for (const [targetSheet, referenceSheet] of Object.entries(REIMU_SLEEVE_REFERENCE_SHEETS)) {
     for (let row = 0; row < rows; row += 1) {
       for (let col = 0; col < cols; col += 1) {
@@ -841,6 +847,7 @@ async function reshapeReimuPoseSleeveSheets({ characterOutputDir, quality, rows,
         const referenceFile = path.join(characterOutputDir, referenceSheet, `r${row}c${col}.webp`);
 
         await reshapeReimuPoseSleeves({
+          lossless,
           outputFile: targetFile,
           quality,
           referenceFile,
@@ -977,7 +984,17 @@ async function assertKnownCharacters(sourceRoot, characterIds) {
   }
 }
 
-async function sliceSheet({ sourceFile, sheetOutputDir, rows, cols, outputSize, quality, windowScale, gravityBlend }) {
+async function sliceSheet({
+  cols,
+  gravityBlend,
+  lossless,
+  outputSize,
+  quality,
+  rows,
+  sheetOutputDir,
+  sourceFile,
+  windowScale,
+}) {
   const { data, info } = await sharp(sourceFile, { animated: false })
     .ensureAlpha()
     .raw()
@@ -1038,12 +1055,7 @@ async function sliceSheet({ sourceFile, sheetOutputDir, rows, cols, outputSize, 
           width: resizedInfo.width,
         },
       })
-        .webp({
-          alphaQuality: 100,
-          effort: 5,
-          quality,
-          smartSubsample: true,
-        })
+        .webp(webpOptions({ lossless, quality }))
         .toFile(outputFile);
     }
   }
@@ -1073,6 +1085,7 @@ async function main() {
     skipReimuPoseReshape: hasOption(args, 'skip-reimu-pose-reshape'),
     windowScale: readNumberOption(args, 'window-scale', DEFAULTS.windowScale),
     gravityBlend: Math.min(1, readNumberOption(args, 'gravity-blend', DEFAULTS.gravityBlend)),
+    lossless: hasOption(args, 'lossless') || DEFAULTS.lossless,
   };
 
   await assertKnownCharacters(options.sourceRoot, options.characters);
@@ -1095,6 +1108,7 @@ async function main() {
         quality: options.quality,
         windowScale: options.windowScale,
         gravityBlend: options.gravityBlend,
+        lossless: options.lossless,
       });
 
       written += options.rows * options.cols;
@@ -1105,6 +1119,7 @@ async function main() {
       await reshapeReimuPoseSleeveSheets({
         characterOutputDir,
         cols: options.cols,
+        lossless: options.lossless,
         quality: options.quality,
         rows: options.rows,
       });

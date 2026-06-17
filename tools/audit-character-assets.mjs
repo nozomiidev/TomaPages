@@ -12,7 +12,8 @@ const DEFAULTS = {
   maxExpressionWidthSpread: 72,
   maxLineHoleArea: 800,
   maxNeighborCenterStep: 32,
-  maxWeakAlpha: 1000,
+  maxTransparentNonBlack: Number.POSITIVE_INFINITY,
+  maxWeakAlpha: 300,
   minMargin: 32,
   outputRoot: 'tmp/quality-audit',
   sourceRoot: 'public/characters',
@@ -178,6 +179,7 @@ function summarize(rows) {
     frameCount: rows.length,
     maxDetachedArea: maxBy('detachedArea'),
     maxLineLikeHoleArea: maxBy('lineLikeHoleArea'),
+    maxTransparentNonBlack: maxBy('transparentNonBlack'),
     maxWeakAlphaPixels: maxBy('weakAlphaPixels'),
     minMargin: {
       file: minMarginRows[0]?.file,
@@ -333,6 +335,11 @@ async function main() {
     ),
     maxLineHoleArea: readNumberOption(args, 'max-line-hole-area', DEFAULTS.maxLineHoleArea),
     maxNeighborCenterStep: readNumberOption(args, 'max-neighbor-center-step', DEFAULTS.maxNeighborCenterStep),
+    maxTransparentNonBlack: readNumberOption(
+      args,
+      'max-transparent-non-black',
+      DEFAULTS.maxTransparentNonBlack,
+    ),
     maxWeakAlpha: readNumberOption(args, 'max-weak-alpha', DEFAULTS.maxWeakAlpha),
     minMargin: readNumberOption(args, 'min-margin', DEFAULTS.minMargin),
     outputRoot: path.resolve(readOption(args, 'out', DEFAULTS.outputRoot)),
@@ -397,6 +404,12 @@ async function main() {
     hardFailures.push(
       `${summary.maxLineLikeHoleArea.file} line-like hole area `
       + `${summary.maxLineLikeHoleArea.lineLikeHoleArea} > ${options.maxLineHoleArea}`,
+    );
+  }
+  if (summary.maxTransparentNonBlack.transparentNonBlack > options.maxTransparentNonBlack) {
+    hardFailures.push(
+      `${summary.maxTransparentNonBlack.file} transparent RGB pixels `
+      + `${summary.maxTransparentNonBlack.transparentNonBlack} > ${options.maxTransparentNonBlack}`,
     );
   }
   if (summary.maxWeakAlphaPixels.weakAlphaPixels > options.maxWeakAlpha) {

@@ -13,6 +13,7 @@ const DEFAULTS = {
   maxExpressionWidthSpread: 72,
   maxInternalGapArea: 1800,
   maxLineHoleArea: 0,
+  maxLightInteriorGapArea: 0,
   maxNeighborAlphaStep: 0.28,
   maxNeighborCenterStep: 32,
   maxNeighborHeightStep: 80,
@@ -90,6 +91,7 @@ function componentList(mask, width, height) {
       maxY,
       minX,
       minY,
+      pixels,
       touchEdge,
       width: maxX - minX + 1,
     });
@@ -119,6 +121,52 @@ function isLineLikeInteriorHole(component) {
     && longSide >= 32
     && aspect >= 4
   );
+}
+
+function isLightClothPixel(red, green, blue) {
+  return (
+    red >= 185
+    && green >= 165
+    && blue >= 155
+    && red - blue <= 80
+    && red - green <= 70
+  );
+}
+
+function hasLightInteriorGapNeighbors(data, component, width, height) {
+  if (component.area > 700 || component.width > 44 || component.height > 48) return false;
+
+  const inHole = new Set(component.pixels);
+  let lightCount = 0;
+  let totalCount = 0;
+
+  for (const index of component.pixels) {
+    const x = index % width;
+    const y = Math.floor(index / width);
+
+    for (let dy = -4; dy <= 4; dy += 1) {
+      for (let dx = -4; dx <= 4; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+
+        const candidateX = x + dx;
+        const candidateY = y + dy;
+        if (candidateX < 0 || candidateY < 0 || candidateX >= width || candidateY >= height) continue;
+
+        const neighbor = candidateY * width + candidateX;
+        if (inHole.has(neighbor)) continue;
+
+        const offset = neighbor * 4;
+        if (data[offset + 3] < 16) continue;
+
+        totalCount += 1;
+        if (isLightClothPixel(data[offset], data[offset + 1], data[offset + 2])) {
+          lightCount += 1;
+        }
+      }
+    }
+  }
+
+  return lightCount / Math.max(1, totalCount) >= 0.33;
 }
 
 function csvCell(value) {
@@ -192,8 +240,12 @@ async function auditFrame(file, relativeFile, transparentThreshold) {
   const holes = componentList(transparentMask, info.width, info.height)
     .filter((component) => !component.touchEdge);
   const lineLikeHoles = holes.filter(isLineLikeInteriorHole);
+  const lightInteriorGaps = holes.filter((component) => (
+    hasLightInteriorGapNeighbors(data, component, info.width, info.height)
+  ));
   const holeArea = holes.reduce((sum, component) => sum + component.area, 0);
   const suspiciousHoleArea = lineLikeHoles.reduce((sum, component) => sum + component.area, 0);
+  const lightInteriorGapArea = lightInteriorGaps.reduce((sum, component) => sum + component.area, 0);
 
   return {
     alphaPixels,
@@ -211,6 +263,8 @@ async function auditFrame(file, relativeFile, transparentThreshold) {
     leftMargin: minX,
     lineLikeHoleArea: suspiciousHoleArea,
     lineLikeHoleCount: lineLikeHoles.length,
+    lightInteriorGapArea,
+    lightInteriorGapCount: lightInteriorGaps.length,
     rightMargin: info.width - 1 - maxX,
     topMargin: minY,
     suspiciousHoleArea,
@@ -238,6 +292,7 @@ function summarize(rows) {
     maxDetachedSliverArea: maxBy('detachedSliverArea'),
     maxInternalGapArea: maxBy('internalGapArea'),
     maxLineLikeHoleArea: maxBy('lineLikeHoleArea'),
+    maxLightInteriorGapArea: maxBy('lightInteriorGapArea'),
     maxSuspiciousHoleArea: maxBy('suspiciousHoleArea'),
     maxTransparentNonBlack: maxBy('transparentNonBlack'),
     maxWeakAlphaPixels: maxBy('weakAlphaPixels'),
@@ -413,6 +468,11 @@ async function main() {
       DEFAULTS.maxInternalGapArea,
     ),
     maxLineHoleArea: readNumberOption(args, 'max-line-hole-area', DEFAULTS.maxLineHoleArea),
+    maxLightInteriorGapArea: readNumberOption(
+      args,
+      'max-light-interior-gap-area',
+      DEFAULTS.maxLightInteriorGapArea,
+    ),
     maxNeighborAlphaStep: readNumberOption(args, 'max-neighbor-alpha-step', DEFAULTS.maxNeighborAlphaStep),
     maxNeighborCenterStep: readNumberOption(args, 'max-neighbor-center-step', DEFAULTS.maxNeighborCenterStep),
     maxNeighborHeightStep: readNumberOption(args, 'max-neighbor-height-step', DEFAULTS.maxNeighborHeightStep),
@@ -497,6 +557,12 @@ async function main() {
     hardFailures.push(
       `${summary.maxLineLikeHoleArea.file} line-like hole area `
       + `${summary.maxLineLikeHoleArea.lineLikeHoleArea} > ${options.maxLineHoleArea}`,
+    );
+  }
+  if (summary.maxLightInteriorGapArea.lightInteriorGapArea > options.maxLightInteriorGapArea) {
+    hardFailures.push(
+      `${summary.maxLightInteriorGapArea.file} light interior gap area `
+      + `${summary.maxLightInteriorGapArea.lightInteriorGapArea} > ${options.maxLightInteriorGapArea}`,
     );
   }
   if (summary.maxSuspiciousHoleArea.suspiciousHoleArea > options.maxSuspiciousHoleArea) {

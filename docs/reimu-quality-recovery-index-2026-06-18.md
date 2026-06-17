@@ -4,16 +4,17 @@ This index records where the recovered Reimu quality work lives and how it maps 
 
 ## Current Main State
 
-- Latest Reimu code/assets state covered by this index: current `main` after the expression-stability quality pass
+- Latest Reimu code/assets state covered by this index: current `main` after the light-interior-gap quality pass
 - Repository: `https://github.com/nozomiidev/TomaPages.git`
 - Branch: `main`
 - Shipped Reimu frames: `public/characters/reimu`, 9 sheets x 25 frames = 225 WebP files
 - Quality command: `npm run quality:reimu`
 - CI-style command: `npm run check`
-- Latest verified GitHub Pages workflow: `27714806540`, conclusion `success`
+- GitHub Pages deployment is verified after each pushed quality pass; use the repository Actions page for the newest run ID.
 
 Recent quality commits:
 
+- light-interior-gap quality pass, filling small white-sleeve transparent holes and adding a hard audit cap
 - expression-stability quality pass, adding base-body expression stabilization and diff audit
 - `7f3b70e Add Reimu edge integrity audit`
 - `fff4c99 Add Reimu full frame sweep audit`
@@ -44,6 +45,8 @@ Recent quality commits:
   - Low-alpha and transparent-color integrity proof covering all 225 shipped Reimu frames.
 - `docs/reimu-expression-stability-audit-2026-06-18.md`
   - Expression-frame stability proof showing same-pose mouth/blink differences reduced from body-wide deltas to face-local deltas.
+- `docs/reimu-light-interior-gap-audit-2026-06-18.md`
+  - Small white-sleeve internal transparent gap cleanup proof and the matching audit guard.
 
 ## Local Full-Preserve Bundle
 
@@ -126,6 +129,7 @@ The Reimu quality pass now covers:
 - detached alpha fragments and thin detached slivers
 - suspicious line-like transparent holes
 - larger internal transparent gap cap and overlay review
+- small light-cloth internal transparent gap hard cap
 - weak alpha pixels
 - weak alpha edge support and orphan weak-alpha ghost detection in `tmp/edge-audit`
 - expression-frame diff review in `tmp/expression-audit`
@@ -146,6 +150,7 @@ maxDetachedSliverArea = 0
 maxSuspiciousHoleArea = 0
 maxLineHoleArea = 0
 maxInternalGapArea = 1800
+maxLightInteriorGapArea = 0
 maxTransparentNonBlack = 0
 maxWeakAlpha = 320
 maxOrphanWeakAlpha = 0

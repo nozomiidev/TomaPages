@@ -451,6 +451,7 @@ function sanitizeSpriteAlpha(data, width, height) {
 
   bridgeNearbyDetachedComponents(next, width, height);
   fillSmallInteriorAlphaHoles(next, width, height);
+  fillLightInteriorAlphaGaps(next, width, height);
 
   return next;
 }
@@ -548,6 +549,100 @@ function fillSmallInteriorAlphaHoles(data, width, height) {
       data[offset + 3] = 255;
     }
   }
+}
+
+function fillLightInteriorAlphaGaps(data, width, height) {
+  const transparentMask = new Uint8Array(width * height);
+
+  for (let index = 0; index < transparentMask.length; index += 1) {
+    if (data[index * 4 + 3] < 16) transparentMask[index] = 1;
+  }
+
+  for (const component of findForegroundComponents(transparentMask, width, height)) {
+    if (
+      component.minX === 0
+      || component.minY === 0
+      || component.maxX === width - 1
+      || component.maxY === height - 1
+    ) {
+      continue;
+    }
+    if (component.pixels.length > 700 || component.width > 44 || component.height > 48) continue;
+
+    const color = lightNeighborFillColor(data, component.pixels, width, height);
+    if (!color) continue;
+
+    for (const index of component.pixels) {
+      const offset = index * 4;
+      data[offset] = color.red;
+      data[offset + 1] = color.green;
+      data[offset + 2] = color.blue;
+      data[offset + 3] = 255;
+    }
+  }
+}
+
+function lightNeighborFillColor(data, pixels, width, height) {
+  const inHole = new Set(pixels);
+  let blue = 0;
+  let green = 0;
+  let lightCount = 0;
+  let red = 0;
+  let totalCount = 0;
+  let weight = 0;
+
+  for (const index of pixels) {
+    const x = index % width;
+    const y = Math.floor(index / width);
+
+    for (let dy = -4; dy <= 4; dy += 1) {
+      for (let dx = -4; dx <= 4; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+
+        const candidateX = x + dx;
+        const candidateY = y + dy;
+        if (candidateX < 0 || candidateY < 0 || candidateX >= width || candidateY >= height) continue;
+
+        const neighbor = candidateY * width + candidateX;
+        if (inHole.has(neighbor)) continue;
+
+        const offset = neighbor * 4;
+        const alpha = data[offset + 3];
+        if (alpha < 16) continue;
+
+        totalCount += 1;
+        const neighborRed = data[offset];
+        const neighborGreen = data[offset + 1];
+        const neighborBlue = data[offset + 2];
+        if (!isLightClothPixel(neighborRed, neighborGreen, neighborBlue)) continue;
+
+        const sampleWeight = (alpha / 255) / (1 + Math.hypot(dx, dy));
+        red += neighborRed * sampleWeight;
+        green += neighborGreen * sampleWeight;
+        blue += neighborBlue * sampleWeight;
+        weight += sampleWeight;
+        lightCount += 1;
+      }
+    }
+  }
+
+  if (lightCount / Math.max(1, totalCount) < 0.33 || weight <= 0) return null;
+
+  return {
+    blue: Math.round(blue / weight),
+    green: Math.round(green / weight),
+    red: Math.round(red / weight),
+  };
+}
+
+function isLightClothPixel(red, green, blue) {
+  return (
+    red >= 185
+    && green >= 165
+    && blue >= 155
+    && red - blue <= 80
+    && red - green <= 70
+  );
 }
 
 function isLineLikeInteriorHole(component) {

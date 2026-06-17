@@ -56,6 +56,8 @@ Recent quality commits:
   - Machine-checkable proof that remaining issue-overlay candidates are review-only and actionable residual defects are zero.
 - `docs/reimu-line-integrity-audit-2026-06-18.md`
   - Alpha-edge contour support proof for all 225 Reimu frames.
+- `docs/reimu-openai-reference-integration-2026-06-18.md`
+  - OpenAI-generated Reimu reference workflow, measured sleeve-ratio ranges, and controlled-adoption constraints.
 
 ## Local Full-Preserve Bundle
 
@@ -142,6 +144,7 @@ The Reimu quality pass now covers:
 - reference-covered internal gap hard cap against `tmp/noreshape/reimu`
 - residual actionable-defect disposition in `tmp/quality-audit/reimu-residual-defect-summary.json`
 - alpha-edge line integrity in `tmp/line-audit`
+- OpenAI reference mask and sleeve-ratio analysis in `tmp/reference-audit`
 - weak alpha pixels
 - weak alpha edge support and orphan weak-alpha ghost detection in `tmp/edge-audit`
 - expression-frame diff review in `tmp/expression-audit`

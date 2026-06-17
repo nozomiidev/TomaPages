@@ -147,7 +147,7 @@ async function verifyReferenceMetrics(referenceRoot, failures) {
   const metricsStat = await pathStat(metricsFile);
   if (!metricsStat?.isFile()) {
     failures.push(`missing ${path.relative(process.cwd(), metricsFile)}`);
-    return;
+    return { currentCount: 0, openAiCount: 0, referencePngCount: 0 };
   }
 
   const metrics = JSON.parse(await readFile(metricsFile, 'utf8'));
@@ -184,6 +184,12 @@ async function verifyReferenceMetrics(referenceRoot, failures) {
       ...dimensions,
     });
   }
+
+  return {
+    currentCount,
+    openAiCount,
+    referencePngCount: referencePngs.length,
+  };
 }
 
 async function main() {
@@ -322,7 +328,7 @@ async function main() {
     format: 'png',
     ...VISUAL_DIMENSIONS.inspection,
   });
-  await verifyReferenceMetrics(options.referenceRoot, failures);
+  const referenceMetrics = await verifyReferenceMetrics(options.referenceRoot, failures);
 
   if (failures.length) {
     throw new Error(`Reimu quality artifact verification failed:\n- ${failures.join('\n- ')}`);
@@ -337,7 +343,10 @@ async function main() {
     gapSheets: 1,
     lineSheets: 1,
     noreshapeFrames: noreshapeFrames.length,
+    openAiReferenceImages: referenceMetrics.openAiCount,
     publicFrames: sourceFrames.length,
+    referenceFrames: referenceMetrics.currentCount,
+    referencePngs: referenceMetrics.referencePngCount,
     sweepSheets: sweepFiles.length,
   }, null, 2));
 }

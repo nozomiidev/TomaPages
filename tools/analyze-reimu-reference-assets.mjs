@@ -60,7 +60,20 @@ async function prepareOutputRoot(outputRoot) {
   const tmpRoot = path.resolve('tmp');
 
   if (isInside(tmpRoot, outputRoot)) {
-    await rm(outputRoot, { force: true, recursive: true });
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        await rm(outputRoot, { force: true, recursive: true });
+        break;
+      } catch (error) {
+        if (!['EBUSY', 'ENOTEMPTY', 'EPERM'].includes(error?.code) || attempt === 4) {
+          throw error;
+        }
+
+        await new Promise((resolve) => {
+          setTimeout(resolve, 150 * (attempt + 1));
+        });
+      }
+    }
   }
 
   await mkdir(outputRoot, { recursive: true });

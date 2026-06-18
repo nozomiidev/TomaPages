@@ -15,6 +15,7 @@ const DEFAULTS = {
   noreshapeRoot: 'tmp/noreshape/reimu',
   openAiCandidateRoot: 'tmp/imagegen/reimu-sleeve-candidates/processed',
   perceptualRoot: 'tmp/perceptual-audit',
+  openAiMaterialRoot: 'tmp/openai-material-audit',
   qualityRoot: 'tmp/quality-audit',
   referenceRoot: 'tmp/reference-audit',
   sourceRoot: 'public/characters/reimu',
@@ -41,6 +42,7 @@ const VISUAL_DIMENSIONS = {
   openAiTargets: { height: 1248, width: 768 },
   openAiCandidateDrift: { height: 512, width: 512 },
   openAiCandidateGuide: { height: 512, width: 512 },
+  openAiMaterialSheet: { minHeight: 192, minWidth: 900 },
   openAiCandidateNormalized: { height: 512, width: 512 },
   openAiCandidateSheet: { height: 354, width: 1100 },
   perceptual: { height: 1390, width: 960 },
@@ -316,6 +318,11 @@ async function main() {
       'openai-candidate-root',
       DEFAULTS.openAiCandidateRoot,
     )),
+    openAiMaterialRoot: path.resolve(readOption(
+      args,
+      'openai-material-root',
+      DEFAULTS.openAiMaterialRoot,
+    )),
     perceptualRoot: path.resolve(readOption(args, 'perceptual-root', DEFAULTS.perceptualRoot)),
     qualityRoot: path.resolve(readOption(args, 'quality-root', DEFAULTS.qualityRoot)),
     referenceRoot: path.resolve(readOption(args, 'reference-root', DEFAULTS.referenceRoot)),
@@ -352,6 +359,10 @@ async function main() {
   const inspectionZoomFile = path.join(options.inspectionRoot, 'reimu-inspection-zooms.png');
   const lineOverlayFile = path.join(options.lineRoot, 'reimu-line-integrity-overlay.png');
   const openAiTargetFile = path.join(options.referenceRoot, 'reimu-openai-reference-targets.png');
+  const openAiMaterialFile = path.join(
+    options.openAiMaterialRoot,
+    'reimu-openai-material-application.png',
+  );
   const perceptualFile = path.join(options.perceptualRoot, 'reimu-perceptual-consistency.png');
   const perceptualZoomFile = path.join(options.perceptualRoot, 'reimu-perceptual-candidate-zooms.png');
   const perceptualDispositionJsonFile = path.join(
@@ -389,7 +400,10 @@ async function main() {
     path.join(options.referenceRoot, 'reimu-reference-metrics.json'),
     path.join(options.referenceRoot, 'reimu-openai-reference-targets.csv'),
     path.join(options.referenceRoot, 'reimu-openai-reference-targets-summary.json'),
+    path.join(options.openAiMaterialRoot, 'reimu-openai-material-application.csv'),
+    path.join(options.openAiMaterialRoot, 'reimu-openai-material-application-summary.json'),
     openAiTargetFile,
+    openAiMaterialFile,
     perceptualFile,
     perceptualZoomFile,
   ];
@@ -464,6 +478,12 @@ async function main() {
     ...VISUAL_DIMENSIONS.openAiTargets,
   });
   await assertImageMetadata({
+    file: openAiMaterialFile,
+    failures,
+    format: 'png',
+    ...VISUAL_DIMENSIONS.openAiMaterialSheet,
+  });
+  await assertImageMetadata({
     file: perceptualFile,
     failures,
     format: 'png',
@@ -484,6 +504,11 @@ async function main() {
   );
   const openAiTargetSummaryFile = path.join(options.referenceRoot, 'reimu-openai-reference-targets-summary.json');
   const openAiTargetSummary = JSON.parse(await readFile(openAiTargetSummaryFile, 'utf8'));
+  const openAiMaterialSummaryFile = path.join(
+    options.openAiMaterialRoot,
+    'reimu-openai-material-application-summary.json',
+  );
+  const openAiMaterialSummary = JSON.parse(await readFile(openAiMaterialSummaryFile, 'utf8'));
   const openAiTargetRows = Array.isArray(openAiTargetSummary.reviewRows)
     ? openAiTargetSummary.reviewRows
     : [];
@@ -496,6 +521,14 @@ async function main() {
     failures.push(
       `OpenAI target sheet current rows ${openAiTargetSummary.currentFrameCount} < ${EXPECTED_REFERENCE_CURRENT_FRAMES}`,
     );
+  }
+  if (openAiMaterialSummary.changedFrameCount < 1) {
+    failures.push('OpenAI material application changedFrameCount should be >= 1');
+  }
+  for (const [checkName, passed] of Object.entries(openAiMaterialSummary.checks ?? {})) {
+    if (passed !== true) {
+      failures.push(`OpenAI material application check failed: ${checkName}`);
+    }
   }
   const perceptualSummaryFile = path.join(options.perceptualRoot, 'reimu-perceptual-consistency-summary.json');
   const perceptualSummary = JSON.parse(await readFile(perceptualSummaryFile, 'utf8'));
@@ -537,6 +570,7 @@ async function main() {
     lineSheets: 1,
     noreshapeFrames: noreshapeFrames.length,
     openAiCandidateProcessed: openAiCandidateMetrics.processedCount,
+    openAiMaterialChangedFrames: openAiMaterialSummary.changedFrameCount,
     openAiReferenceImages: referenceMetrics.openAiCount,
     openAiTargetRows: openAiTargetRows.length,
     perceptualActionableCandidates: perceptualSummary.actionableCandidateCount,

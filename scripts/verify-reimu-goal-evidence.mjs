@@ -12,6 +12,7 @@ const DEFAULTS = {
   lineRoot: 'tmp/line-audit',
   noreshapeRoot: 'tmp/noreshape/reimu',
   openAiCandidateRoot: 'tmp/imagegen/reimu-sleeve-candidates/processed',
+  openAiMaterialRoot: 'tmp/openai-material-audit',
   outputRoot: 'tmp/goal-audit',
   perceptualRoot: 'tmp/perceptual-audit',
   publicRoot: 'public/characters/reimu',
@@ -128,6 +129,11 @@ async function main() {
       'openai-candidate-root',
       DEFAULTS.openAiCandidateRoot,
     )),
+    openAiMaterialRoot: path.resolve(readOption(
+      args,
+      'openai-material-root',
+      DEFAULTS.openAiMaterialRoot,
+    )),
     outputRoot: path.resolve(readOption(args, 'out', DEFAULTS.outputRoot)),
     perceptualRoot: path.resolve(readOption(args, 'perceptual-root', DEFAULTS.perceptualRoot)),
     publicRoot: path.resolve(readOption(args, 'public-root', DEFAULTS.publicRoot)),
@@ -147,6 +153,7 @@ async function main() {
     gapSummary,
     lineSummary,
     openAiCandidateSummary,
+    openAiMaterialSummary,
     openAiSleeveMaterial,
     openAiTargetSummary,
     perceptualDispositions,
@@ -166,6 +173,10 @@ async function main() {
     readJson(path.join(
       options.openAiCandidateRoot,
       'reimu-openai-sleeve-candidates-summary.json',
+    )),
+    readJson(path.join(
+      options.openAiMaterialRoot,
+      'reimu-openai-material-application-summary.json',
     )),
     readJson(options.sleeveMaterialFile),
     readJson(path.join(options.referenceRoot, 'reimu-openai-reference-targets-summary.json')),
@@ -341,6 +352,13 @@ async function main() {
       && Array.isArray(openAiSleeveMaterial.candidateSleeveWidthRatios)
       && openAiSleeveMaterial.candidateSleeveWidthRatios.length >= 1,
     `controlledMaterial=${openAiSleeveMaterial.policy?.controlledMaterialAdoption}, tMin=${openAiSleeveMaterial.poseTargets?.t?.minSideWidthRatio}, yMin=${openAiSleeveMaterial.poseTargets?.y?.minSideWidthRatio}`,
+  );
+  passRequirement(
+    requirements,
+    'openai-material-recipe-has-visible-scoped-effect',
+    openAiMaterialSummary.changedFrameCount >= 1
+      && allObjectValuesTrue(openAiMaterialSummary.checks),
+    `changedFrames=${openAiMaterialSummary.changedFrameCount}, maxOutsideSleeveDiffRatio=${openAiMaterialSummary.maxOutsideSleeveDiffRatio?.outsideSleeveDiffRatio}`,
   );
   passRequirement(
     requirements,

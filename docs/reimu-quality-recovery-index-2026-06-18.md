@@ -4,7 +4,7 @@ This index records where the recovered Reimu quality work lives and how it maps 
 
 ## Current Main State
 
-- Latest Reimu code/assets state covered by this index: current `main` after the residual-defect audit pass
+- Latest Reimu code/assets state covered by this index: current `main` after the OpenAI material application audit pass
 - Repository: `https://github.com/nozomiidev/TomaPages.git`
 - Branch: `main`
 - Shipped Reimu frames: `public/characters/reimu`, 9 sheets x 25 frames = 225 WebP files
@@ -14,6 +14,7 @@ This index records where the recovered Reimu quality work lives and how it maps 
 
 Recent quality commits:
 
+- OpenAI material application audit pass, comparing shipped Reimu frames with a no-material baseline
 - line-integrity audit pass, checking that alpha edges stay near visible ink/trim support across all Reimu frames
 - residual-defect audit pass, separating actionable Reimu defects from supported antialiasing and original negative-space review candidates
 - reference-covered-gap quality pass, restoring same-frame reference pixels where post-processing introduced closed transparent gaps
@@ -154,6 +155,7 @@ The Reimu quality pass now covers:
 - optional fresh OpenAI sleeve-edit candidates in `tmp/imagegen/reimu-sleeve-candidates`, measured as material inputs when present
 - OpenAI sleeve candidate preprocessing artifacts in `tmp/imagegen/reimu-sleeve-candidates/processed`, including transparent alpha, normalized fit, projected sleeve guide, drift heat, and controlled materialization metrics
 - OpenAI-derived sleeve material recipe in `metaassets/fumo/reimu/reimu_openai_sleeve_material_recipe.json`
+- OpenAI material application audit in `tmp/openai-material-audit`, comparing current frames with a generated no-material baseline from `tmp/openai-material-baseline`
 - perceptual consistency review sheet in `tmp/perceptual-audit`, combining current/no-reshape/diff heat for top drawing-level candidates
 - local recovered baseline-delta comparison in `tmp/baseline-delta`, available through `npm run audit:assets:baseline-delta`
 - weak alpha pixels
@@ -204,4 +206,5 @@ minSideWidthRatio = 0.20
 - If Chrome GUI is required, first verify that the Chrome window belongs to `nozomidevbusin@gmail.com`.
 - Do not reintroduce separate sleeve-overlay assets for Reimu T/Y poses. The user explicitly rejected that approach.
 - Do not directly mix unprocessed OpenAI generated whole-body frames into the 225-frame grid. Use them through controlled materialization only when the edit pipeline preserves Reimu identity, line weight, canvas, and all pose-grid invariants.
+- Keep `npm run audit:assets:openai-material` in the Reimu quality path so the material recipe remains visibly applied, scoped to T/Y target sheets, and bounded by the normal sleeve/margin audits.
 - Keep the Reimu product-quality regeneration path lossless unless a replacement encoding proves zero transparent RGB residue after decode.

@@ -47,6 +47,17 @@ tmp/reference-audit/reimu-openai-reference-targets-summary.json
 
 The target sheet keeps OpenAI reference masks and the lowest current Reimu sleeve-ratio frames in the same visual review surface. The material recipe turns that evidence into conservative local sleeve-width floors for the deterministic slicer.
 
+The production impact of that material recipe is audited against a generated no-material baseline:
+
+```text
+tmp/openai-material-baseline/reimu
+tmp/openai-material-audit/reimu-openai-material-application.csv
+tmp/openai-material-audit/reimu-openai-material-application-summary.json
+tmp/openai-material-audit/reimu-openai-material-application.png
+```
+
+This proves the recipe has a visible, scoped effect without relying on a separate sleeve overlay asset or whole-frame OpenAI replacement.
+
 ## Current Metrics
 
 Latest regenerated reference audit:
@@ -122,6 +133,8 @@ The intended OpenAI-assisted route is:
 npm.cmd run audit:assets:references
 npm.cmd run audit:assets:openai-sleeve-candidates
 npm.cmd run audit:assets:openai-targets
+npm.cmd run build:assets:reimu:no-openai-material
+npm.cmd run audit:assets:openai-material
 npm.cmd run quality:reimu
 npm.cmd run verify:reimu:quality
 ```
@@ -141,6 +154,8 @@ tmp/line-audit
 tmp/issues
 tmp/inspection
 tmp/sweep
+tmp/openai-material-baseline
+tmp/openai-material-audit
 ```
 
 The slicer reads the OpenAI-derived material recipe when present and logs:
@@ -148,6 +163,14 @@ The slicer reads the OpenAI-derived material recipe when present and logs:
 ```text
 reimu: reshaped T/Y sleeve pixels with OpenAI-derived material bounds
 ```
+
+The no-material baseline build intentionally points the slicer at an empty local recipe file and logs:
+
+```text
+reimu: reshaped T/Y sleeve pixels against plain-pose bounds
+```
+
+`audit:assets:openai-material` then compares that baseline against the shipped frames. The current audit records 16 changed frames, all scoped to T/Y target sheets, with preserved margins and bounded non-sleeve differences.
 
 `verify:reimu:quality` requires the OpenAI target sheet and reports:
 

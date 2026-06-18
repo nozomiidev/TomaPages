@@ -9,6 +9,7 @@ const DEFAULTS = {
     'metaassets/fumo/reimu/reimu_sleeve_reference_imagegen.png',
     'metaassets/fumo/reimu/reimu_sleeve_reference_imagegen_tpose_20260617.png',
     'tmp/recovery/reimu-quality-2026-06-17/openai-generated',
+    'tmp/imagegen/reimu-sleeve-candidates',
   ],
 };
 

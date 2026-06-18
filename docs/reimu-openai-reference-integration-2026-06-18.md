@@ -22,7 +22,10 @@ OpenAI-generated references are available through:
 metaassets/fumo/reimu/reimu_sleeve_reference_imagegen.png
 metaassets/fumo/reimu/reimu_sleeve_reference_imagegen_tpose_20260617.png
 tmp/recovery/reimu-quality-2026-06-17/openai-generated
+tmp/imagegen/reimu-sleeve-candidates
 ```
+
+The `tmp/imagegen/reimu-sleeve-candidates` directory is optional local evidence. It is used when a fresh OpenAI image-model edit candidate exists locally, and ignored on clean checkouts where that directory is absent.
 
 `tools/analyze-reimu-reference-assets.mjs` analyzes these references together with the current T/Y Reimu frames. It extracts foreground and sleeve-region masks, then writes:
 
@@ -48,9 +51,9 @@ The target sheet keeps OpenAI reference masks and the lowest current Reimu sleev
 Latest regenerated reference audit:
 
 ```text
-OpenAI references: 5
+OpenAI references: 6 when the local sleeve candidate exists, otherwise 5 recovered/reference images
 Current T/Y frames: 150
-OpenAI target rows: 17
+OpenAI target rows: 18 with the local sleeve candidate, otherwise 17
 OpenAI sleeve width ratio range: 0.144 - 0.294
 Current sleeve width ratio range: 0.098 - 0.260
 Current low sleeve-ratio review frames at <= 0.18: 22
@@ -61,11 +64,14 @@ Useful OpenAI reference readings:
 ```text
 reimu_sleeve_reference_imagegen.png: 0.222
 ig_0c9f715f97270ac3016a32773cb8088191af4774c1cd0b94a2.png: 0.222
+tmp/imagegen/reimu-sleeve-candidates/reimu-cy-r0c2-openai-sleeve-edit-raw.png: 0.231
 ig_03eb4ba73c27a25f016a3264fc9cf48196923471f62f9ebad3.png: 0.233
 ig_03eb4ba73c27a25f016a3261b063788196aff9f2d64c56e2d7.png: 0.294
 ```
 
 The `0.294` reference is useful as an upper-bound broad-sleeve target, but it is too large for direct adoption because it risks contradicting the shipped `p` pose family.
+
+The local `0.231` candidate was generated from the current `cy_01/r0c2.webp` target and measured as a useful moderate-sleeve reference, but it is not directly shippable because the image-model output drifts in face, bow scale, whole-body scale, and canvas framing.
 
 Lowest current-frame sleeve ratio review candidates:
 
@@ -122,10 +128,10 @@ tmp/sweep
 `verify:reimu:quality` requires the OpenAI target sheet and reports:
 
 ```text
-openAiReferenceImages = 5
-openAiTargetRows = 17
+openAiReferenceImages = 6 when local imagegen candidate exists, otherwise 5
+openAiTargetRows = 18 when local imagegen candidate exists, otherwise 17
 referenceFrames = 150
-referencePngs = 310
+referencePngs = 312 when local imagegen candidate exists, otherwise 310
 ```
 
 The OpenAI target rows are also consumed by the perceptual consistency audit:

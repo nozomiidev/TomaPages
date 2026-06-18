@@ -58,6 +58,8 @@ Recent quality commits:
   - Alpha-edge contour support proof for all 225 Reimu frames.
 - `docs/reimu-openai-reference-integration-2026-06-18.md`
   - OpenAI-generated Reimu reference workflow, measured sleeve-ratio ranges, target sheet, and controlled-adoption constraints.
+- `docs/reimu-openai-sleeve-candidate-2026-06-18.md`
+  - Fresh OpenAI image-model sleeve-edit candidate, prompt, rejection reason for direct shipping, and sleeve-ratio measurement as a controlled reference input.
 - `docs/reimu-perceptual-consistency-audit-2026-06-18.md`
   - Reimu drawing-level consistency review gate covering current/no-reshape/diff candidates across weak alpha, expression, neighbor, sleeve, and OpenAI target signals.
 - `docs/reimu-baseline-delta-audit-2026-06-18.md`
@@ -149,6 +151,7 @@ The Reimu quality pass now covers:
 - residual actionable-defect disposition in `tmp/quality-audit/reimu-residual-defect-summary.json`
 - alpha-edge line integrity in `tmp/line-audit`
 - OpenAI reference mask, sleeve-ratio analysis, and controlled-edit target sheet in `tmp/reference-audit`
+- optional fresh OpenAI sleeve-edit candidates in `tmp/imagegen/reimu-sleeve-candidates`, measured as reference inputs when present
 - perceptual consistency review sheet in `tmp/perceptual-audit`, combining current/no-reshape/diff heat for top drawing-level candidates
 - local recovered baseline-delta comparison in `tmp/baseline-delta`, available through `npm run audit:assets:baseline-delta`
 - weak alpha pixels

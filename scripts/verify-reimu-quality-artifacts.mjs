@@ -11,7 +11,9 @@ const DEFAULTS = {
   inspectionRoot: 'tmp/inspection',
   issueRoot: 'tmp/issues',
   lineRoot: 'tmp/line-audit',
+  openAiCandidateSourceRoot: 'tmp/imagegen/reimu-sleeve-candidates',
   noreshapeRoot: 'tmp/noreshape/reimu',
+  openAiCandidateRoot: 'tmp/imagegen/reimu-sleeve-candidates/processed',
   perceptualRoot: 'tmp/perceptual-audit',
   qualityRoot: 'tmp/quality-audit',
   referenceRoot: 'tmp/reference-audit',
@@ -37,6 +39,10 @@ const VISUAL_DIMENSIONS = {
   issue: { height: 850, width: 960 },
   line: { height: 850, width: 960 },
   openAiTargets: { height: 1248, width: 768 },
+  openAiCandidateDrift: { height: 512, width: 512 },
+  openAiCandidateGuide: { height: 512, width: 512 },
+  openAiCandidateNormalized: { height: 512, width: 512 },
+  openAiCandidateSheet: { height: 354, width: 1100 },
   perceptual: { height: 1390, width: 960 },
   referenceForeground: { minHeight: 512, minWidth: 512 },
   referenceSleeves: { height: 512, width: 512 },
@@ -76,6 +82,19 @@ async function walkFiles(root, extension) {
   }
 
   await visit(resolvedRoot);
+  return files.sort((a, b) => a.localeCompare(b));
+}
+
+async function directPngFiles(root) {
+  const files = [];
+  const resolvedRoot = path.resolve(root);
+  const rootStat = await pathStat(resolvedRoot);
+  if (!rootStat?.isDirectory()) return files;
+
+  for (const entry of await readdir(resolvedRoot, { withFileTypes: true })) {
+    if (entry.isFile() && entry.name.endsWith('.png')) files.push(path.join(resolvedRoot, entry.name));
+  }
+
   return files.sort((a, b) => a.localeCompare(b));
 }
 
@@ -196,6 +215,75 @@ async function verifyReferenceMetrics(referenceRoot, failures) {
   };
 }
 
+async function verifyOpenAiCandidateArtifacts(
+  openAiCandidateSourceRoot,
+  openAiCandidateRoot,
+  failures,
+  referenceMtime,
+) {
+  const summaryFile = path.join(openAiCandidateRoot, 'reimu-openai-sleeve-candidates-summary.json');
+  const summaryStat = await pathStat(summaryFile);
+  const sourceCandidates = await directPngFiles(openAiCandidateSourceRoot);
+  if (!summaryStat?.isFile()) {
+    if (sourceCandidates.length > 0) failures.push(`missing ${path.relative(process.cwd(), summaryFile)}`);
+    return { processedCount: 0 };
+  }
+
+  await assertFreshFile({ file: summaryFile, failures, referenceMtime });
+
+  const summary = JSON.parse(await readFile(summaryFile, 'utf8'));
+  const rows = Array.isArray(summary.rows) ? summary.rows : [];
+  const processedRows = rows.filter((row) => row.status === 'processed');
+  if (summary.candidateCount !== sourceCandidates.length) {
+    failures.push(
+      `OpenAI sleeve candidateCount ${summary.candidateCount} !== ${sourceCandidates.length}`,
+    );
+  }
+  if (summary.processedCount !== processedRows.length) {
+    failures.push(
+      `OpenAI sleeve candidate processedCount ${summary.processedCount} !== ${processedRows.length}`,
+    );
+  }
+
+  for (const row of processedRows) {
+    if (row.directAdoptionAllowed !== false) {
+      failures.push(`${row.candidate?.file ?? 'candidate'} directAdoptionAllowed should be false`);
+    }
+    if (!(row.nonSleeveDrift?.driftRatio > 0.08)) {
+      failures.push(`${row.candidate?.file ?? 'candidate'} drift ratio should block direct adoption`);
+    }
+
+    const outputs = row.outputs ?? {};
+    const outputChecks = [
+      ['alpha', outputs.alpha, { minHeight: 512, minWidth: 512 }],
+      ['drift', outputs.drift, VISUAL_DIMENSIONS.openAiCandidateDrift],
+      ['guide', outputs.guide, VISUAL_DIMENSIONS.openAiCandidateGuide],
+      ['normalized', outputs.normalized, VISUAL_DIMENSIONS.openAiCandidateNormalized],
+      ['sheet', outputs.sheet, VISUAL_DIMENSIONS.openAiCandidateSheet],
+    ];
+
+    for (const [label, output, dimensions] of outputChecks) {
+      if (!output) {
+        failures.push(`${row.candidate?.file ?? 'candidate'} missing ${label} output`);
+        continue;
+      }
+
+      const file = path.resolve(output);
+      await assertFreshFile({ file, failures, referenceMtime });
+      await assertImageMetadata({
+        file,
+        failures,
+        format: 'png',
+        ...dimensions,
+      });
+    }
+  }
+
+  return {
+    processedCount: processedRows.length,
+  };
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const options = {
@@ -208,6 +296,16 @@ async function main() {
     issueRoot: path.resolve(readOption(args, 'issue-root', DEFAULTS.issueRoot)),
     lineRoot: path.resolve(readOption(args, 'line-root', DEFAULTS.lineRoot)),
     noreshapeRoot: path.resolve(readOption(args, 'noreshape-root', DEFAULTS.noreshapeRoot)),
+    openAiCandidateSourceRoot: path.resolve(readOption(
+      args,
+      'openai-candidate-source-root',
+      DEFAULTS.openAiCandidateSourceRoot,
+    )),
+    openAiCandidateRoot: path.resolve(readOption(
+      args,
+      'openai-candidate-root',
+      DEFAULTS.openAiCandidateRoot,
+    )),
     perceptualRoot: path.resolve(readOption(args, 'perceptual-root', DEFAULTS.perceptualRoot)),
     qualityRoot: path.resolve(readOption(args, 'quality-root', DEFAULTS.qualityRoot)),
     referenceRoot: path.resolve(readOption(args, 'reference-root', DEFAULTS.referenceRoot)),
@@ -354,6 +452,12 @@ async function main() {
     ...VISUAL_DIMENSIONS.perceptual,
   });
   const referenceMetrics = await verifyReferenceMetrics(options.referenceRoot, failures);
+  const openAiCandidateMetrics = await verifyOpenAiCandidateArtifacts(
+    options.openAiCandidateSourceRoot,
+    options.openAiCandidateRoot,
+    failures,
+    referenceMtime,
+  );
   const openAiTargetSummaryFile = path.join(options.referenceRoot, 'reimu-openai-reference-targets-summary.json');
   const openAiTargetSummary = JSON.parse(await readFile(openAiTargetSummaryFile, 'utf8'));
   const openAiTargetRows = Array.isArray(openAiTargetSummary.reviewRows)
@@ -396,6 +500,7 @@ async function main() {
     gapSheets: 1,
     lineSheets: 1,
     noreshapeFrames: noreshapeFrames.length,
+    openAiCandidateProcessed: openAiCandidateMetrics.processedCount,
     openAiReferenceImages: referenceMetrics.openAiCount,
     openAiTargetRows: openAiTargetRows.length,
     perceptualCandidates: perceptualSummary.candidateCount,

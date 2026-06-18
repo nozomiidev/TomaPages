@@ -57,6 +57,8 @@ The candidate is converted into local post-processing material with:
 npm.cmd run audit:assets:openai-sleeve-candidates
 ```
 
+This command is also part of `npm run quality:reimu`, immediately after the OpenAI/reference metrics are regenerated. `verify:reimu:quality` checks the preprocessing summary and all processed PNG outputs when local candidates exist.
+
 Latest output:
 
 ```text
@@ -76,6 +78,7 @@ candidate sleeve ratio = 0.231
 target sleeve ratio = 0.098
 non-sleeve drift ratio = 0.7008
 directAdoptionAllowed = false
+verify:reimu:quality openAiCandidateProcessed = 1
 ```
 
 The normalized and projected outputs are useful as local sleeve-shape guides. The `0.7008` non-sleeve drift proves the full generated frame must not replace the shipped frame directly.

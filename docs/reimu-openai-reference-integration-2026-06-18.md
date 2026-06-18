@@ -123,6 +123,8 @@ npm.cmd run quality:reimu
 npm.cmd run verify:reimu:quality
 ```
 
+`quality:reimu` runs `audit:assets:openai-sleeve-candidates` after the reference metrics step, so local OpenAI candidates are preprocessed and verified as part of the Reimu quality pass.
+
 The current pipeline already rebuilds:
 
 ```text
@@ -145,6 +147,7 @@ openAiReferenceImages = 6 when local imagegen candidate exists, otherwise 5
 openAiTargetRows = 18 when local imagegen candidate exists, otherwise 17
 referenceFrames = 150
 referencePngs = 312 when local imagegen candidate exists, otherwise 310
+openAiCandidateProcessed = 1 when local sleeve candidate exists, otherwise 0
 ```
 
 The OpenAI target rows are also consumed by the perceptual consistency audit:

@@ -16,6 +16,7 @@ The earlier audits prove alpha integrity, transparent RGB cleanup, line support,
 - T/Y sleeve guard near-threshold candidates
 - OpenAI sleeve target low-ratio review candidates
 - a larger 1024x1800 current/no-reshape candidate zoom sheet for manual visual acceptance
+- candidate-level disposition gates that separate review-only candidates from actionable defects
 
 This is not a separate sleeve-overlay approach and it does not ship generated OpenAI frames directly. It uses the existing regenerated WebP frames and recovered OpenAI sleeve measurements as audit inputs.
 
@@ -25,6 +26,8 @@ This is not a separate sleeve-overlay approach and it does not ship generated Op
 tmp/perceptual-audit/reimu-perceptual-consistency.png
 tmp/perceptual-audit/reimu-perceptual-candidate-zooms.png
 tmp/perceptual-audit/reimu-perceptual-consistency.csv
+tmp/perceptual-audit/reimu-perceptual-candidate-disposition.csv
+tmp/perceptual-audit/reimu-perceptual-candidate-disposition.json
 tmp/perceptual-audit/reimu-perceptual-consistency-summary.json
 ```
 
@@ -51,7 +54,9 @@ expressionComparisons = 225
 openAiReferenceRows = 7
 openAiTargetRows = 19
 perceptualCandidates = 12
+perceptualActionableCandidates = 0
 perceptualZoomSheets = 1
+reviewOnlyCandidateCount = 12
 severeIssueCount = 0
 ```
 
@@ -67,6 +72,14 @@ cy_01/r0c2.webp: supported weak alpha 252, expression changed ratio 0.2451, Open
 
 These are review candidates, not automatic failures. The hard gate fails only if existing severe-quality checks regress or if the expression/coverage limits are exceeded.
 
+The disposition file records the reason each candidate is still review-only. Examples:
+
+```text
+pt_01/r0c1.webp: original internal gap is not suspicious, line-like, light-cloth, or reference-covered
+ct_01/r1c2.webp: sleeve candidate remains inside width, side-loss, and side-imbalance guard thresholds
+cy_01/r0c2.webp: weak alpha is attached to visible edges, expression ratio is below threshold, and OpenAI sleeve targets are reference-only
+```
+
 ## Verification
 
 `quality:reimu` now runs the perceptual audit after residual-defect classification:
@@ -77,7 +90,7 @@ npm.cmd run verify:reimu:quality
 npm.cmd run quality:reimu
 ```
 
-`scripts/verify-reimu-quality-artifacts.mjs` now requires the perceptual PNG/CSV/summary and the candidate zoom PNG, verifies both PNG dimensions, requires `qualityFrames = 225`, requires at least 150 sleeve frames, and requires `severeIssueCount = 0`.
+`scripts/verify-reimu-quality-artifacts.mjs` now requires the perceptual PNG/CSV/summary, the candidate zoom PNG, and the candidate disposition CSV/JSON. It verifies both PNG dimensions, requires `qualityFrames = 225`, requires at least 150 sleeve frames, requires `actionableCandidateCount = 0`, verifies every disposition row is `review-only`, and requires `severeIssueCount = 0`.
 
 ## Status
 

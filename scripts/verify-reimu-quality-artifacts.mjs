@@ -345,6 +345,10 @@ async function main() {
   const openAiTargetFile = path.join(options.referenceRoot, 'reimu-openai-reference-targets.png');
   const perceptualFile = path.join(options.perceptualRoot, 'reimu-perceptual-consistency.png');
   const perceptualZoomFile = path.join(options.perceptualRoot, 'reimu-perceptual-candidate-zooms.png');
+  const perceptualDispositionJsonFile = path.join(
+    options.perceptualRoot,
+    'reimu-perceptual-candidate-disposition.json',
+  );
   const requiredFiles = [
     path.join(options.qualityRoot, 'reimu-asset-quality.csv'),
     path.join(options.qualityRoot, 'reimu-asset-quality-summary.json'),
@@ -361,6 +365,8 @@ async function main() {
     path.join(options.qualityRoot, 'reimu-residual-defect-summary.json'),
     path.join(options.perceptualRoot, 'reimu-perceptual-consistency.csv'),
     path.join(options.perceptualRoot, 'reimu-perceptual-consistency-summary.json'),
+    path.join(options.perceptualRoot, 'reimu-perceptual-candidate-disposition.csv'),
+    perceptualDispositionJsonFile,
     ...auditFiles,
     ...compareFiles,
     ...sweepFiles,
@@ -484,6 +490,7 @@ async function main() {
   }
   const perceptualSummaryFile = path.join(options.perceptualRoot, 'reimu-perceptual-consistency-summary.json');
   const perceptualSummary = JSON.parse(await readFile(perceptualSummaryFile, 'utf8'));
+  const perceptualDispositions = JSON.parse(await readFile(perceptualDispositionJsonFile, 'utf8'));
   if (perceptualSummary.coverage?.qualityFrames !== 225) {
     failures.push(`perceptual audit qualityFrames ${perceptualSummary.coverage?.qualityFrames} !== 225`);
   }
@@ -494,6 +501,17 @@ async function main() {
   }
   if (perceptualSummary.severeIssueCount !== 0) {
     failures.push(`perceptual audit severeIssueCount ${perceptualSummary.severeIssueCount} !== 0`);
+  }
+  if (perceptualSummary.actionableCandidateCount !== 0) {
+    failures.push(
+      `perceptual audit actionableCandidateCount ${perceptualSummary.actionableCandidateCount} !== 0`,
+    );
+  }
+  if (!Array.isArray(perceptualDispositions)
+    || perceptualDispositions.length !== perceptualSummary.candidateCount) {
+    failures.push('perceptual disposition rows do not match candidate count');
+  } else if (perceptualDispositions.some((candidate) => candidate.disposition !== 'review-only')) {
+    failures.push('perceptual disposition contains actionable candidates');
   }
 
   if (failures.length) {
@@ -512,6 +530,7 @@ async function main() {
     openAiCandidateProcessed: openAiCandidateMetrics.processedCount,
     openAiReferenceImages: referenceMetrics.openAiCount,
     openAiTargetRows: openAiTargetRows.length,
+    perceptualActionableCandidates: perceptualSummary.actionableCandidateCount,
     perceptualCandidates: perceptualSummary.candidateCount,
     perceptualZoomSheets: 1,
     publicFrames: sourceFrames.length,

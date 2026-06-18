@@ -183,6 +183,146 @@ function topRows(rows, key, count) {
     .slice(0, count);
 }
 
+function rowsByFile(rows) {
+  const map = new Map();
+  for (const row of rows) {
+    const normalized = normalizeReimuFile(row.file);
+    if (normalized) map.set(normalized, row);
+  }
+  return map;
+}
+
+function hasMetric(candidate, name) {
+  return Object.hasOwn(candidate.metrics, name);
+}
+
+function classifyCandidate(candidate, {
+  checks,
+  edgeSummary,
+  gapSummary,
+  openAiSummary,
+  options,
+  qualityByFile,
+  residualSummary,
+  sleeveByFile,
+  sleeveSummary,
+}) {
+  const gateResults = [];
+  const dispositionReasons = [];
+  const qualityRow = qualityByFile.get(candidate.file) ?? {};
+  const sleeveRow = sleeveByFile.get(candidate.file) ?? {};
+  let actionable = false;
+
+  function addGate(name, passed, reason) {
+    gateResults.push({ name, passed, reason });
+    dispositionReasons.push(`${passed ? 'pass' : 'fail'}: ${reason}`);
+    if (!passed) actionable = true;
+  }
+
+  addGate(
+    'global-hard-checks',
+    Object.values(checks).every(Boolean) && residualSummary.actionableDefectFrameCount === 0,
+    'global hard checks passed and residual actionable defects are zero',
+  );
+
+  if (hasMetric(candidate, 'internalGapArea')) {
+    const originalGapIsReviewOnly = (
+      Number(qualityRow.suspiciousHoleArea ?? 0) === 0
+      && Number(qualityRow.lineLikeHoleArea ?? 0) === 0
+      && Number(qualityRow.lightInteriorGapArea ?? 0) === 0
+      && Number(gapSummary.totalReferenceCoveredGapArea ?? 0) === 0
+      && Number(gapSummary.totalReferenceCoveredGapCount ?? 0) === 0
+    );
+    addGate(
+      'original-gap-review-only',
+      originalGapIsReviewOnly,
+      'internal gap is not suspicious, line-like, light-cloth, or reference-covered',
+    );
+  }
+
+  if (hasMetric(candidate, 'weakAlphaPixels')) {
+    const weakAlphaIsSupported = (
+      Number(edgeSummary.maxOrphanWeakAlphaPixels?.orphanWeakAlphaPixels ?? 0) === 0
+      && Number(edgeSummary.maxTransparentColoredPixels?.transparentColoredPixels ?? 0) === 0
+      && Number(qualityRow.transparentNonBlack ?? 0) === 0
+    );
+    addGate(
+      'supported-weak-alpha',
+      weakAlphaIsSupported,
+      'weak alpha remains attached to visible edges without colored transparent residue',
+    );
+  }
+
+  if (
+    hasMetric(candidate, 'sideWidthLoss')
+    || hasMetric(candidate, 'sideWidthImbalance')
+    || hasMetric(candidate, 'currentSideWidthRatio')
+  ) {
+    const thresholds = sleeveSummary.thresholds ?? {};
+    const currentSideWidthRatio = Math.min(
+      Number(sleeveRow.currentLeftWidthRatio ?? Infinity),
+      Number(sleeveRow.currentRightWidthRatio ?? Infinity),
+    );
+    const sleeveGatePasses = (
+      Number(sleeveRow.averageWidthLoss ?? 0) <= Number(thresholds.maxAverageWidthLoss ?? 0)
+      && Number(sleeveRow.sideWidthLoss ?? 0) <= Number(thresholds.maxSideWidthLoss ?? 0)
+      && Number(sleeveRow.sideWidthImbalance ?? 0) <= Number(thresholds.maxSideWidthImbalance ?? 0)
+      && currentSideWidthRatio >= Number(thresholds.minSideWidthRatio ?? 0)
+    );
+    addGate(
+      'within-sleeve-guard',
+      sleeveGatePasses,
+      'sleeve candidate remains inside width, side-loss, and side-imbalance guard thresholds',
+    );
+  }
+
+  if (hasMetric(candidate, 'changedRatio')) {
+    addGate(
+      'within-expression-ratio-gate',
+      Number(candidate.metrics.changedRatio) <= options.maxExpressionChangedRatio,
+      `expression changed ratio is at or below ${options.maxExpressionChangedRatio}`,
+    );
+  }
+
+  if (hasMetric(candidate, 'alphaChangedPixels')) {
+    addGate(
+      'within-expression-alpha-gate',
+      Number(candidate.metrics.alphaChangedPixels) <= options.maxExpressionAlphaChangedPixels,
+      `expression alpha delta is at or below ${options.maxExpressionAlphaChangedPixels}`,
+    );
+  }
+
+  if (hasMetric(candidate, 'openAiSleeveTargetRatio')) {
+    addGate(
+      'openai-reference-only',
+      openAiSummary.directAdoptionBlocked === true && Number(openAiSummary.openAiReferenceCount ?? 0) >= 5,
+      'OpenAI sleeve targets are used as measured guidance while direct full-frame adoption remains blocked',
+    );
+  }
+
+  if (
+    hasMetric(candidate, 'centerStep')
+    || hasMetric(candidate, 'heightStep')
+    || hasMetric(candidate, 'widthStep')
+    || hasMetric(candidate, 'alphaStepRatio')
+  ) {
+    addGate(
+      'neighbor-review-only',
+      Number(qualityRow.detachedArea ?? 0) === 0
+        && Number(qualityRow.detachedSliverArea ?? 0) === 0
+        && Number(qualityRow.transparentNonBlack ?? 0) === 0,
+      'neighbor step candidate has no detached fragments or transparent RGB residue',
+    );
+  }
+
+  return {
+    ...candidate,
+    disposition: actionable ? 'actionable' : 'review-only',
+    dispositionReasons,
+    gateResults,
+  };
+}
+
 function computeNeighborSteps(rows) {
   const bySheet = new Map();
   const steps = [];
@@ -528,7 +668,10 @@ async function renderCandidateZoomSheet(candidates, options) {
     const crop = paddedUnion([currentBounds, baselineBounds], size, 28);
     const x = (index % options.zoomCols) * blockWidth;
     const y = Math.floor(index / options.zoomCols) * tileHeight;
-    const reason = candidate.reasons.slice(0, 2).join('; ');
+    const reason = [
+      candidate.disposition,
+      candidate.reasons.slice(0, 2).join('; '),
+    ].filter(Boolean).join(': ');
 
     composites.push({
       input: await zoomTile({
@@ -602,7 +745,10 @@ async function diffTile(currentFile, baselineFile, cellSize) {
 }
 
 async function labelTile(width, height, candidate) {
-  const reason = candidate.reasons.slice(0, 2).join('; ');
+  const reason = [
+    candidate.disposition,
+    candidate.reasons.slice(0, 2).join('; '),
+  ].filter(Boolean).join(': ');
   return sharp({
     create: {
       background: { alpha: 1, b: 255, g: 255, r: 255 },
@@ -834,10 +980,28 @@ async function main() {
   const failedChecks = Object.entries(checks)
     .filter(([, passed]) => !passed)
     .map(([name]) => name);
+  const dispositionRows = candidates.map((candidate) => classifyCandidate(candidate, {
+    checks,
+    edgeSummary,
+    gapSummary,
+    openAiSummary,
+    options,
+    qualityByFile: rowsByFile(qualityRows),
+    residualSummary,
+    sleeveByFile: rowsByFile(sleeveRows),
+    sleeveSummary,
+  }));
+  const actionableCandidateCount = dispositionRows
+    .filter((candidate) => candidate.disposition === 'actionable')
+    .length;
   const summary = {
-    candidateCount: candidates.length,
-    candidates: candidates.map((candidate) => ({
+    actionableCandidateCount,
+    candidateCount: dispositionRows.length,
+    candidates: dispositionRows.map((candidate) => ({
+      disposition: candidate.disposition,
+      dispositionReasons: candidate.dispositionReasons,
       file: candidate.file,
+      gateResults: candidate.gateResults,
       metrics: candidate.metrics,
       reasons: candidate.reasons,
     })),
@@ -849,7 +1013,8 @@ async function main() {
       sleeveFrames: sleeveRows.length,
     },
     hardChecks: checks,
-    severeIssueCount: failedChecks.length,
+    reviewOnlyCandidateCount: dispositionRows.length - actionableCandidateCount,
+    severeIssueCount: failedChecks.length + actionableCandidateCount,
     thresholds: {
       maxExpressionAlphaChangedPixels: options.maxExpressionAlphaChangedPixels,
       maxExpressionChangedRatio: options.maxExpressionChangedRatio,
@@ -857,19 +1022,39 @@ async function main() {
   };
 
   await mkdir(options.outputRoot, { recursive: true });
-  const outputFile = await renderSheet(candidates, options, summary);
-  const zoomOutputFile = await renderCandidateZoomSheet(candidates, options);
-  const csvHeaders = ['file', 'reasons', 'metrics'];
+  const outputFile = await renderSheet(dispositionRows, options, summary);
+  const zoomOutputFile = await renderCandidateZoomSheet(dispositionRows, options);
+  const csvHeaders = ['file', 'disposition', 'reasons', 'metrics'];
   const csv = [
     csvHeaders.join(','),
     ...summary.candidates.map((candidate) => [
       candidate.file,
+      candidate.disposition,
       candidate.reasons.join('; '),
+      JSON.stringify(candidate.metrics),
+    ].map(csvCell).join(',')),
+  ].join('\n');
+  const dispositionHeaders = ['file', 'disposition', 'reasons', 'dispositionReasons', 'metrics'];
+  const dispositionCsv = [
+    dispositionHeaders.join(','),
+    ...summary.candidates.map((candidate) => [
+      candidate.file,
+      candidate.disposition,
+      candidate.reasons.join('; '),
+      candidate.dispositionReasons.join('; '),
       JSON.stringify(candidate.metrics),
     ].map(csvCell).join(',')),
   ].join('\n');
 
   await writeFile(path.join(options.outputRoot, 'reimu-perceptual-consistency.csv'), `${csv}\n`);
+  await writeFile(
+    path.join(options.outputRoot, 'reimu-perceptual-candidate-disposition.csv'),
+    `${dispositionCsv}\n`,
+  );
+  await writeFile(
+    path.join(options.outputRoot, 'reimu-perceptual-candidate-disposition.json'),
+    `${JSON.stringify(summary.candidates, null, 2)}\n`,
+  );
   await writeFile(
     path.join(options.outputRoot, 'reimu-perceptual-consistency-summary.json'),
     `${JSON.stringify(summary, null, 2)}\n`,
@@ -879,8 +1064,14 @@ async function main() {
   console.log(`Rendered perceptual candidate zooms to ${path.relative(process.cwd(), zoomOutputFile)}`);
   console.log(JSON.stringify(summary, null, 2));
 
-  if (failedChecks.length) {
-    throw new Error(`Reimu perceptual consistency audit failed:\n- ${failedChecks.join('\n- ')}`);
+  if (failedChecks.length || actionableCandidateCount > 0) {
+    const failures = [
+      ...failedChecks,
+      ...(actionableCandidateCount > 0
+        ? [`actionable perceptual candidates ${actionableCandidateCount}`]
+        : []),
+    ];
+    throw new Error(`Reimu perceptual consistency audit failed:\n- ${failures.join('\n- ')}`);
   }
 }
 

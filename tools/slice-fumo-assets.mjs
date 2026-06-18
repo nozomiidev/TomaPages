@@ -86,7 +86,7 @@ const REIMU_SLEEVE_STYLE = {
     cornerFeather: 0.10,
     eraseRadius: 2,
     heightScale: 1.08,
-    innerOverlap: 3,
+    innerOverlap: 8,
     innerHeightScale: 1,
     maxHeightFromReference: 1.00,
     maxWidthFromReference: 1.40,
@@ -1389,20 +1389,6 @@ function clearSleevePixels(data, mask) {
   }
 }
 
-function restoreTransparentReferencePixels(data, referenceData, mask) {
-  for (let index = 0; index < mask.length; index += 1) {
-    if (!mask[index]) continue;
-
-    const offset = index * 4;
-    if (data[offset + 3] >= 16 || referenceData[offset + 3] < 16) continue;
-
-    data[offset] = referenceData[offset];
-    data[offset + 1] = referenceData[offset + 1];
-    data[offset + 2] = referenceData[offset + 2];
-    data[offset + 3] = referenceData[offset + 3];
-  }
-}
-
 function compositeRawPatch({ base, baseHeight, baseWidth, left, patch, patchHeight, patchWidth, top }) {
   for (let y = 0; y < patchHeight; y += 1) {
     const baseY = top + y;
@@ -1739,8 +1725,6 @@ async function reshapeReimuPoseSleeves({
       patchWidth: outputWidth,
       top,
     });
-    restoreTransparentReferencePixels(editedData, target.data, sleeveMask);
-
     const afterMetric = reimuSleeveQualityMetric(
       editedData,
       target.width,

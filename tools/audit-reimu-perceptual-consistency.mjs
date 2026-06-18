@@ -22,6 +22,8 @@ const DEFAULTS = {
   sleeveCsv: 'tmp/quality-audit/reimu-sleeve-guard.csv',
   sleeveSummary: 'tmp/quality-audit/reimu-sleeve-guard-summary.json',
   sourceRoot: 'public/characters/reimu',
+  zoomCellSize: 256,
+  zoomCols: 2,
 };
 
 const BACKGROUND = [248, 250, 252];
@@ -388,6 +390,186 @@ async function colorTile(file, cellSize) {
     .toBuffer();
 }
 
+async function imageBounds(file) {
+  const { data, info } = await sharp(file, { animated: false })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  let maxX = -1;
+  let maxY = -1;
+  let minX = info.width;
+  let minY = info.height;
+
+  for (let y = 0; y < info.height; y += 1) {
+    for (let x = 0; x < info.width; x += 1) {
+      if (data[(y * info.width + x) * 4 + 3] === 0) continue;
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+    }
+  }
+
+  if (maxX < minX || maxY < minY) {
+    return {
+      height: info.height,
+      left: 0,
+      top: 0,
+      width: info.width,
+    };
+  }
+
+  return {
+    height: maxY - minY + 1,
+    left: minX,
+    top: minY,
+    width: maxX - minX + 1,
+  };
+}
+
+async function imageSize(file) {
+  const metadata = await sharp(file, { animated: false }).metadata();
+  return {
+    height: metadata.height,
+    width: metadata.width,
+  };
+}
+
+function paddedUnion(bounds, image, padding) {
+  const minX = Math.max(0, Math.min(...bounds.map((box) => box.left)) - padding);
+  const minY = Math.max(0, Math.min(...bounds.map((box) => box.top)) - padding);
+  const maxX = Math.min(
+    image.width - 1,
+    Math.max(...bounds.map((box) => box.left + box.width - 1)) + padding,
+  );
+  const maxY = Math.min(
+    image.height - 1,
+    Math.max(...bounds.map((box) => box.top + box.height - 1)) + padding,
+  );
+
+  return {
+    height: maxY - minY + 1,
+    left: minX,
+    top: minY,
+    width: maxX - minX + 1,
+  };
+}
+
+function checkerSvg(width, height, size = 12) {
+  let output = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">`;
+  output += '<rect width="100%" height="100%" fill="#f8d8ea"/>';
+
+  for (let y = 0; y < height; y += size) {
+    for (let x = 0; x < width; x += size) {
+      if (((x / size) + (y / size)) % 2 === 0) {
+        output += `<rect x="${x}" y="${y}" width="${size}" height="${size}" fill="#efc5dd"/>`;
+      }
+    }
+  }
+
+  return Buffer.from(`${output}</svg>`);
+}
+
+function zoomLabelSvg(width, height, label, sublabel) {
+  return Buffer.from(
+    `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">`
+    + '<rect width="100%" height="100%" fill="#f8fafc"/>'
+    + `<text x="10" y="18" font-family="Arial" font-size="13" font-weight="700" fill="#111827">${escapeText(label)}</text>`
+    + `<text x="10" y="36" font-family="Arial" font-size="11" fill="#64748b">${escapeText(sublabel)}</text>`
+    + '</svg>',
+  );
+}
+
+async function zoomTile({ crop, file, label, sublabel, tileSize }) {
+  const labelHeight = 44;
+  const imageSizePx = tileSize - 20;
+  const frame = await sharp(file, { animated: false })
+    .extract(crop)
+    .resize(imageSizePx, imageSizePx, {
+      background: { alpha: 0, b: 0, g: 0, r: 0 },
+      fit: 'contain',
+      kernel: 'nearest',
+    })
+    .png()
+    .toBuffer();
+
+  return sharp(checkerSvg(tileSize, tileSize + labelHeight))
+    .composite([
+      { input: zoomLabelSvg(tileSize, labelHeight, label, sublabel), left: 0, top: 0 },
+      { input: frame, left: 10, top: labelHeight + 10 },
+    ])
+    .png()
+    .toBuffer();
+}
+
+async function renderCandidateZoomSheet(candidates, options) {
+  const labelHeight = 44;
+  const tileSize = options.zoomCellSize;
+  const tileHeight = tileSize + labelHeight;
+  const blockWidth = tileSize * 2;
+  const rows = Math.ceil(candidates.length / options.zoomCols);
+  const width = options.zoomCols * blockWidth;
+  const height = rows * tileHeight;
+  const composites = [];
+
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index];
+    const currentFile = framePath(options.sourceRoot, candidate.file);
+    const baselineFile = framePath(options.baselineRoot, candidate.file);
+    if (!await exists(currentFile)) throw new Error(`Missing current frame ${currentFile}`);
+    if (!await exists(baselineFile)) throw new Error(`Missing no-reshape frame ${baselineFile}`);
+
+    const [currentBounds, baselineBounds, size] = await Promise.all([
+      imageBounds(currentFile),
+      imageBounds(baselineFile),
+      imageSize(currentFile),
+    ]);
+    const crop = paddedUnion([currentBounds, baselineBounds], size, 28);
+    const x = (index % options.zoomCols) * blockWidth;
+    const y = Math.floor(index / options.zoomCols) * tileHeight;
+    const reason = candidate.reasons.slice(0, 2).join('; ');
+
+    composites.push({
+      input: await zoomTile({
+        crop,
+        file: currentFile,
+        label: `current ${candidate.file}`,
+        sublabel: reason,
+        tileSize,
+      }),
+      left: x,
+      top: y,
+    });
+    composites.push({
+      input: await zoomTile({
+        crop,
+        file: baselineFile,
+        label: `no-reshape ${candidate.file}`,
+        sublabel: path.relative(process.cwd(), options.baselineRoot),
+        tileSize,
+      }),
+      left: x + tileSize,
+      top: y,
+    });
+  }
+
+  const outputFile = path.join(options.outputRoot, 'reimu-perceptual-candidate-zooms.png');
+  await sharp({
+    create: {
+      background: { alpha: 1, b: 255, g: 255, r: 255 },
+      channels: 4,
+      height,
+      width,
+    },
+  })
+    .composite(composites)
+    .png()
+    .toFile(outputFile);
+
+  return outputFile;
+}
+
 async function diffTile(currentFile, baselineFile, cellSize) {
   const current = await readFrame(currentFile);
   const baseline = await readFrame(baselineFile);
@@ -604,6 +786,8 @@ async function main() {
     sleeveCsv: path.resolve(readOption(args, 'sleeve-csv', DEFAULTS.sleeveCsv)),
     sleeveSummary: path.resolve(readOption(args, 'sleeve-summary', DEFAULTS.sleeveSummary)),
     sourceRoot: path.resolve(readOption(args, 'source-root', DEFAULTS.sourceRoot)),
+    zoomCellSize: readNumberOption(args, 'zoom-cell-size', DEFAULTS.zoomCellSize),
+    zoomCols: readNumberOption(args, 'zoom-cols', DEFAULTS.zoomCols),
   };
   const [
     edgeSummary,
@@ -674,6 +858,7 @@ async function main() {
 
   await mkdir(options.outputRoot, { recursive: true });
   const outputFile = await renderSheet(candidates, options, summary);
+  const zoomOutputFile = await renderCandidateZoomSheet(candidates, options);
   const csvHeaders = ['file', 'reasons', 'metrics'];
   const csv = [
     csvHeaders.join(','),
@@ -691,6 +876,7 @@ async function main() {
   );
 
   console.log(`Rendered perceptual consistency sheet to ${path.relative(process.cwd(), outputFile)}`);
+  console.log(`Rendered perceptual candidate zooms to ${path.relative(process.cwd(), zoomOutputFile)}`);
   console.log(JSON.stringify(summary, null, 2));
 
   if (failedChecks.length) {

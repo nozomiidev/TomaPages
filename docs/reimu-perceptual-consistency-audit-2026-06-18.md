@@ -15,6 +15,7 @@ The earlier audits prove alpha integrity, transparent RGB cleanup, line support,
 - expression diff candidates
 - T/Y sleeve guard near-threshold candidates
 - OpenAI sleeve target low-ratio review candidates
+- a larger 1024x1800 current/no-reshape candidate zoom sheet for manual visual acceptance
 
 This is not a separate sleeve-overlay approach and it does not ship generated OpenAI frames directly. It uses the existing regenerated WebP frames and recovered OpenAI sleeve measurements as audit inputs.
 
@@ -22,6 +23,7 @@ This is not a separate sleeve-overlay approach and it does not ship generated Op
 
 ```text
 tmp/perceptual-audit/reimu-perceptual-consistency.png
+tmp/perceptual-audit/reimu-perceptual-candidate-zooms.png
 tmp/perceptual-audit/reimu-perceptual-consistency.csv
 tmp/perceptual-audit/reimu-perceptual-consistency-summary.json
 ```
@@ -30,6 +32,12 @@ The PNG sheet is a 12-candidate review board. Each candidate is shown as:
 
 ```text
 current / no-reshape / diff heat
+```
+
+The candidate zoom sheet uses the same candidate ordering and shows larger crop-paired tiles:
+
+```text
+current / no-reshape
 ```
 
 ## Latest Metrics
@@ -43,6 +51,7 @@ expressionComparisons = 225
 openAiReferenceRows = 7
 openAiTargetRows = 19
 perceptualCandidates = 12
+perceptualZoomSheets = 1
 severeIssueCount = 0
 ```
 
@@ -50,8 +59,8 @@ Current top review candidates include:
 
 ```text
 pt_01/r0c1.webp: original internal gap 914
-ct_01/r1c2.webp: sleeve side loss 0.0962, side imbalance 0.1763
-ot_01/r1c2.webp: sleeve side loss 0.0962, side imbalance 0.1763
+ct_01/r1c2.webp: sleeve side loss 0.0976, low sleeve side ratio 0.2121
+ot_01/r1c2.webp: sleeve side loss 0.0976, low sleeve side ratio 0.2121
 oy_01/r3c2.webp: sleeve side loss 0.1021
 cy_01/r0c2.webp: supported weak alpha 252, expression changed ratio 0.2451, OpenAI sleeve target review 0.098
 ```
@@ -68,7 +77,7 @@ npm.cmd run verify:reimu:quality
 npm.cmd run quality:reimu
 ```
 
-`scripts/verify-reimu-quality-artifacts.mjs` now requires the perceptual PNG/CSV/summary, verifies the PNG dimensions, requires `qualityFrames = 225`, requires at least 150 sleeve frames, and requires `severeIssueCount = 0`.
+`scripts/verify-reimu-quality-artifacts.mjs` now requires the perceptual PNG/CSV/summary and the candidate zoom PNG, verifies both PNG dimensions, requires `qualityFrames = 225`, requires at least 150 sleeve frames, and requires `severeIssueCount = 0`.
 
 ## Status
 

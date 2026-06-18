@@ -44,6 +44,7 @@ const VISUAL_DIMENSIONS = {
   openAiCandidateNormalized: { height: 512, width: 512 },
   openAiCandidateSheet: { height: 354, width: 1100 },
   perceptual: { height: 1390, width: 960 },
+  perceptualZoom: { height: 1800, width: 1024 },
   referenceForeground: { minHeight: 512, minWidth: 512 },
   referenceSleeves: { height: 512, width: 512 },
   sweep: { height: 1604, width: 1472 },
@@ -343,6 +344,7 @@ async function main() {
   const lineOverlayFile = path.join(options.lineRoot, 'reimu-line-integrity-overlay.png');
   const openAiTargetFile = path.join(options.referenceRoot, 'reimu-openai-reference-targets.png');
   const perceptualFile = path.join(options.perceptualRoot, 'reimu-perceptual-consistency.png');
+  const perceptualZoomFile = path.join(options.perceptualRoot, 'reimu-perceptual-candidate-zooms.png');
   const requiredFiles = [
     path.join(options.qualityRoot, 'reimu-asset-quality.csv'),
     path.join(options.qualityRoot, 'reimu-asset-quality-summary.json'),
@@ -374,6 +376,7 @@ async function main() {
     path.join(options.referenceRoot, 'reimu-openai-reference-targets-summary.json'),
     openAiTargetFile,
     perceptualFile,
+    perceptualZoomFile,
   ];
 
   for (const file of requiredFiles) {
@@ -451,6 +454,12 @@ async function main() {
     format: 'png',
     ...VISUAL_DIMENSIONS.perceptual,
   });
+  await assertImageMetadata({
+    file: perceptualZoomFile,
+    failures,
+    format: 'png',
+    ...VISUAL_DIMENSIONS.perceptualZoom,
+  });
   const referenceMetrics = await verifyReferenceMetrics(options.referenceRoot, failures);
   const openAiCandidateMetrics = await verifyOpenAiCandidateArtifacts(
     options.openAiCandidateSourceRoot,
@@ -504,6 +513,7 @@ async function main() {
     openAiReferenceImages: referenceMetrics.openAiCount,
     openAiTargetRows: openAiTargetRows.length,
     perceptualCandidates: perceptualSummary.candidateCount,
+    perceptualZoomSheets: 1,
     publicFrames: sourceFrames.length,
     referenceFrames: referenceMetrics.currentCount,
     referencePngs: referenceMetrics.referencePngCount,

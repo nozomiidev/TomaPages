@@ -7,7 +7,7 @@ const DEFAULTS = {
   currentRoot: 'public/characters/reimu',
   expectedFrames: 225,
   maxInternalGapArea: 1800,
-  maxWeakAlpha: 320,
+  maxWeakAlpha: 0,
   outputRoot: 'tmp/baseline-delta',
   transparentThreshold: 16,
 };

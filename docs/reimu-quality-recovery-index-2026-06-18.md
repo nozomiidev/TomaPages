@@ -152,6 +152,7 @@ The Reimu quality pass now covers:
 - alpha-edge line integrity in `tmp/line-audit`
 - OpenAI reference mask, sleeve-ratio analysis, and controlled-edit target sheet in `tmp/reference-audit`
 - optional fresh OpenAI sleeve-edit candidates in `tmp/imagegen/reimu-sleeve-candidates`, measured as reference inputs when present
+- OpenAI sleeve candidate preprocessing artifacts in `tmp/imagegen/reimu-sleeve-candidates/processed`, including transparent alpha, normalized fit, projected sleeve guide, drift heat, and direct-adoption blocker metrics
 - perceptual consistency review sheet in `tmp/perceptual-audit`, combining current/no-reshape/diff heat for top drawing-level candidates
 - local recovered baseline-delta comparison in `tmp/baseline-delta`, available through `npm run audit:assets:baseline-delta`
 - weak alpha pixels

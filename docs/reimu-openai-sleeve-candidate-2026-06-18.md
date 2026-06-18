@@ -49,6 +49,37 @@ rightWidthRatio = 0.227
 
 This sits close to the usable OpenAI reference range around `0.222 - 0.233`, and below the broad upper-bound reference at `0.294`.
 
+## Preprocessing Artifacts
+
+The candidate is converted into local post-processing material with:
+
+```bash
+npm.cmd run audit:assets:openai-sleeve-candidates
+```
+
+Latest output:
+
+```text
+tmp/imagegen/reimu-sleeve-candidates/processed/reimu-openai-sleeve-candidates-summary.json
+tmp/imagegen/reimu-sleeve-candidates/processed/reimu-cy-r0c2-openai-sleeve-edit-raw-alpha.png
+tmp/imagegen/reimu-sleeve-candidates/processed/reimu-cy-r0c2-openai-sleeve-edit-raw-normalized.png
+tmp/imagegen/reimu-sleeve-candidates/processed/reimu-cy-r0c2-openai-sleeve-edit-raw-projected-sleeve-guide.png
+tmp/imagegen/reimu-sleeve-candidates/processed/reimu-cy-r0c2-openai-sleeve-edit-raw-drift-heat.png
+tmp/imagegen/reimu-sleeve-candidates/processed/reimu-cy-r0c2-openai-sleeve-edit-raw-preprocess-sheet.png
+```
+
+Latest preprocessing metrics:
+
+```text
+target = cy_01/r0c2.webp
+candidate sleeve ratio = 0.231
+target sleeve ratio = 0.098
+non-sleeve drift ratio = 0.7008
+directAdoptionAllowed = false
+```
+
+The normalized and projected outputs are useful as local sleeve-shape guides. The `0.7008` non-sleeve drift proves the full generated frame must not replace the shipped frame directly.
+
 ## Integration
 
 `tools/analyze-reimu-reference-assets.mjs` now treats this local directory as an optional OpenAI reference source:

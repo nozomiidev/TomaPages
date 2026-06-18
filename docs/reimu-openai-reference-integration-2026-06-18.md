@@ -73,6 +73,18 @@ The `0.294` reference is useful as an upper-bound broad-sleeve target, but it is
 
 The local `0.231` candidate was generated from the current `cy_01/r0c2.webp` target and measured as a useful moderate-sleeve reference, but it is not directly shippable because the image-model output drifts in face, bow scale, whole-body scale, and canvas framing.
 
+`tools/prepare-reimu-openai-sleeve-candidates.mjs` turns local green-screen OpenAI outputs into preprocessing material:
+
+```text
+tmp/imagegen/reimu-sleeve-candidates/processed/*-alpha.png
+tmp/imagegen/reimu-sleeve-candidates/processed/*-normalized.png
+tmp/imagegen/reimu-sleeve-candidates/processed/*-projected-sleeve-guide.png
+tmp/imagegen/reimu-sleeve-candidates/processed/*-drift-heat.png
+tmp/imagegen/reimu-sleeve-candidates/processed/*-preprocess-sheet.png
+```
+
+The latest local candidate has `nonSleeveDrift.driftRatio = 0.7008`, so the candidate remains a controlled sleeve guide rather than a replacement frame.
+
 Lowest current-frame sleeve ratio review candidates:
 
 ```text
@@ -105,6 +117,7 @@ The intended OpenAI-assisted route is:
 
 ```bash
 npm.cmd run audit:assets:references
+npm.cmd run audit:assets:openai-sleeve-candidates
 npm.cmd run audit:assets:openai-targets
 npm.cmd run quality:reimu
 npm.cmd run verify:reimu:quality

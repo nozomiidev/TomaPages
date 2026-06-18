@@ -18,6 +18,7 @@
     "audit:assets:expression": "node tools/render-reimu-expression-diff-audit.mjs --character reimu",
     "audit:assets:reference-gaps": "node tools/audit-reimu-reference-covered-gaps.mjs",
     "audit:assets:references": "node tools/analyze-reimu-reference-assets.mjs",
+    "audit:assets:openai-sleeve-candidates": "node tools/prepare-reimu-openai-sleeve-candidates.mjs",
     "audit:assets:openai-targets": "node tools/render-reimu-openai-reference-targets.mjs",
     "audit:assets:residuals": "node tools/audit-reimu-residual-defects.mjs",
     "audit:assets:perceptual": "node tools/audit-reimu-perceptual-consistency.mjs",

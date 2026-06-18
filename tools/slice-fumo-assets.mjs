@@ -39,9 +39,11 @@ const DEFAULTS = {
   cols: 5,
   outputSize: 512,
   quality: 94,
+  concurrency: 4,
   reimuSleeveMaterialFile: 'metaassets/fumo/reimu/reimu_openai_sleeve_material_recipe.json',
   windowScale: 1.55,
   gravityBlend: 0.68,
+  stableWrite: false,
   lossless: false,
 };
 
@@ -125,6 +127,26 @@ function readNumberOption(args, name, fallback) {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
+async function mapLimit(items, limit, worker) {
+  const workers = [];
+  let nextIndex = 0;
+
+  async function run() {
+    while (nextIndex < items.length) {
+      const item = items[nextIndex];
+      nextIndex += 1;
+      await worker(item);
+    }
+  }
+
+  const workerCount = Math.max(1, Math.min(Math.floor(limit), items.length));
+  for (let index = 0; index < workerCount; index += 1) {
+    workers.push(run());
+  }
+
+  await Promise.all(workers);
+}
+
 function assertInside(parent, child) {
   const relative = path.relative(parent, child);
   if (relative.startsWith('..') || path.isAbsolute(relative)) {
@@ -136,6 +158,15 @@ async function cleanCharacterOutput(outputRoot, characterId) {
   const outputDir = path.resolve(outputRoot, characterId);
   assertInside(path.resolve(outputRoot), outputDir);
   await rm(outputDir, { recursive: true, force: true });
+  await mkdir(outputDir, { recursive: true });
+  return outputDir;
+}
+
+async function prepareCharacterOutput(outputRoot, characterId, stableWrite) {
+  if (!stableWrite) return cleanCharacterOutput(outputRoot, characterId);
+
+  const outputDir = path.resolve(outputRoot, characterId);
+  assertInside(path.resolve(outputRoot), outputDir);
   await mkdir(outputDir, { recursive: true });
   return outputDir;
 }
@@ -976,6 +1007,21 @@ async function readRgbaFrame(file) {
   };
 }
 
+async function existingDecodedPixelsMatch(file, expectedData, width, height) {
+  try {
+    const existing = await readRgbaFrame(file);
+    return (
+      existing.width === width
+      && existing.height === height
+      && existing.data.length === expectedData.length
+      && Buffer.compare(existing.data, expectedData) === 0
+    );
+  } catch (error) {
+    if (error?.code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
 async function readJsonIfFile(file) {
   try {
     return JSON.parse(await readFile(file, 'utf8'));
@@ -1031,7 +1077,15 @@ async function encodeRawWebpBuffer(data, width, height, { lossless, quality }) {
     .toBuffer();
 }
 
-async function writeSanitizedWebp({ data, height, lossless, outputFile, quality, width }) {
+async function writeSanitizedWebp({
+  data,
+  height,
+  lossless,
+  outputFile,
+  quality,
+  stableWrite = false,
+  width,
+}) {
   const tempOutputFile = `${outputFile}.${process.pid}.tmp.webp`;
 
   try {
@@ -1043,6 +1097,14 @@ async function writeSanitizedWebp({ data, height, lossless, outputFile, quality,
       .raw()
       .toBuffer({ resolveWithObject: true });
     const finalData = sanitizeSpriteAlpha(decodedData, info.width, info.height);
+    if (stableWrite && lossless && await existingDecodedPixelsMatch(
+      outputFile,
+      finalData,
+      info.width,
+      info.height,
+    )) {
+      return;
+    }
     await encodeRawWebp(finalData, info.width, info.height, tempOutputFile, { lossless, quality });
     await replaceFileWithRetry(tempOutputFile, outputFile);
   } finally {
@@ -1219,7 +1281,14 @@ function stabilizeReimuExpressionData(base, target) {
   return output;
 }
 
-async function stabilizeReimuExpressionFrame({ baseFile, lossless, outputFile, quality, targetFile }) {
+async function stabilizeReimuExpressionFrame({
+  baseFile,
+  lossless,
+  outputFile,
+  quality,
+  stableWrite,
+  targetFile,
+}) {
   const base = await readRgbaFrame(baseFile);
   const target = await readRgbaFrame(targetFile);
   const editedData = stabilizeReimuExpressionData(base, target);
@@ -1231,27 +1300,42 @@ async function stabilizeReimuExpressionFrame({ baseFile, lossless, outputFile, q
     lossless,
     outputFile,
     quality,
+    stableWrite,
     width: target.width,
   });
 }
 
-async function stabilizeReimuExpressionSheets({ characterOutputDir, cols, lossless, quality, rows }) {
+async function stabilizeReimuExpressionSheets({
+  characterOutputDir,
+  cols,
+  concurrency,
+  lossless,
+  quality,
+  rows,
+  stableWrite,
+}) {
+  const tasks = [];
   for (const [targetSheet, baseSheet] of Object.entries(REIMU_EXPRESSION_REFERENCE_SHEETS)) {
     for (let row = 0; row < rows; row += 1) {
       for (let col = 0; col < cols; col += 1) {
-        const targetFile = path.join(characterOutputDir, targetSheet, `r${row}c${col}.webp`);
-        const baseFile = path.join(characterOutputDir, baseSheet, `r${row}c${col}.webp`);
-
-        await stabilizeReimuExpressionFrame({
-          baseFile,
-          lossless,
-          outputFile: targetFile,
-          quality,
-          targetFile,
-        });
+        tasks.push({ baseSheet, col, row, targetSheet });
       }
     }
   }
+
+  await mapLimit(tasks, concurrency, async ({ baseSheet, col, row, targetSheet }) => {
+    const targetFile = path.join(characterOutputDir, targetSheet, `r${row}c${col}.webp`);
+    const baseFile = path.join(characterOutputDir, baseSheet, `r${row}c${col}.webp`);
+
+    await stabilizeReimuExpressionFrame({
+      baseFile,
+      lossless,
+      outputFile: targetFile,
+      quality,
+      stableWrite,
+      targetFile,
+    });
+  });
 }
 
 function reimuSleevePatch({ component, data, height, mask, width }) {
@@ -1413,6 +1497,7 @@ async function reshapeReimuPoseSleeves({
   outputFile,
   quality,
   referenceFile,
+  stableWrite,
   sleeveMaterial,
   targetFile,
 }) {
@@ -1538,6 +1623,7 @@ async function reshapeReimuPoseSleeves({
     lossless,
     outputFile,
     quality,
+    stableWrite,
     width: target.width,
   });
 }
@@ -1545,28 +1631,36 @@ async function reshapeReimuPoseSleeves({
 async function reshapeReimuPoseSleeveSheets({
   characterOutputDir,
   cols,
+  concurrency,
   lossless,
   quality,
   rows,
+  stableWrite,
   sleeveMaterial,
 }) {
+  const tasks = [];
   for (const [targetSheet, referenceSheet] of Object.entries(REIMU_SLEEVE_REFERENCE_SHEETS)) {
     for (let row = 0; row < rows; row += 1) {
       for (let col = 0; col < cols; col += 1) {
-        const targetFile = path.join(characterOutputDir, targetSheet, `r${row}c${col}.webp`);
-        const referenceFile = path.join(characterOutputDir, referenceSheet, `r${row}c${col}.webp`);
-
-        await reshapeReimuPoseSleeves({
-          lossless,
-          outputFile: targetFile,
-          quality,
-          referenceFile,
-          sleeveMaterial,
-          targetFile,
-        });
+        tasks.push({ col, referenceSheet, row, targetSheet });
       }
     }
   }
+
+  await mapLimit(tasks, concurrency, async ({ col, referenceSheet, row, targetSheet }) => {
+    const targetFile = path.join(characterOutputDir, targetSheet, `r${row}c${col}.webp`);
+    const referenceFile = path.join(characterOutputDir, referenceSheet, `r${row}c${col}.webp`);
+
+    await reshapeReimuPoseSleeves({
+      lossless,
+      outputFile: targetFile,
+      quality,
+      referenceFile,
+      stableWrite,
+      sleeveMaterial,
+      targetFile,
+    });
+  });
 }
 
 function cellIndexForPoint(x, y, width, height, rows, cols) {
@@ -1702,12 +1796,14 @@ async function assertKnownCharacters(sourceRoot, characterIds) {
 
 async function sliceSheet({
   cols,
+  concurrency,
   gravityBlend,
   lossless,
   outputSize,
   quality,
   rows,
   sheetOutputDir,
+  stableWrite,
   sourceFile,
   windowScale,
 }) {
@@ -1728,50 +1824,56 @@ async function sliceSheet({
   const windowSize = Math.ceil(Math.max(cellWidth, cellHeight) * windowScale);
   const cellStats = collectCellStats(assignments, info.width, info.height, rows * cols);
 
+  const tasks = [];
   for (let row = 0; row < rows; row += 1) {
     for (let col = 0; col < cols; col += 1) {
-      const outputFile = path.join(sheetOutputDir, `r${row}c${col}.webp`);
-      const cellIndex = row * cols + col;
-      const anchor = anchorForCell({
-        cellHeight,
-        cellWidth,
-        col,
-        gravityBlend,
-        row,
-        stat: cellStats[cellIndex],
-      });
-      const windowData = copyAssignedWindow({
-        anchorX: anchor.x,
-        anchorY: anchor.y,
-        assignments,
-        cellIndex,
-        data,
-        height: info.height,
-        width: info.width,
-        windowSize,
-      });
-
-      const { data: resizedData, info: resizedInfo } = await sharp(windowData, {
-        raw: {
-          width: windowSize,
-          height: windowSize,
-          channels: 4,
-        },
-      })
-        .resize(outputSize, outputSize, { fit: 'fill' })
-        .sharpen()
-        .raw()
-        .toBuffer({ resolveWithObject: true });
-      await writeSanitizedWebp({
-        data: resizedData,
-        height: resizedInfo.height,
-        lossless,
-        outputFile,
-        quality,
-        width: resizedInfo.width,
-      });
+      tasks.push({ col, row });
     }
   }
+
+  await mapLimit(tasks, concurrency, async ({ col, row }) => {
+    const outputFile = path.join(sheetOutputDir, `r${row}c${col}.webp`);
+    const cellIndex = row * cols + col;
+    const anchor = anchorForCell({
+      cellHeight,
+      cellWidth,
+      col,
+      gravityBlend,
+      row,
+      stat: cellStats[cellIndex],
+    });
+    const windowData = copyAssignedWindow({
+      anchorX: anchor.x,
+      anchorY: anchor.y,
+      assignments,
+      cellIndex,
+      data,
+      height: info.height,
+      width: info.width,
+      windowSize,
+    });
+
+    const { data: resizedData, info: resizedInfo } = await sharp(windowData, {
+      raw: {
+        width: windowSize,
+        height: windowSize,
+        channels: 4,
+      },
+    })
+      .resize(outputSize, outputSize, { fit: 'fill' })
+      .sharpen()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    await writeSanitizedWebp({
+      data: resizedData,
+      height: resizedInfo.height,
+      lossless,
+      outputFile,
+      quality,
+      stableWrite,
+      width: resizedInfo.width,
+    });
+  });
 }
 
 function sheetsForCharacter(characterId, sheetOverride) {
@@ -1795,9 +1897,11 @@ async function main() {
     cols: readNumberOption(args, 'cols', DEFAULTS.cols),
     outputSize: readNumberOption(args, 'size', DEFAULTS.outputSize),
     quality: Math.min(100, readNumberOption(args, 'quality', DEFAULTS.quality)),
+    concurrency: readNumberOption(args, 'concurrency', DEFAULTS.concurrency),
     skipReimuPoseReshape: hasOption(args, 'skip-reimu-pose-reshape'),
     windowScale: readNumberOption(args, 'window-scale', DEFAULTS.windowScale),
     gravityBlend: Math.min(1, readNumberOption(args, 'gravity-blend', DEFAULTS.gravityBlend)),
+    stableWrite: hasOption(args, 'stable-write') || DEFAULTS.stableWrite,
     lossless: hasOption(args, 'lossless') || DEFAULTS.lossless,
     reimuSleeveMaterialFile: path.resolve(readOption(
       args,
@@ -1811,7 +1915,11 @@ async function main() {
 
   let written = 0;
   for (const characterId of options.characters) {
-    const characterOutputDir = await cleanCharacterOutput(options.outputRoot, characterId);
+    const characterOutputDir = await prepareCharacterOutput(
+      options.outputRoot,
+      characterId,
+      options.stableWrite,
+    );
     const sheets = sheetsForCharacter(characterId, options.sheetOverride);
 
     for (const sheetId of sheets) {
@@ -1823,8 +1931,10 @@ async function main() {
         sheetOutputDir,
         rows: options.rows,
         cols: options.cols,
+        concurrency: options.concurrency,
         outputSize: options.outputSize,
         quality: options.quality,
+        stableWrite: options.stableWrite,
         windowScale: options.windowScale,
         gravityBlend: options.gravityBlend,
         lossless: options.lossless,
@@ -1838,9 +1948,11 @@ async function main() {
       await reshapeReimuPoseSleeveSheets({
         characterOutputDir,
         cols: options.cols,
+        concurrency: options.concurrency,
         lossless: options.lossless,
         quality: options.quality,
         rows: options.rows,
+        stableWrite: options.stableWrite,
         sleeveMaterial: reimuSleeveMaterial,
       });
       console.log(
@@ -1851,9 +1963,11 @@ async function main() {
       await stabilizeReimuExpressionSheets({
         characterOutputDir,
         cols: options.cols,
+        concurrency: options.concurrency,
         lossless: options.lossless,
         quality: options.quality,
         rows: options.rows,
+        stableWrite: options.stableWrite,
       });
       console.log('reimu: stabilized expression frames against base-pose body pixels');
     }

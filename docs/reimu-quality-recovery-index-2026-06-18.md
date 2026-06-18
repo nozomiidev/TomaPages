@@ -148,6 +148,7 @@ The Reimu quality pass now covers:
 
 - 225-frame count validation
 - lossless Reimu WebP output so transparent pixels round-trip with black RGB
+- bounded concurrent Reimu slicing/post-processing plus `--stable-write` public generation, so `npm run quality:reimu` can regenerate and audit the full Reimu set without rewriting committed WebP files when decoded lossless pixels are unchanged
 - canvas margins, head/body cut-off risk, and 5x5 neighbor center-step stability
 - direction-neighbor alpha, center, width, and height step thresholds stored in `tmp/quality-audit/reimu-asset-quality-summary.json` and rechecked by `verify:reimu:quality` / `verify:reimu:goal`
 - detached alpha fragments and thin detached slivers

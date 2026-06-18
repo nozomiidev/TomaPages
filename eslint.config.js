@@ -12,6 +12,7 @@ export default [
       'reference/**',
       'public/**',
       'docs/**',
+      'tmp/**',
     ],
   },
   js.configs.recommended,

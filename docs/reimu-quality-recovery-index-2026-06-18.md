@@ -60,6 +60,8 @@ Recent quality commits:
   - OpenAI-generated Reimu reference workflow, measured sleeve-ratio ranges, target sheet, and controlled-adoption constraints.
 - `docs/reimu-perceptual-consistency-audit-2026-06-18.md`
   - Reimu drawing-level consistency review gate covering current/no-reshape/diff candidates across weak alpha, expression, neighbor, sleeve, and OpenAI target signals.
+- `docs/reimu-baseline-delta-audit-2026-06-18.md`
+  - Local recovered before/after comparison against `tmp/before-lossless`, proving transparent RGB residue was cleared and internal gap totals were reduced without introducing detached parts or line-like holes.
 
 ## Local Full-Preserve Bundle
 
@@ -148,6 +150,7 @@ The Reimu quality pass now covers:
 - alpha-edge line integrity in `tmp/line-audit`
 - OpenAI reference mask, sleeve-ratio analysis, and controlled-edit target sheet in `tmp/reference-audit`
 - perceptual consistency review sheet in `tmp/perceptual-audit`, combining current/no-reshape/diff heat for top drawing-level candidates
+- local recovered baseline-delta comparison in `tmp/baseline-delta`, available through `npm run audit:assets:baseline-delta`
 - weak alpha pixels
 - weak alpha edge support and orphan weak-alpha ghost detection in `tmp/edge-audit`
 - expression-frame diff review in `tmp/expression-audit`

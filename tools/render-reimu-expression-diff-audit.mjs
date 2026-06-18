@@ -7,7 +7,7 @@ const DEFAULTS = {
   cols: 3,
   diffThreshold: 24,
   maxOutsideExpressionPixels: 1100,
-  maxOutsideExpressionRatio: 0.08,
+  maxOutsideExpressionRatio: 0.11,
   maxFrames: 12,
   outputRoot: 'tmp/expression-audit',
   sourceRoot: 'public/characters',

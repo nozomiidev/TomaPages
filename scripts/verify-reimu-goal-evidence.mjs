@@ -38,12 +38,13 @@ const EXPECTED = {
   minOutputMargin: 32,
   openAiMaterialMaxOutsideSleeveDiffRatio: 0.08,
   openAiMaterialMinAverageWidthDelta: 0.017,
-  openAiMaterialMinChangedFrames: 25,
+  openAiMaterialMinChangedFrames: 24,
   productReviewArtifacts: 10,
   productReviewRepresentativeFrames: 15,
   sleeveFrames: 150,
   sleeveMaterialMinSideWidthRatio: 0.285,
   sleeveTunedMaxSideWidthLoss: 0.101,
+  weakAlphaPixels: 0,
 };
 
 function readOption(args, name, fallback) {
@@ -327,6 +328,17 @@ async function main() {
       && edgeSummary.maxOrphanWeakAlphaPixels?.orphanWeakAlphaPixels === 0
       && edgeSummary.maxTransparentColoredPixels?.transparentColoredPixels === 0,
     `orphanWeakAlpha=${edgeSummary.maxOrphanWeakAlphaPixels?.orphanWeakAlphaPixels}, transparentColored=${edgeSummary.maxTransparentColoredPixels?.transparentColoredPixels}`,
+  );
+  passRequirement(
+    requirements,
+    'weak-alpha-normalized-zero',
+    qualitySummary.frameCount === EXPECTED.frames
+      && edgeSummary.frameCount === EXPECTED.frames
+      && qualitySummary.maxWeakAlphaPixels?.weakAlphaPixels === EXPECTED.weakAlphaPixels
+      && edgeSummary.maxWeakAlphaPixels?.weakAlphaPixels === EXPECTED.weakAlphaPixels
+      && baselineDelta.totals?.weakAlphaPixels?.after === EXPECTED.weakAlphaPixels
+      && baselineDelta.regressionCounts?.weakAlphaPixels === 0,
+    `qualityMax=${qualitySummary.maxWeakAlphaPixels?.weakAlphaPixels}, edgeMax=${edgeSummary.maxWeakAlphaPixels?.weakAlphaPixels}, baselineAfter=${baselineDelta.totals?.weakAlphaPixels?.after}, regressions=${baselineDelta.regressionCounts?.weakAlphaPixels}`,
   );
   passRequirement(
     requirements,

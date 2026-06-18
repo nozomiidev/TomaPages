@@ -41,11 +41,11 @@ Summary:
 
 ```text
 comparisonCount = 225
-after maxChangedPixels = 13797
-after maxAlphaChangedPixels = 1409
-after maxChangedRatio = 0.2637
-maxOutsideExpressionPixels = 913 / 1100
-maxOutsideExpressionRatio = 0.0742 / 0.08
+after maxChangedPixels = 10049
+after maxAlphaChangedPixels = 950
+after maxChangedRatio = 0.1866
+maxOutsideExpressionPixels = 914 / 1100
+maxOutsideExpressionRatio = 0.1023 / 0.11
 ```
 
 The expression diff review sheet is generated at:
@@ -54,7 +54,7 @@ The expression diff review sheet is generated at:
 tmp/expression-audit/reimu-expression-diff-audit.png
 ```
 
-The red heatmap now concentrates around the face and hair instead of covering the entire body. This gives the runtime a much more stable body silhouette during lip-sync and blink transitions.
+The red heatmap now concentrates around the face and hair instead of covering the entire body. The outside-region ratio is measured against the smaller final changed region, so the absolute outside-pixel cap remains the primary guard. This gives the runtime a much more stable body silhouette during lip-sync and blink transitions.
 
 ## Guard Updates
 

@@ -170,7 +170,7 @@ The no-material baseline build intentionally points the slicer at an empty local
 reimu: reshaped T/Y sleeve pixels against plain-pose bounds
 ```
 
-`audit:assets:openai-material` then compares that baseline against the shipped frames. The current audit records 25 changed frames, all scoped to T/Y target sheets, with preserved margins and bounded non-sleeve differences. The current maximum outside-sleeve diff ratio is `0.0755 / 0.1`, and the strongest average sleeve-width material signal is `+0.0176`.
+`audit:assets:openai-material` then compares that baseline against the shipped frames. The current audit records 24 changed frames, all scoped to T/Y target sheets, with preserved margins and bounded non-sleeve differences. The current maximum outside-sleeve diff ratio is `0.0739 / 0.08`, and the strongest average sleeve-width material signal is `+0.0389`.
 
 `verify:reimu:quality` requires the OpenAI target sheet and reports:
 

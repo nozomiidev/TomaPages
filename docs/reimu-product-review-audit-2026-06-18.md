@@ -1,6 +1,6 @@
 # Reimu Product Review Board Audit - 2026-06-18
 
-This note records the product-level visual review artifact added after the Reimu quality recovery gates reached 23/23. It does not replace final human art acceptance, but it makes the remaining review surface explicit, reproducible, and hash-addressable.
+This note records the product-level visual review artifact added after the Reimu quality recovery gates reached 25/25. It does not replace final human art acceptance, but it makes the remaining review surface explicit, reproducible, and hash-addressable.
 
 ## Generated Artifacts
 
@@ -52,4 +52,4 @@ The most important remaining human-review area is sleeve proportion in the T/Y c
 
 `verify:reimu:quality` now requires the product review board, summary, artifact CSV, 15 representative frames, 12 perceptual candidates, zero actionable/severe product-review candidates, and 10 supporting hashed visual artifacts.
 
-`verify:reimu:goal` now includes the same product-review requirement, raising the automated evidence gate to 24/24.
+`verify:reimu:goal` now includes the same product-review requirement and the weak-alpha-zero gate, raising the automated evidence gate to 25/25.

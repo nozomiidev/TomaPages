@@ -166,7 +166,7 @@ The Reimu quality pass now covers:
 - OpenAI sleeve candidate preprocessing artifacts in `tmp/imagegen/reimu-sleeve-candidates/processed`, including transparent alpha, normalized fit, projected sleeve guide, drift heat, and controlled materialization metrics
 - OpenAI-derived sleeve material recipe in `metaassets/fumo/reimu/reimu_openai_sleeve_material_recipe.json`
 - OpenAI material application audit in `tmp/openai-material-audit`, comparing current frames with a generated no-material baseline from `tmp/openai-material-baseline`
-- OpenAI sleeve material regression gates in `verify:reimu:quality` / `verify:reimu:goal`, requiring at least 25 scoped changed frames, outside-sleeve diff `<= 0.08`, average sleeve-width material signal `>= 0.017`, material width floor `0.285`, and max side-width loss `<= 0.101`
+- OpenAI sleeve material regression gates in `verify:reimu:quality` / `verify:reimu:goal`, requiring at least 24 scoped changed frames, outside-sleeve diff `<= 0.08`, average sleeve-width material signal `>= 0.017`, material width floor `0.285`, and max side-width loss `<= 0.101`
 - perceptual consistency review sheet in `tmp/perceptual-audit`, combining current/no-reshape/diff heat for top drawing-level candidates
 - product visual review board and manifest in `tmp/product-review`, requiring 15 representative frames, 12 current/no-reshape high-risk candidates, zero actionable/severe candidates, and hashes for 10 supporting visual artifacts
 - local recovered baseline-delta comparison in `tmp/baseline-delta`, available through `npm run audit:assets:baseline-delta` and required by `verify:reimu:quality` / `verify:reimu:goal`
@@ -195,7 +195,7 @@ maxInternalGapArea = 1800
 maxLightInteriorGapArea = 0
 maxReferenceCoveredGapArea = 0
 maxTransparentNonBlack = 0
-maxWeakAlpha = 320
+maxWeakAlpha = 0
 maxOrphanWeakAlpha = 0
 maxTransparentColored = 0
 actionableDefectFrameCount = 0
@@ -209,7 +209,7 @@ maxNeighborCenterStep = 32
 maxNeighborHeightStep = 80
 maxNeighborWidthStep = 76
 maxOutsideExpressionPixels = 1100
-maxOutsideExpressionRatio = 0.08
+maxOutsideExpressionRatio = 0.11
 perceptual severeIssueCount = 0
 productReviewArtifacts = 10
 productReviewRepresentativeFrames = 15

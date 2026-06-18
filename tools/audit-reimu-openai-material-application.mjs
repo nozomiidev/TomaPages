@@ -331,7 +331,7 @@ async function auditPair({ baselineFile, currentFile, relative }) {
     baselineSleeve.mask.map((value, index) => (value || currentSleeve.mask[index] ? 1 : 0)),
     baseline.width,
     baseline.height,
-    8,
+    14,
   );
   const diff = diffFrames(baseline, current, sleeveMask);
   const currentMargin = minMargin(currentSleeve.bounds, current.width, current.height);

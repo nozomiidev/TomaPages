@@ -4,12 +4,12 @@ This pass separates actionable drawing defects from review-only residuals after 
 
 ## Problem
 
-`tmp/issues/reimu-issue-overlay.png` intentionally still shows review candidates such as supported edge antialiasing and original internal negative space. That is useful for human inspection, but it can make the current state look less finished than it is.
+`tmp/issues/reimu-issue-overlay.png` intentionally still shows review candidates such as original internal negative space. That is useful for human inspection, but it can make the current state look less finished than it is.
 
 The goal of this pass is to make the distinction machine-checkable:
 
 - actionable residual defects must be zero
-- supported weak alpha is allowed only when the edge audit proves it is not orphaned
+- weak alpha must be normalized to zero in the current shipped frames
 - internal transparent gaps are allowed only when the reference-covered-gap audit proves they are not post-processing holes
 
 ## New Guard
@@ -68,17 +68,18 @@ Latest residual summary:
     }
   ],
   "sleeveGuardHeadroom": {
-    "averageWidthLoss": 0.0094,
+    "averageWidthLoss": 0.0458,
     "sideWidthImbalance": 0.027,
-    "sideWidthLoss": 0.0179
+    "sideWidthLoss": 0.0728
   },
   "lineIntegrityHeadroom": {
-    "unsupportedEdgeInkPixels": 24,
-    "unsupportedEdgeInkRatio": 0.0083,
+    "unsupportedEdgeInkPixels": 28,
+    "unsupportedEdgeInkRatio": 0.0135,
     "unsupportedEdgeComponentArea": 12,
-    "unsupportedEdgeComponentCount": 2,
+    "unsupportedEdgeComponentCount": 3,
     "unsupportedEdgeComponentSpan": 6
-  }
+  },
+  "weakAlphaReviewFrameCount": 0
 }
 ```
 

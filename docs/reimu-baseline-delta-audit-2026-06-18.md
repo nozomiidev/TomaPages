@@ -51,13 +51,14 @@ Key totals:
 | Metric | Baseline | Current | Delta | Reduction |
 | --- | ---: | ---: | ---: | ---: |
 | `transparentNonBlack` | 567074 | 0 | -567074 | 100.00% |
+| `weakAlphaPixels` | 23755 | 0 | -23755 | 100.00% |
 | `internalGapArea` | 8052 | 914 | -7138 | 88.65% |
 | `detachedArea` | 0 | 0 | 0 | 100.00% |
 | `detachedSliverArea` | 0 | 0 | 0 | 100.00% |
 | `lineLikeHoleArea` | 0 | 0 | 0 | 100.00% |
 | `lightInteriorGapArea` | 0 | 0 | 0 | 100.00% |
 
-Weak alpha pixels increased from `23755` to `28235`, with a maximum current frame value of `309`. This is within the existing product audit budget of `maxWeakAlpha = 320` and is treated as supported antialiasing, not a hard defect.
+Weak alpha pixels are now normalized from `23755` to `0`. This removes the last low-alpha ghost-contour class instead of merely treating supported antialiasing as acceptable.
 
 The only current internal-gap regression by frame is `pt_01/r0c1.webp`, `822 -> 914`; the total internal-gap area still drops by `7138` px and the maximum current frame remains within `maxInternalGapArea = 1800`.
 
@@ -69,13 +70,13 @@ The baseline-delta script currently requires:
 expectedBaselineFrames = 225
 expectedCurrentFrames = 225
 transparentNonBlack = cleared to 0
+weakAlphaPixels = cleared to 0
 detachedArea = not introduced
 detachedSliverArea = not introduced
 lineLikeHoleArea = not worse
 lightInteriorGapArea = not worse
 internalGapArea = total reduced
 internalGapArea = current max within 1800
-weakAlphaPixels = current max within 320
 ```
 
-This keeps the audit focused on product-visible defects while allowing clean antialiasing at supported edges.
+This keeps the audit focused on product-visible defects while preventing a return of weak-alpha contour residue.

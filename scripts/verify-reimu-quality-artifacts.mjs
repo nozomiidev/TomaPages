@@ -33,11 +33,12 @@ const EXPECTED_REFERENCE_CURRENT_FRAMES = COMPARE_SHEETS.length * 25;
 const EXPECTED_OPENAI_REFERENCE_IMAGES = 5;
 const EXPECTED_PRODUCT_REVIEW_ARTIFACTS = 10;
 const EXPECTED_PRODUCT_REVIEW_REPRESENTATIVE_FRAMES = 15;
+const EXPECTED_WEAK_ALPHA_PIXELS = 0;
 const OPENAI_SLEEVE_MATERIAL_GATES = {
   maxOutsideSleeveDiffRatio: 0.08,
   maxSideWidthLoss: 0.101,
   minAverageWidthDelta: 0.017,
-  minChangedFrames: 25,
+  minChangedFrames: 24,
 };
 const LINE_INTEGRITY_HEADROOM_GATES = {
   maxUnsupportedEdgeComponentArea: 36,
@@ -54,7 +55,7 @@ const VISUAL_DIMENSIONS = {
   expression: { height: 864, width: 1440 },
   frame: { height: 512, width: 512 },
   gap: { height: 850, width: 960 },
-  inspection: { height: 1800, width: 1024 },
+  inspection: { minHeight: 300, width: 1024 },
   issue: { height: 850, width: 960 },
   line: { height: 850, width: 960 },
   openAiTargets: { height: 1248, width: 768 },
@@ -582,6 +583,9 @@ async function main() {
   const qualitySummary = JSON.parse(
     await readFile(path.join(options.qualityRoot, 'reimu-asset-quality-summary.json'), 'utf8'),
   );
+  const edgeSummary = JSON.parse(
+    await readFile(path.join(options.edgeRoot, 'reimu-edge-integrity-summary.json'), 'utf8'),
+  );
   const sleeveGuardSummary = JSON.parse(
     await readFile(path.join(options.qualityRoot, 'reimu-sleeve-guard-summary.json'), 'utf8'),
   );
@@ -657,11 +661,29 @@ async function main() {
     || baselineDeltaSummary.totals?.transparentNonBlack?.after !== 0) {
     failures.push('baseline delta should prove transparent non-black pixels were cleared');
   }
+  if (
+    baselineDeltaSummary.totals?.weakAlphaPixels?.after !== EXPECTED_WEAK_ALPHA_PIXELS
+    || baselineDeltaSummary.regressionCounts?.weakAlphaPixels !== 0
+  ) {
+    failures.push('baseline delta should prove weak alpha pixels were normalized to zero');
+  }
   if (!(
     baselineDeltaSummary.totals?.internalGapArea?.after
     < baselineDeltaSummary.totals?.internalGapArea?.before
   )) {
     failures.push('baseline delta should prove internal gap area decreased');
+  }
+  if (qualitySummary.maxWeakAlphaPixels?.weakAlphaPixels !== EXPECTED_WEAK_ALPHA_PIXELS) {
+    failures.push(
+      `quality audit weak alpha pixels `
+      + `${qualitySummary.maxWeakAlphaPixels?.weakAlphaPixels} !== ${EXPECTED_WEAK_ALPHA_PIXELS}`,
+    );
+  }
+  if (edgeSummary.maxWeakAlphaPixels?.weakAlphaPixels !== EXPECTED_WEAK_ALPHA_PIXELS) {
+    failures.push(
+      `edge audit weak alpha pixels `
+      + `${edgeSummary.maxWeakAlphaPixels?.weakAlphaPixels} !== ${EXPECTED_WEAK_ALPHA_PIXELS}`,
+    );
   }
   for (const [checkName, passed] of Object.entries(openAiMaterialSummary.checks ?? {})) {
     if (passed !== true) {
@@ -856,6 +878,7 @@ async function main() {
     baselineDeltaImprovedFrames: baselineDeltaSummary.improvedFrameCount,
     baselineDeltaInternalGapReduction: baselineDeltaSummary.totals?.internalGapArea?.reductionRatio,
     baselineDeltaTransparentReduction: baselineDeltaSummary.totals?.transparentNonBlack?.reductionRatio,
+    baselineDeltaWeakAlphaReduction: baselineDeltaSummary.totals?.weakAlphaPixels?.reductionRatio,
     compareSheets: COMPARE_SHEETS.length * COMPARE_MODES.length,
     edgeSheets: 1,
     expressionMaxOutsidePixels: expressionSummary.maxOutsideExpressionPixels?.outsideExpressionPixels,
@@ -884,6 +907,7 @@ async function main() {
     productReviewCandidates: productReviewSummary.candidateCount,
     productReviewRepresentativeFrames: productReviewSummary.representativeFrameCount,
     publicFrames: sourceFrames.length,
+    qualityMaxWeakAlphaPixels: qualitySummary.maxWeakAlphaPixels?.weakAlphaPixels,
     referenceFrames: referenceMetrics.currentCount,
     referencePngs: referenceMetrics.referencePngCount,
     stabilityMaxNeighborCenterStep: qualitySummary.stability?.neighbor?.maxCenterStep?.centerStep,

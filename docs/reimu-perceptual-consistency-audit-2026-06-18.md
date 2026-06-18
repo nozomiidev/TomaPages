@@ -10,7 +10,6 @@ The earlier audits prove alpha integrity, transparent RGB cleanup, line support,
 
 - current frame vs. no-reshape frame vs. diff heat
 - original internal transparent gaps
-- supported weak alpha review candidates
 - 5x5 neighbor shape jumps
 - expression diff candidates
 - T/Y sleeve guard near-threshold candidates
@@ -66,10 +65,10 @@ Current top review candidates include:
 
 ```text
 pt_01/r0c1.webp: original internal gap 914
-ct_01/r1c2.webp: sleeve side loss 0.0976, low sleeve side ratio 0.2121
-ot_01/r1c2.webp: sleeve side loss 0.0976, low sleeve side ratio 0.2121
-oy_01/r3c2.webp: sleeve side loss 0.1021
-cy_01/r0c2.webp: supported weak alpha 252, expression changed ratio 0.2451, OpenAI sleeve target review 0.098
+cy_01/r0c3.webp: expression changed ratio 0.1866, expression alpha delta 361, sleeve side loss 0.0289
+cy_01/r4c3.webp: sleeve side loss 0.0472
+ct_01/r2c3.webp: sleeve side imbalance 0.1530, low sleeve side ratio 0.2276
+cy_01/r0c2.webp: OpenAI sleeve target review 0.103
 ```
 
 These are review candidates, not automatic failures. The hard gate fails if existing severe-quality checks regress, if expression/coverage limits are exceeded, if mouth/blink deltas leak too far outside the expression face region, or if the stored 5x5 neighbor center/alpha/width/height step thresholds are exceeded.
@@ -79,7 +78,7 @@ The disposition file records the reason each candidate is still review-only. Exa
 ```text
 pt_01/r0c1.webp: original internal gap is not suspicious, line-like, light-cloth, or reference-covered
 ct_01/r1c2.webp: sleeve candidate remains inside width, side-loss, and side-imbalance guard thresholds
-cy_01/r0c2.webp: weak alpha is attached to visible edges, expression ratio is below threshold, and OpenAI sleeve targets are controlled post-processing material
+cy_01/r0c2.webp: OpenAI sleeve targets are controlled post-processing material, while full-frame replacement remains blocked
 ```
 
 ## Verification

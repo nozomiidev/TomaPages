@@ -567,6 +567,8 @@ function sanitizeSpriteAlpha(data, width, height) {
       next[offset + 1] = 0;
       next[offset + 2] = 0;
       next[offset + 3] = 0;
+    } else if (alpha > 0 && alpha < 32) {
+      next[offset + 3] = 33;
     } else if (alpha === 0) {
       next[offset] = 0;
       next[offset + 1] = 0;
@@ -1190,11 +1192,13 @@ function shouldKeepReimuSleeveEdit(before, after) {
 }
 
 function shouldKeepReimuSleeveFrameEdit(before, after) {
+  if (before.hasBothSides && !after.hasBothSides) return false;
   if (!before.hasBothSides || !after.hasBothSides) return true;
 
   const averageWidthLoss = before.averageWidthRatio - after.averageWidthRatio;
   const minSideWidthLoss = before.minSideWidthRatio - after.minSideWidthRatio;
   const imbalanceIncrease = after.sideWidthImbalance - before.sideWidthImbalance;
+  const severeAbsoluteThinness = before.averageWidthRatio >= 0.25 && after.averageWidthRatio < 0.25;
 
   const severeBalanceRegression = (
     after.sideWidthImbalance > 0.14
@@ -1203,7 +1207,7 @@ function shouldKeepReimuSleeveFrameEdit(before, after) {
   );
   const severeWidthRegression = averageWidthLoss > 0.04 && minSideWidthLoss > 0.04;
 
-  return !(severeBalanceRegression || severeWidthRegression);
+  return !(severeAbsoluteThinness || severeBalanceRegression || severeWidthRegression);
 }
 
 function withComponentSourceWidth(components, width) {
@@ -1231,7 +1235,7 @@ function reimuExpressionBlendAmount(x, y, bounds) {
   const boundsHeight = bounds.maxY - bounds.minY + 1;
   const centerX = (bounds.minX + bounds.maxX) / 2;
   const centerY = bounds.minY + boundsHeight * 0.39;
-  const radiusX = boundsWidth * 0.34;
+  const radiusX = boundsWidth * 0.25;
   const radiusY = boundsHeight * 0.27;
   const distance = Math.hypot((x - centerX) / radiusX, (y - centerY) / radiusY);
 
@@ -1601,13 +1605,15 @@ async function reshapeReimuPoseSleeves({
     }
   }
 
+  const beforeFrameMetricData = sanitizeSpriteAlpha(originalData, target.width, target.height);
+  const afterFrameMetricData = sanitizeSpriteAlpha(editedData, target.width, target.height);
   const beforeFrameMetric = reimuSleeveAuditFrameQualityMetric(
-    originalData,
+    beforeFrameMetricData,
     target.width,
     target.height,
   );
   const afterFrameMetric = reimuSleeveAuditFrameQualityMetric(
-    editedData,
+    afterFrameMetricData,
     target.width,
     target.height,
   );

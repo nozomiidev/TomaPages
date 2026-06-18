@@ -1,6 +1,6 @@
 # Reimu Runtime Browser Audit - 2026-06-18
 
-This note records the deployed browser check for the current Reimu recovery state after `quality:reimu` completed end-to-end and GitHub Pages deployed commit `b370ca88`.
+This note records deployed and local browser checks for the current Reimu recovery state after `quality:reimu` completed end-to-end.
 
 ## Target
 
@@ -41,6 +41,29 @@ Runtime checks in the summary:
 | `y` | `py_01` | 225 | 225 | 1 | 0 |
 
 The check waits for all 225 Reimu image elements to load and verifies that exactly one active image remains visible for the selected pose. This avoids falsely treating the hidden/preloaded frame stack as multiple displayed avatars.
+
+## Current Local Preview Evidence
+
+After the weak-alpha normalization and face-local expression blend pass, the local static preview was checked at:
+
+```text
+http://127.0.0.1:4200/talk.html
+```
+
+Artifacts:
+
+- `tmp/browser-screenshots/reimu-local-alpha-floor-p.png`
+- `tmp/browser-screenshots/reimu-local-alpha-floor-t.png`
+- `tmp/browser-screenshots/reimu-local-alpha-floor-y.png`
+- `tmp/browser-screenshots/reimu-local-alpha-floor-summary.json`
+
+Runtime checks in the local summary:
+
+| Pose | Active Frame | Images | Loaded | Visible Reimu Images | Broken | Console Errors |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `p` | `pl_01/r2c2.webp` | 225 | 225 | 1 | 0 | 0 |
+| `t` | `pt_01/r2c2.webp` | 225 | 225 | 1 | 0 | 0 |
+| `y` | `py_01/r2c2.webp` | 225 | 225 | 1 | 0 | 0 |
 
 ## Visual Notes
 

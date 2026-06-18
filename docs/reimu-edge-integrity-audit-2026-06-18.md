@@ -21,7 +21,7 @@ maxOrphanWeakAlpha = 0
 maxTransparentColored = 0
 ```
 
-This complements the existing transparent-RGB, detached-fragment, hole, sleeve, full-sweep, and browser checks. Weak alpha is allowed only when it is part of a normal anti-aliased edge.
+This complements the existing transparent-RGB, detached-fragment, hole, sleeve, full-sweep, and browser checks. The current production pass normalizes weak alpha to zero, so the supported-edge distinction remains useful for diagnostics but the shipped Reimu frames now pass with no weak-alpha pixels at all.
 
 ## Current Result
 
@@ -36,8 +36,8 @@ Summary:
 
 ```text
 frameCount = 225
-maxWeakAlphaPixels = 302 at oy_01/r0c2.webp
-maxEdgeWeakAlphaPixels = 302 at oy_01/r0c2.webp
+maxWeakAlphaPixels = 0
+maxEdgeWeakAlphaPixels = 0
 maxOrphanWeakAlphaPixels = 0
 maxTransparentColoredPixels = 0
 ```
@@ -48,8 +48,8 @@ The visual overlay is generated at:
 tmp/edge-audit/reimu-edge-integrity-overlay.png
 ```
 
-Yellow pixels in the overlay are supported weak edge alpha. Magenta would indicate orphan weak alpha, and red would indicate transparent colored residue. The current overlay contains no magenta or red issue pixels.
+Yellow pixels in the overlay are supported weak edge alpha. Magenta would indicate orphan weak alpha, and red would indicate transparent colored residue. The current overlay contains no yellow, magenta, or red weak-alpha/residue issue pixels.
 
 ## Quality Meaning
 
-This proves that the remaining weak alpha pixels are attached to the visible silhouette and are not floating semi-transparent contour debris. It also provides a hard regression gate for the "transparent inner contour" failure mode that can otherwise be easy to miss on pale backgrounds.
+This proves that the remaining shipped frames no longer contain low-alpha ghost contour pixels or transparent colored residue. It also provides a hard regression gate for the "transparent inner contour" failure mode that can otherwise be easy to miss on pale backgrounds.

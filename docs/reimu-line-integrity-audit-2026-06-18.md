@@ -44,8 +44,8 @@ Latest line-integrity summary:
     "componentSpan": 36
   },
   "maxUnsupportedEdgeComponentCount": {
-    "file": "cy_01/r0c2.webp",
-    "unsupportedEdgeComponentCount": 10
+    "file": "cy_01/r0c3.webp",
+    "unsupportedEdgeComponentCount": 9
   },
   "maxUnsupportedEdgeComponentSpan": {
     "file": "cy_01/r2c1.webp",
@@ -53,14 +53,14 @@ Latest line-integrity summary:
     "componentSpan": 36
   },
   "maxUnsupportedEdgeInkPixels": {
-    "file": "ct_01/r0c2.webp",
-    "unsupportedEdgeInkPixels": 66,
-    "unsupportedEdgeInkRatio": 0.0463
+    "file": "cy_01/r0c2.webp",
+    "unsupportedEdgeInkPixels": 62,
+    "unsupportedEdgeInkRatio": 0.0415
   },
   "maxUnsupportedEdgeInkRatio": {
     "file": "cy_01/r0c2.webp",
-    "unsupportedEdgeInkPixels": 64,
-    "unsupportedEdgeInkRatio": 0.0467
+    "unsupportedEdgeInkPixels": 62,
+    "unsupportedEdgeInkRatio": 0.0415
   }
 }
 ```

@@ -47,6 +47,9 @@ transparentColoredPixels = 0
 transparentNonBlack = 0
 lineIntegrityPixels = true
 lineIntegrityRatio = true
+lineIntegrityComponentArea = true
+lineIntegrityComponentCount = true
+lineIntegrityComponentSpan = true
 ```
 
 ## Result
@@ -66,12 +69,15 @@ Latest residual summary:
   ],
   "sleeveGuardHeadroom": {
     "averageWidthLoss": 0.0094,
-    "sideWidthImbalance": 0.0037,
+    "sideWidthImbalance": 0.027,
     "sideWidthLoss": 0.0179
   },
   "lineIntegrityHeadroom": {
     "unsupportedEdgeInkPixels": 24,
-    "unsupportedEdgeInkRatio": 0.0083
+    "unsupportedEdgeInkRatio": 0.0083,
+    "unsupportedEdgeComponentArea": 12,
+    "unsupportedEdgeComponentCount": 2,
+    "unsupportedEdgeComponentSpan": 6
   }
 }
 ```

@@ -10,6 +10,8 @@ The earlier alpha audits prove that there are no detached alpha fragments, trans
 
 `tools/audit-reimu-line-integrity.mjs` scans every shipped Reimu WebP frame and looks at alpha-edge pixels. For each edge pixel, it checks whether an ink-like contour or trim pixel exists nearby.
 
+It also groups unsupported edge pixels into connected components. This catches a different class of failure: a small total number of unsupported pixels could still be bad if they form one long visible contour break.
+
 The audit writes:
 
 ```text
@@ -23,6 +25,9 @@ Default hard caps:
 ```text
 maxUnsupportedEdgeInkPixels = 90
 maxUnsupportedEdgeInkRatio = 0.055
+maxUnsupportedEdgeComponentArea = 48
+maxUnsupportedEdgeComponentCount = 12
+maxUnsupportedEdgeComponentSpan = 42
 expectedFrames = 225
 ```
 
@@ -33,6 +38,20 @@ Latest line-integrity summary:
 ```json
 {
   "frameCount": 225,
+  "maxUnsupportedEdgeComponentArea": {
+    "file": "cy_01/r2c1.webp",
+    "componentArea": 36,
+    "componentSpan": 36
+  },
+  "maxUnsupportedEdgeComponentCount": {
+    "file": "cy_01/r0c2.webp",
+    "unsupportedEdgeComponentCount": 10
+  },
+  "maxUnsupportedEdgeComponentSpan": {
+    "file": "cy_01/r2c1.webp",
+    "componentArea": 36,
+    "componentSpan": 36
+  },
   "maxUnsupportedEdgeInkPixels": {
     "file": "ct_01/r0c2.webp",
     "unsupportedEdgeInkPixels": 66,

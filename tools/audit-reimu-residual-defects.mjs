@@ -150,6 +150,18 @@ async function main() {
       Number(lineSummary.maxUnsupportedEdgeInkRatio?.unsupportedEdgeInkRatio ?? 0)
       <= Number(lineSummary.thresholds?.maxUnsupportedEdgeInkRatio ?? 0)
     ),
+    lineIntegrityComponentArea: (
+      Number(lineSummary.maxUnsupportedEdgeComponentArea?.componentArea ?? 0)
+      <= Number(lineSummary.thresholds?.maxUnsupportedEdgeComponentArea ?? 0)
+    ),
+    lineIntegrityComponentCount: (
+      Number(lineSummary.maxUnsupportedEdgeComponentCount?.unsupportedEdgeComponentCount ?? 0)
+      <= Number(lineSummary.thresholds?.maxUnsupportedEdgeComponentCount ?? 0)
+    ),
+    lineIntegrityComponentSpan: (
+      Number(lineSummary.maxUnsupportedEdgeComponentSpan?.componentSpan ?? 0)
+      <= Number(lineSummary.thresholds?.maxUnsupportedEdgeComponentSpan ?? 0)
+    ),
     orphanWeakAlpha: maxMetric(edgeSummary, 'maxOrphanWeakAlphaPixels', 'orphanWeakAlphaPixels') === 0,
     referenceCoveredGapArea: Number(gapSummary.totalReferenceCoveredGapArea ?? 0) === 0,
     referenceCoveredGapCount: Number(gapSummary.totalReferenceCoveredGapCount ?? 0) === 0,
@@ -175,6 +187,18 @@ async function main() {
       unsupportedEdgeInkRatio: Number((
         Number(lineSummary.thresholds.maxUnsupportedEdgeInkRatio)
         - Number(lineSummary.maxUnsupportedEdgeInkRatio.unsupportedEdgeInkRatio)
+      ).toFixed(4)),
+      unsupportedEdgeComponentArea: Number((
+        Number(lineSummary.thresholds.maxUnsupportedEdgeComponentArea)
+        - Number(lineSummary.maxUnsupportedEdgeComponentArea.componentArea)
+      ).toFixed(4)),
+      unsupportedEdgeComponentCount: Number((
+        Number(lineSummary.thresholds.maxUnsupportedEdgeComponentCount)
+        - Number(lineSummary.maxUnsupportedEdgeComponentCount.unsupportedEdgeComponentCount)
+      ).toFixed(4)),
+      unsupportedEdgeComponentSpan: Number((
+        Number(lineSummary.thresholds.maxUnsupportedEdgeComponentSpan)
+        - Number(lineSummary.maxUnsupportedEdgeComponentSpan.componentSpan)
       ).toFixed(4)),
     },
     sleeveGuardHeadroom: {

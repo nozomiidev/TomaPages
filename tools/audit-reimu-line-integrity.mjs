@@ -9,6 +9,9 @@ const DEFAULTS = {
   expectedFrames: 225,
   inkRadius: 4,
   maxFrames: 12,
+  maxUnsupportedEdgeComponentArea: 48,
+  maxUnsupportedEdgeComponentCount: 12,
+  maxUnsupportedEdgeComponentSpan: 42,
   maxUnsupportedEdgeInkPixels: 90,
   maxUnsupportedEdgeInkRatio: 0.055,
   outputRoot: 'tmp/line-audit',
@@ -97,6 +100,68 @@ function isAlphaEdge(alphaMask, index, width, height) {
   );
 }
 
+function componentList(mask, width, height) {
+  const seen = new Uint8Array(width * height);
+  const components = [];
+
+  for (let start = 0; start < mask.length; start += 1) {
+    if (!mask[start] || seen[start]) continue;
+
+    const queue = [start];
+    let area = 0;
+    let maxX = 0;
+    let maxY = 0;
+    let minX = width;
+    let minY = height;
+    seen[start] = 1;
+
+    for (let head = 0; head < queue.length; head += 1) {
+      const index = queue[head];
+      const x = index % width;
+      const y = Math.floor(index / width);
+      area += 1;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          if (dx === 0 && dy === 0) continue;
+
+          const neighborX = x + dx;
+          const neighborY = y + dy;
+          if (neighborX < 0 || neighborY < 0 || neighborX >= width || neighborY >= height) {
+            continue;
+          }
+
+          const neighbor = neighborY * width + neighborX;
+          if (mask[neighbor] && !seen[neighbor]) {
+            seen[neighbor] = 1;
+            queue.push(neighbor);
+          }
+        }
+      }
+    }
+
+    components.push({
+      area,
+      height: maxY - minY + 1,
+      maxX,
+      maxY,
+      minX,
+      minY,
+      span: Math.max(maxX - minX + 1, maxY - minY + 1),
+      width: maxX - minX + 1,
+    });
+  }
+
+  return components.sort((left, right) => (
+    right.area - left.area
+    || right.span - left.span
+  ));
+}
+
 async function readFrame(file) {
   const { data, info } = await sharp(file)
     .ensureAlpha()
@@ -134,6 +199,21 @@ async function auditFrame(file, relativeFile, options) {
       unsupportedEdgeInkPixels += 1;
     }
   }
+  const unsupportedEdgeComponents = componentList(
+    unsupportedEdgeMask,
+    frame.width,
+    frame.height,
+  );
+  const largestUnsupportedEdgeComponent = unsupportedEdgeComponents[0] ?? {
+    area: 0,
+    height: 0,
+    maxX: 0,
+    maxY: 0,
+    minX: 0,
+    minY: 0,
+    span: 0,
+    width: 0,
+  };
 
   return {
     data: frame.data,
@@ -141,9 +221,13 @@ async function auditFrame(file, relativeFile, options) {
     file: relativeFile,
     height: frame.height,
     inkPixels,
+    maxUnsupportedEdgeComponentArea: largestUnsupportedEdgeComponent.area,
+    maxUnsupportedEdgeComponentSpan: largestUnsupportedEdgeComponent.span,
     unsupportedEdgeInkPixels,
     unsupportedEdgeInkRatio: Number((unsupportedEdgeInkPixels / Math.max(1, edgePixels)).toFixed(4)),
     unsupportedEdgeMask,
+    unsupportedEdgeComponentCount: unsupportedEdgeComponents.length,
+    unsupportedEdgeComponents: unsupportedEdgeComponents.slice(0, 8),
     width: frame.width,
   };
 }
@@ -182,9 +266,39 @@ function summarize(rows, options) {
     right.unsupportedEdgeInkPixels - left.unsupportedEdgeInkPixels
     || right.unsupportedEdgeInkRatio - left.unsupportedEdgeInkRatio
   ));
+  const sortedByComponentArea = [...rows].sort((left, right) => (
+    right.maxUnsupportedEdgeComponentArea - left.maxUnsupportedEdgeComponentArea
+    || right.maxUnsupportedEdgeComponentSpan - left.maxUnsupportedEdgeComponentSpan
+  ));
+  const sortedByComponentSpan = [...rows].sort((left, right) => (
+    right.maxUnsupportedEdgeComponentSpan - left.maxUnsupportedEdgeComponentSpan
+    || right.maxUnsupportedEdgeComponentArea - left.maxUnsupportedEdgeComponentArea
+  ));
+  const sortedByComponentCount = [...rows].sort((left, right) => (
+    right.unsupportedEdgeComponentCount - left.unsupportedEdgeComponentCount
+    || right.unsupportedEdgeInkPixels - left.unsupportedEdgeInkPixels
+  ));
 
   return {
     frameCount: rows.length,
+    maxUnsupportedEdgeComponentArea: {
+      componentArea: sortedByComponentArea[0]?.maxUnsupportedEdgeComponentArea ?? 0,
+      componentSpan: sortedByComponentArea[0]?.maxUnsupportedEdgeComponentSpan ?? 0,
+      file: sortedByComponentArea[0]?.file ?? null,
+      unsupportedEdgeComponentCount: sortedByComponentArea[0]?.unsupportedEdgeComponentCount ?? 0,
+    },
+    maxUnsupportedEdgeComponentCount: {
+      componentArea: sortedByComponentCount[0]?.maxUnsupportedEdgeComponentArea ?? 0,
+      componentSpan: sortedByComponentCount[0]?.maxUnsupportedEdgeComponentSpan ?? 0,
+      file: sortedByComponentCount[0]?.file ?? null,
+      unsupportedEdgeComponentCount: sortedByComponentCount[0]?.unsupportedEdgeComponentCount ?? 0,
+    },
+    maxUnsupportedEdgeComponentSpan: {
+      componentArea: sortedByComponentSpan[0]?.maxUnsupportedEdgeComponentArea ?? 0,
+      componentSpan: sortedByComponentSpan[0]?.maxUnsupportedEdgeComponentSpan ?? 0,
+      file: sortedByComponentSpan[0]?.file ?? null,
+      unsupportedEdgeComponentCount: sortedByComponentSpan[0]?.unsupportedEdgeComponentCount ?? 0,
+    },
     maxUnsupportedEdgeInkPixels: {
       edgePixels: sortedByPixels[0]?.edgePixels ?? 0,
       file: sortedByPixels[0]?.file ?? null,
@@ -198,6 +312,9 @@ function summarize(rows, options) {
       unsupportedEdgeInkRatio: sortedByRatio[0]?.unsupportedEdgeInkRatio ?? 0,
     },
     thresholds: {
+      maxUnsupportedEdgeComponentArea: options.maxUnsupportedEdgeComponentArea,
+      maxUnsupportedEdgeComponentCount: options.maxUnsupportedEdgeComponentCount,
+      maxUnsupportedEdgeComponentSpan: options.maxUnsupportedEdgeComponentSpan,
       maxUnsupportedEdgeInkPixels: options.maxUnsupportedEdgeInkPixels,
       maxUnsupportedEdgeInkRatio: options.maxUnsupportedEdgeInkRatio,
     },
@@ -274,7 +391,7 @@ async function renderTile(frame, cellSize, labelHeight) {
   return {
     image,
     label: await labelTile(
-      `${frame.file.replace('.webp', '')} u${frame.unsupportedEdgeInkPixels} r${frame.unsupportedEdgeInkRatio}`,
+      `${frame.file.replace('.webp', '')} u${frame.unsupportedEdgeInkPixels} c${frame.maxUnsupportedEdgeComponentSpan}`,
       cellSize,
       labelHeight,
     ),
@@ -294,7 +411,7 @@ async function legendTile(width, height, summary) {
       input: Buffer.from(
         `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">`
         + '<rect x="10" y="10" width="18" height="18" fill="#0ea5e9"/>'
-        + `<text x="34" y="24" font-family="Arial" font-size="14" fill="#111827">unsupported edge without nearby ink: max ${summary.maxUnsupportedEdgeInkRatio.unsupportedEdgeInkRatio}</text>`
+        + `<text x="34" y="24" font-family="Arial" font-size="14" fill="#111827">unsupported edge without nearby ink: max ratio ${summary.maxUnsupportedEdgeInkRatio.unsupportedEdgeInkRatio}, max span ${summary.maxUnsupportedEdgeComponentSpan.componentSpan}</text>`
         + '</svg>',
       ),
       left: 0,
@@ -356,6 +473,21 @@ async function main() {
     expectedFrames: readNumberOption(args, 'expected-frames', DEFAULTS.expectedFrames),
     inkRadius: readNumberOption(args, 'ink-radius', DEFAULTS.inkRadius),
     maxFrames: readNumberOption(args, 'max-frames', DEFAULTS.maxFrames),
+    maxUnsupportedEdgeComponentArea: readNumberOption(
+      args,
+      'max-unsupported-edge-component-area',
+      DEFAULTS.maxUnsupportedEdgeComponentArea,
+    ),
+    maxUnsupportedEdgeComponentCount: readNumberOption(
+      args,
+      'max-unsupported-edge-component-count',
+      DEFAULTS.maxUnsupportedEdgeComponentCount,
+    ),
+    maxUnsupportedEdgeComponentSpan: readNumberOption(
+      args,
+      'max-unsupported-edge-component-span',
+      DEFAULTS.maxUnsupportedEdgeComponentSpan,
+    ),
     maxUnsupportedEdgeInkPixels: readNumberOption(
       args,
       'max-unsupported-edge-ink-pixels',
@@ -379,8 +511,11 @@ async function main() {
     edgePixels: row.edgePixels,
     file: row.file,
     inkPixels: row.inkPixels,
+    maxUnsupportedEdgeComponentArea: row.maxUnsupportedEdgeComponentArea,
+    maxUnsupportedEdgeComponentSpan: row.maxUnsupportedEdgeComponentSpan,
     unsupportedEdgeInkPixels: row.unsupportedEdgeInkPixels,
     unsupportedEdgeInkRatio: row.unsupportedEdgeInkRatio,
+    unsupportedEdgeComponentCount: row.unsupportedEdgeComponentCount,
   }));
   const csvHeader = [
     'file',
@@ -388,6 +523,9 @@ async function main() {
     'inkPixels',
     'unsupportedEdgeInkPixels',
     'unsupportedEdgeInkRatio',
+    'unsupportedEdgeComponentCount',
+    'maxUnsupportedEdgeComponentArea',
+    'maxUnsupportedEdgeComponentSpan',
   ];
   const csv = [
     csvHeader.join(','),
@@ -427,6 +565,36 @@ async function main() {
       `${summary.maxUnsupportedEdgeInkPixels.file} unsupported edge ink pixels `
       + `${summary.maxUnsupportedEdgeInkPixels.unsupportedEdgeInkPixels} > `
       + `${options.maxUnsupportedEdgeInkPixels}`,
+    );
+  }
+  if (
+    summary.maxUnsupportedEdgeComponentArea.componentArea
+    > options.maxUnsupportedEdgeComponentArea
+  ) {
+    throw new Error(
+      `${summary.maxUnsupportedEdgeComponentArea.file} unsupported edge component area `
+      + `${summary.maxUnsupportedEdgeComponentArea.componentArea} > `
+      + `${options.maxUnsupportedEdgeComponentArea}`,
+    );
+  }
+  if (
+    summary.maxUnsupportedEdgeComponentSpan.componentSpan
+    > options.maxUnsupportedEdgeComponentSpan
+  ) {
+    throw new Error(
+      `${summary.maxUnsupportedEdgeComponentSpan.file} unsupported edge component span `
+      + `${summary.maxUnsupportedEdgeComponentSpan.componentSpan} > `
+      + `${options.maxUnsupportedEdgeComponentSpan}`,
+    );
+  }
+  if (
+    summary.maxUnsupportedEdgeComponentCount.unsupportedEdgeComponentCount
+    > options.maxUnsupportedEdgeComponentCount
+  ) {
+    throw new Error(
+      `${summary.maxUnsupportedEdgeComponentCount.file} unsupported edge component count `
+      + `${summary.maxUnsupportedEdgeComponentCount.unsupportedEdgeComponentCount} > `
+      + `${options.maxUnsupportedEdgeComponentCount}`,
     );
   }
 

@@ -217,6 +217,18 @@ async function main() {
     lineSummary,
     'thresholds.maxUnsupportedEdgeInkRatio',
   ) ?? EXPECTED.lineMaxUnsupportedRatio;
+  const lineComponentAreaThreshold = valueAt(
+    lineSummary,
+    'thresholds.maxUnsupportedEdgeComponentArea',
+  );
+  const lineComponentCountThreshold = valueAt(
+    lineSummary,
+    'thresholds.maxUnsupportedEdgeComponentCount',
+  );
+  const lineComponentSpanThreshold = valueAt(
+    lineSummary,
+    'thresholds.maxUnsupportedEdgeComponentSpan',
+  );
   const sleeveThresholds = sleeveGuardSummary.thresholds ?? {};
 
   passRequirement(
@@ -289,8 +301,20 @@ async function main() {
       && lessThanOrEqual(
         lineSummary.maxUnsupportedEdgeInkRatio?.unsupportedEdgeInkRatio,
         lineRatioThreshold,
+      )
+      && lessThanOrEqual(
+        lineSummary.maxUnsupportedEdgeComponentArea?.componentArea,
+        lineComponentAreaThreshold,
+      )
+      && lessThanOrEqual(
+        lineSummary.maxUnsupportedEdgeComponentCount?.unsupportedEdgeComponentCount,
+        lineComponentCountThreshold,
+      )
+      && lessThanOrEqual(
+        lineSummary.maxUnsupportedEdgeComponentSpan?.componentSpan,
+        lineComponentSpanThreshold,
       ),
-    `pixels=${lineSummary.maxUnsupportedEdgeInkPixels?.unsupportedEdgeInkPixels}/${linePixelThreshold}, ratio=${lineSummary.maxUnsupportedEdgeInkRatio?.unsupportedEdgeInkRatio}/${lineRatioThreshold}`,
+    `pixels=${lineSummary.maxUnsupportedEdgeInkPixels?.unsupportedEdgeInkPixels}/${linePixelThreshold}, ratio=${lineSummary.maxUnsupportedEdgeInkRatio?.unsupportedEdgeInkRatio}/${lineRatioThreshold}, componentSpan=${lineSummary.maxUnsupportedEdgeComponentSpan?.componentSpan}/${lineComponentSpanThreshold}`,
   );
   passRequirement(
     requirements,

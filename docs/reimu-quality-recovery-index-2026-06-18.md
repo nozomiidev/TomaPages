@@ -187,6 +187,9 @@ maxTransparentColored = 0
 actionableDefectFrameCount = 0
 maxUnsupportedEdgeInkPixels = 90
 maxUnsupportedEdgeInkRatio = 0.055
+maxUnsupportedEdgeComponentArea = 48
+maxUnsupportedEdgeComponentCount = 12
+maxUnsupportedEdgeComponentSpan = 42
 perceptual severeIssueCount = 0
 ```
 

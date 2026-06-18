@@ -876,7 +876,13 @@ function hardChecks({
     lineIntegrity: lineSummary.maxUnsupportedEdgeInkPixels?.unsupportedEdgeInkPixels
       <= lineSummary.thresholds?.maxUnsupportedEdgeInkPixels
       && lineSummary.maxUnsupportedEdgeInkRatio?.unsupportedEdgeInkRatio
-      <= lineSummary.thresholds?.maxUnsupportedEdgeInkRatio,
+      <= lineSummary.thresholds?.maxUnsupportedEdgeInkRatio
+      && lineSummary.maxUnsupportedEdgeComponentArea?.componentArea
+      <= lineSummary.thresholds?.maxUnsupportedEdgeComponentArea
+      && lineSummary.maxUnsupportedEdgeComponentCount?.unsupportedEdgeComponentCount
+      <= lineSummary.thresholds?.maxUnsupportedEdgeComponentCount
+      && lineSummary.maxUnsupportedEdgeComponentSpan?.componentSpan
+      <= lineSummary.thresholds?.maxUnsupportedEdgeComponentSpan,
     noReferenceCoveredGaps: gapSummary.totalReferenceCoveredGapArea === 0
       && gapSummary.totalReferenceCoveredGapCount === 0,
     openAiReferenceCoverage: openAiSummary.openAiReferenceCount >= 5

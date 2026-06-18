@@ -504,6 +504,9 @@ async function main() {
   );
   const openAiTargetSummaryFile = path.join(options.referenceRoot, 'reimu-openai-reference-targets-summary.json');
   const openAiTargetSummary = JSON.parse(await readFile(openAiTargetSummaryFile, 'utf8'));
+  const lineSummary = JSON.parse(
+    await readFile(path.join(options.lineRoot, 'reimu-line-integrity-summary.json'), 'utf8'),
+  );
   const openAiMaterialSummaryFile = path.join(
     options.openAiMaterialRoot,
     'reimu-openai-material-application-summary.json',
@@ -528,6 +531,33 @@ async function main() {
   for (const [checkName, passed] of Object.entries(openAiMaterialSummary.checks ?? {})) {
     if (passed !== true) {
       failures.push(`OpenAI material application check failed: ${checkName}`);
+    }
+  }
+  const lineChecks = {
+    maxUnsupportedEdgeComponentArea: (
+      lineSummary.maxUnsupportedEdgeComponentArea?.componentArea
+      <= lineSummary.thresholds?.maxUnsupportedEdgeComponentArea
+    ),
+    maxUnsupportedEdgeComponentCount: (
+      lineSummary.maxUnsupportedEdgeComponentCount?.unsupportedEdgeComponentCount
+      <= lineSummary.thresholds?.maxUnsupportedEdgeComponentCount
+    ),
+    maxUnsupportedEdgeComponentSpan: (
+      lineSummary.maxUnsupportedEdgeComponentSpan?.componentSpan
+      <= lineSummary.thresholds?.maxUnsupportedEdgeComponentSpan
+    ),
+    maxUnsupportedEdgeInkPixels: (
+      lineSummary.maxUnsupportedEdgeInkPixels?.unsupportedEdgeInkPixels
+      <= lineSummary.thresholds?.maxUnsupportedEdgeInkPixels
+    ),
+    maxUnsupportedEdgeInkRatio: (
+      lineSummary.maxUnsupportedEdgeInkRatio?.unsupportedEdgeInkRatio
+      <= lineSummary.thresholds?.maxUnsupportedEdgeInkRatio
+    ),
+  };
+  for (const [checkName, passed] of Object.entries(lineChecks)) {
+    if (passed !== true) {
+      failures.push(`line integrity check failed: ${checkName}`);
     }
   }
   const perceptualSummaryFile = path.join(options.perceptualRoot, 'reimu-perceptual-consistency-summary.json');
@@ -568,6 +598,7 @@ async function main() {
     expressionSheets: 1,
     gapSheets: 1,
     lineSheets: 1,
+    lineMaxUnsupportedComponentSpan: lineSummary.maxUnsupportedEdgeComponentSpan?.componentSpan,
     noreshapeFrames: noreshapeFrames.length,
     openAiCandidateProcessed: openAiCandidateMetrics.processedCount,
     openAiMaterialChangedFrames: openAiMaterialSummary.changedFrameCount,

@@ -85,18 +85,18 @@ const REIMU_SLEEVE_STYLE = {
   y: {
     cornerFeather: 0.10,
     eraseRadius: 2,
-    heightScale: 1.56,
+    heightScale: 1.08,
     innerOverlap: 3,
     innerHeightScale: 1,
-    maxHeightFromReference: 1.18,
+    maxHeightFromReference: 1.00,
     maxWidthFromReference: 1.40,
-    minHeightFromReference: 1.02,
+    minHeightFromReference: 0.82,
     minWidthFromReference: 1.22,
-    outerHeightScale: 1.36,
-    outerSilhouette: 0.97,
-    innerSilhouette: 0.78,
-    topOffsetY: 1,
-    widthScale: 1.14,
+    outerHeightScale: 1.12,
+    outerSilhouette: 0.92,
+    innerSilhouette: 0.74,
+    topOffsetY: 0,
+    widthScale: 1.16,
   },
 };
 
@@ -1297,9 +1297,14 @@ async function stabilizeReimuExpressionFrame({
   const target = await readRgbaFrame(targetFile);
   const editedData = stabilizeReimuExpressionData(base, target);
   fillReferenceCoveredInteriorGaps(editedData, target.data, target.width, target.height);
+  const outputData = sanitizeSpriteAlpha(editedData, target.width, target.height);
+  const targetSheet = path.basename(path.dirname(targetFile));
+  if (targetSheet.includes('t') || targetSheet.includes('y')) {
+    addReimuSleeveFrameEdgeSupport(outputData, target.width, target.height);
+  }
 
   await writeSanitizedWebp({
-    data: editedData,
+    data: outputData,
     height: target.height,
     lossless,
     outputFile,
@@ -1384,6 +1389,20 @@ function clearSleevePixels(data, mask) {
   }
 }
 
+function restoreTransparentReferencePixels(data, referenceData, mask) {
+  for (let index = 0; index < mask.length; index += 1) {
+    if (!mask[index]) continue;
+
+    const offset = index * 4;
+    if (data[offset + 3] >= 16 || referenceData[offset + 3] < 16) continue;
+
+    data[offset] = referenceData[offset];
+    data[offset + 1] = referenceData[offset + 1];
+    data[offset + 2] = referenceData[offset + 2];
+    data[offset + 3] = referenceData[offset + 3];
+  }
+}
+
 function compositeRawPatch({ base, baseHeight, baseWidth, left, patch, patchHeight, patchWidth, top }) {
   for (let y = 0; y < patchHeight; y += 1) {
     const baseY = top + y;
@@ -1444,6 +1463,132 @@ function samplePatchBilinear({ height, patch, width, x, y }) {
   return rgba.map((value) => Math.round(value));
 }
 
+function isPatchInkPixel(patch, index) {
+  const offset = index * 4;
+  const alpha = patch[offset + 3];
+  if (alpha < 180) return false;
+
+  const red = patch[offset];
+  const green = patch[offset + 1];
+  const blue = patch[offset + 2];
+  const luma = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  const redTrim = red > 150 && green < 110 && blue < 110 && max - min > 65;
+
+  return luma < 145 || max < 155 || redTrim;
+}
+
+function hasPatchNearbyInk(inkMask, x, y, width, height, radius) {
+  for (let dy = -radius; dy <= radius; dy += 1) {
+    for (let dx = -radius; dx <= radius; dx += 1) {
+      if (dx * dx + dy * dy > radius * radius) continue;
+
+      const candidateX = x + dx;
+      const candidateY = y + dy;
+      if (candidateX < 0 || candidateY < 0 || candidateX >= width || candidateY >= height) continue;
+
+      if (inkMask[candidateY * width + candidateX]) return true;
+    }
+  }
+
+  return false;
+}
+
+function isPatchAlphaEdge(alphaMask, index, width, height) {
+  if (!alphaMask[index]) return false;
+
+  const x = index % width;
+  const y = Math.floor(index / width);
+  return (
+    x === 0
+    || y === 0
+    || x === width - 1
+    || y === height - 1
+    || !alphaMask[index - 1]
+    || !alphaMask[index + 1]
+    || !alphaMask[index - width]
+    || !alphaMask[index + width]
+  );
+}
+
+function addSleevePatchEdgeSupport(patch, width, height) {
+  const alphaMask = new Uint8Array(width * height);
+  const inkMask = new Uint8Array(width * height);
+
+  for (let index = 0; index < alphaMask.length; index += 1) {
+    if (patch[index * 4 + 3] >= 16) alphaMask[index] = 1;
+    if (isPatchInkPixel(patch, index)) inkMask[index] = 1;
+  }
+
+  for (let index = 0; index < alphaMask.length; index += 1) {
+    if (!isPatchAlphaEdge(alphaMask, index, width, height)) continue;
+
+    const x = index % width;
+    const y = Math.floor(index / width);
+    if (hasPatchNearbyInk(inkMask, x, y, width, height, 4)) continue;
+
+    const offset = index * 4;
+    const alpha = patch[offset + 3];
+    if (alpha < 64) continue;
+
+    patch[offset] = Math.round(patch[offset] * 0.46 + 44 * 0.54);
+    patch[offset + 1] = Math.round(patch[offset + 1] * 0.46 + 40 * 0.54);
+    patch[offset + 2] = Math.round(patch[offset + 2] * 0.46 + 40 * 0.54);
+    patch[offset + 3] = Math.max(alpha, 220);
+    inkMask[index] = 1;
+  }
+}
+
+function addReimuSleeveFrameEdgeSupport(data, width, height) {
+  const bounds = alphaBounds(data, width, height);
+  const centerX = (bounds.minX + bounds.maxX) / 2;
+  const boundsHeight = bounds.maxY - bounds.minY + 1;
+  const alphaMask = new Uint8Array(width * height);
+  const inkMask = new Uint8Array(width * height);
+
+  for (let index = 0; index < alphaMask.length; index += 1) {
+    if (data[index * 4 + 3] >= 16) alphaMask[index] = 1;
+    if (isPatchInkPixel(data, index)) inkMask[index] = 1;
+  }
+
+  for (let index = 0; index < alphaMask.length; index += 1) {
+    if (!isPatchAlphaEdge(alphaMask, index, width, height)) continue;
+
+    const offset = index * 4;
+    const x = index % width;
+    const y = Math.floor(index / width);
+    const xDistance = Math.abs(x - centerX);
+    const yNorm = (y - bounds.minY) / Math.max(1, boundsHeight);
+    const red = data[offset];
+    const green = data[offset + 1];
+    const blue = data[offset + 2];
+    const handPixel = (
+      data[offset + 3] >= 48
+      && xDistance > 58
+      && yNorm >= 0.26
+      && yNorm <= 0.72
+      && red > 205
+      && green > 150
+      && blue > 128
+      && red - blue < 88
+    );
+
+    if (!isReimuSleevePixel(data, index, width, bounds, centerX) && !handPixel) continue;
+
+    if (hasPatchNearbyInk(inkMask, x, y, width, height, 4)) continue;
+
+    const alpha = data[offset + 3];
+    if (alpha < 64) continue;
+
+    data[offset] = Math.round(data[offset] * 0.42 + 44 * 0.58);
+    data[offset + 1] = Math.round(data[offset + 1] * 0.42 + 40 * 0.58);
+    data[offset + 2] = Math.round(data[offset + 2] * 0.42 + 40 * 0.58);
+    data[offset + 3] = Math.max(alpha, 225);
+    inkMask[index] = 1;
+  }
+}
+
 function flaredSleevePatch({
   cornerFeather,
   innerSilhouette,
@@ -1492,6 +1637,8 @@ function flaredSleevePatch({
       output[targetOffset + 3] = Math.round(rgba[3] * silhouetteAlpha);
     }
   }
+
+  addSleevePatchEdgeSupport(output, targetWidth, targetHeight);
 
   return output;
 }
@@ -1592,6 +1739,7 @@ async function reshapeReimuPoseSleeves({
       patchWidth: outputWidth,
       top,
     });
+    restoreTransparentReferencePixels(editedData, target.data, sleeveMask);
 
     const afterMetric = reimuSleeveQualityMetric(
       editedData,
@@ -1622,9 +1770,11 @@ async function reshapeReimuPoseSleeves({
   }
 
   fillReferenceCoveredInteriorGaps(editedData, target.data, target.width, target.height);
+  const outputData = sanitizeSpriteAlpha(editedData, target.width, target.height);
+  addReimuSleeveFrameEdgeSupport(outputData, target.width, target.height);
 
   await writeSanitizedWebp({
-    data: editedData,
+    data: outputData,
     height: target.height,
     lossless,
     outputFile,

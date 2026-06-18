@@ -66,6 +66,8 @@ Recent quality commits:
   - Fresh OpenAI image-model sleeve-edit candidate, prompt, rejection reason for direct shipping, and sleeve-ratio measurement as a controlled reference input.
 - `docs/reimu-perceptual-consistency-audit-2026-06-18.md`
   - Reimu drawing-level consistency review gate covering current/no-reshape/diff candidates across weak alpha, expression, neighbor, sleeve, and OpenAI target signals.
+- `docs/reimu-product-review-audit-2026-06-18.md`
+  - Product-level visual review board, manifest, and supporting artifact hashes for representative frames plus the highest-risk review-only candidates.
 - `docs/reimu-baseline-delta-audit-2026-06-18.md`
   - Local recovered before/after comparison against `tmp/before-lossless`, proving transparent RGB residue was cleared and internal gap totals were reduced without introducing detached parts or line-like holes.
 
@@ -163,6 +165,7 @@ The Reimu quality pass now covers:
 - OpenAI material application audit in `tmp/openai-material-audit`, comparing current frames with a generated no-material baseline from `tmp/openai-material-baseline`
 - OpenAI sleeve material regression gates in `verify:reimu:quality` / `verify:reimu:goal`, requiring at least 25 scoped changed frames, outside-sleeve diff `<= 0.08`, average sleeve-width material signal `>= 0.017`, material width floor `0.285`, and max side-width loss `<= 0.101`
 - perceptual consistency review sheet in `tmp/perceptual-audit`, combining current/no-reshape/diff heat for top drawing-level candidates
+- product visual review board and manifest in `tmp/product-review`, requiring 15 representative frames, 12 current/no-reshape high-risk candidates, zero actionable/severe candidates, and hashes for 10 supporting visual artifacts
 - local recovered baseline-delta comparison in `tmp/baseline-delta`, available through `npm run audit:assets:baseline-delta` and required by `verify:reimu:quality` / `verify:reimu:goal`
 - weak alpha pixels
 - weak alpha edge support and orphan weak-alpha ghost detection in `tmp/edge-audit`
@@ -204,6 +207,8 @@ maxNeighborWidthStep = 76
 maxOutsideExpressionPixels = 1100
 maxOutsideExpressionRatio = 0.08
 perceptual severeIssueCount = 0
+productReviewArtifacts = 10
+productReviewRepresentativeFrames = 15
 ```
 
 Lossless Reimu sleeve guard thresholds are calibrated to decoded lossless masks while keeping absolute width floors:

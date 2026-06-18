@@ -16,6 +16,7 @@ const DEFAULTS = {
   noreshapeRoot: 'tmp/noreshape/reimu',
   openAiCandidateRoot: 'tmp/imagegen/reimu-sleeve-candidates/processed',
   perceptualRoot: 'tmp/perceptual-audit',
+  productReviewRoot: 'tmp/product-review',
   openAiMaterialRoot: 'tmp/openai-material-audit',
   qualityRoot: 'tmp/quality-audit',
   referenceRoot: 'tmp/reference-audit',
@@ -30,6 +31,8 @@ const COMPARE_MODES = ['pink', 'dark'];
 const FRESHNESS_TOLERANCE_MS = 5000;
 const EXPECTED_REFERENCE_CURRENT_FRAMES = COMPARE_SHEETS.length * 25;
 const EXPECTED_OPENAI_REFERENCE_IMAGES = 5;
+const EXPECTED_PRODUCT_REVIEW_ARTIFACTS = 10;
+const EXPECTED_PRODUCT_REVIEW_REPRESENTATIVE_FRAMES = 15;
 const OPENAI_SLEEVE_MATERIAL_GATES = {
   maxOutsideSleeveDiffRatio: 0.08,
   maxSideWidthLoss: 0.101,
@@ -62,6 +65,7 @@ const VISUAL_DIMENSIONS = {
   openAiCandidateSheet: { height: 354, width: 1100 },
   perceptual: { height: 1390, width: 960 },
   perceptualZoom: { height: 1800, width: 1024 },
+  productReview: { minHeight: 1200, width: 1600 },
   referenceForeground: { minHeight: 512, minWidth: 512 },
   referenceSleeves: { height: 512, width: 512 },
   sweep: { height: 1604, width: 1472 },
@@ -344,6 +348,11 @@ async function main() {
       DEFAULTS.openAiMaterialRoot,
     )),
     perceptualRoot: path.resolve(readOption(args, 'perceptual-root', DEFAULTS.perceptualRoot)),
+    productReviewRoot: path.resolve(readOption(
+      args,
+      'product-review-root',
+      DEFAULTS.productReviewRoot,
+    )),
     qualityRoot: path.resolve(readOption(args, 'quality-root', DEFAULTS.qualityRoot)),
     referenceRoot: path.resolve(readOption(args, 'reference-root', DEFAULTS.referenceRoot)),
     sourceRoot: path.resolve(readOption(args, 'source-root', DEFAULTS.sourceRoot)),
@@ -401,6 +410,18 @@ async function main() {
     options.perceptualRoot,
     'reimu-perceptual-candidate-disposition.json',
   );
+  const productReviewBoardFile = path.join(
+    options.productReviewRoot,
+    'reimu-product-review-board.png',
+  );
+  const productReviewCsvFile = path.join(
+    options.productReviewRoot,
+    'reimu-product-review-artifacts.csv',
+  );
+  const productReviewSummaryFile = path.join(
+    options.productReviewRoot,
+    'reimu-product-review-summary.json',
+  );
   const requiredFiles = [
     path.join(options.qualityRoot, 'reimu-asset-quality.csv'),
     path.join(options.qualityRoot, 'reimu-asset-quality-summary.json'),
@@ -419,6 +440,8 @@ async function main() {
     path.join(options.perceptualRoot, 'reimu-perceptual-consistency-summary.json'),
     path.join(options.perceptualRoot, 'reimu-perceptual-candidate-disposition.csv'),
     perceptualDispositionJsonFile,
+    productReviewCsvFile,
+    productReviewSummaryFile,
     ...auditFiles,
     baselineDeltaCsvFile,
     baselineDeltaSummaryFile,
@@ -441,6 +464,7 @@ async function main() {
     openAiMaterialFile,
     perceptualFile,
     perceptualZoomFile,
+    productReviewBoardFile,
   ];
 
   for (const file of requiredFiles) {
@@ -535,6 +559,12 @@ async function main() {
     failures,
     format: 'png',
     ...VISUAL_DIMENSIONS.perceptualZoom,
+  });
+  await assertImageMetadata({
+    file: productReviewBoardFile,
+    failures,
+    format: 'png',
+    ...VISUAL_DIMENSIONS.productReview,
   });
   const referenceMetrics = await verifyReferenceMetrics(options.referenceRoot, failures);
   const openAiCandidateMetrics = await verifyOpenAiCandidateArtifacts(
@@ -754,6 +784,7 @@ async function main() {
   const perceptualSummaryFile = path.join(options.perceptualRoot, 'reimu-perceptual-consistency-summary.json');
   const perceptualSummary = JSON.parse(await readFile(perceptualSummaryFile, 'utf8'));
   const perceptualDispositions = JSON.parse(await readFile(perceptualDispositionJsonFile, 'utf8'));
+  const productReviewSummary = JSON.parse(await readFile(productReviewSummaryFile, 'utf8'));
   if (perceptualSummary.coverage?.qualityFrames !== 225) {
     failures.push(`perceptual audit qualityFrames ${perceptualSummary.coverage?.qualityFrames} !== 225`);
   }
@@ -780,6 +811,39 @@ async function main() {
     if (passed !== true) {
       failures.push(`perceptual hard check failed: ${checkName}`);
     }
+  }
+  if (productReviewSummary.publicFrameCount !== 225) {
+    failures.push(`product review publicFrameCount ${productReviewSummary.publicFrameCount} !== 225`);
+  }
+  if (productReviewSummary.baselineFrameCount !== 225) {
+    failures.push(`product review baselineFrameCount ${productReviewSummary.baselineFrameCount} !== 225`);
+  }
+  if (productReviewSummary.representativeFrameCount !== EXPECTED_PRODUCT_REVIEW_REPRESENTATIVE_FRAMES) {
+    failures.push(
+      'product review representativeFrameCount '
+      + `${productReviewSummary.representativeFrameCount} `
+      + `!== ${EXPECTED_PRODUCT_REVIEW_REPRESENTATIVE_FRAMES}`,
+    );
+  }
+  if (productReviewSummary.candidateCount !== perceptualSummary.candidateCount) {
+    failures.push(
+      `product review candidateCount ${productReviewSummary.candidateCount} `
+      + `!== perceptual ${perceptualSummary.candidateCount}`,
+    );
+  }
+  if (productReviewSummary.actionableCandidateCount !== 0) {
+    failures.push(
+      `product review actionableCandidateCount ${productReviewSummary.actionableCandidateCount} !== 0`,
+    );
+  }
+  if (productReviewSummary.severeIssueCount !== 0) {
+    failures.push(`product review severeIssueCount ${productReviewSummary.severeIssueCount} !== 0`);
+  }
+  if (productReviewSummary.reviewArtifactCount !== EXPECTED_PRODUCT_REVIEW_ARTIFACTS) {
+    failures.push(
+      `product review artifact count ${productReviewSummary.reviewArtifactCount} `
+      + `!== ${EXPECTED_PRODUCT_REVIEW_ARTIFACTS}`,
+    );
   }
 
   if (failures.length) {
@@ -816,6 +880,9 @@ async function main() {
     perceptualActionableCandidates: perceptualSummary.actionableCandidateCount,
     perceptualCandidates: perceptualSummary.candidateCount,
     perceptualZoomSheets: 1,
+    productReviewArtifacts: productReviewSummary.reviewArtifactCount,
+    productReviewCandidates: productReviewSummary.candidateCount,
+    productReviewRepresentativeFrames: productReviewSummary.representativeFrameCount,
     publicFrames: sourceFrames.length,
     referenceFrames: referenceMetrics.currentCount,
     referencePngs: referenceMetrics.referencePngCount,

@@ -15,6 +15,7 @@ const DEFAULTS = {
   openAiMaterialRoot: 'tmp/openai-material-audit',
   outputRoot: 'tmp/goal-audit',
   perceptualRoot: 'tmp/perceptual-audit',
+  productReviewRoot: 'tmp/product-review',
   publicRoot: 'public/characters/reimu',
   qualityRoot: 'tmp/quality-audit',
   referenceRoot: 'tmp/reference-audit',
@@ -38,6 +39,8 @@ const EXPECTED = {
   openAiMaterialMaxOutsideSleeveDiffRatio: 0.08,
   openAiMaterialMinAverageWidthDelta: 0.017,
   openAiMaterialMinChangedFrames: 25,
+  productReviewArtifacts: 10,
+  productReviewRepresentativeFrames: 15,
   sleeveFrames: 150,
   sleeveMaterialMinSideWidthRatio: 0.285,
   sleeveTunedMaxSideWidthLoss: 0.101,
@@ -146,6 +149,11 @@ async function main() {
     )),
     outputRoot: path.resolve(readOption(args, 'out', DEFAULTS.outputRoot)),
     perceptualRoot: path.resolve(readOption(args, 'perceptual-root', DEFAULTS.perceptualRoot)),
+    productReviewRoot: path.resolve(readOption(
+      args,
+      'product-review-root',
+      DEFAULTS.productReviewRoot,
+    )),
     publicRoot: path.resolve(readOption(args, 'public-root', DEFAULTS.publicRoot)),
     qualityRoot: path.resolve(readOption(args, 'quality-root', DEFAULTS.qualityRoot)),
     referenceRoot: path.resolve(readOption(args, 'reference-root', DEFAULTS.referenceRoot)),
@@ -168,6 +176,7 @@ async function main() {
     openAiTargetSummary,
     perceptualDispositions,
     perceptualSummary,
+    productReviewSummary,
     qualitySummary,
     residualSummary,
     sleeveGuardSummary,
@@ -192,6 +201,7 @@ async function main() {
     readJson(path.join(options.referenceRoot, 'reimu-openai-reference-targets-summary.json')),
     readJson(path.join(options.perceptualRoot, 'reimu-perceptual-candidate-disposition.json')),
     readJson(path.join(options.perceptualRoot, 'reimu-perceptual-consistency-summary.json')),
+    readJson(path.join(options.productReviewRoot, 'reimu-product-review-summary.json')),
     readJson(path.join(options.qualityRoot, 'reimu-asset-quality-summary.json')),
     readJson(path.join(options.qualityRoot, 'reimu-residual-defect-summary.json')),
     readJson(path.join(options.qualityRoot, 'reimu-sleeve-guard-summary.json')),
@@ -208,11 +218,17 @@ async function main() {
     'reimu-baseline-quality-delta.png',
     'reimu-baseline-quality-delta-summary.json',
   ].map((file) => fileExists(path.join(options.baselineDeltaRoot, file))));
+  const productReviewArtifacts = await Promise.all([
+    'reimu-product-review-artifacts.csv',
+    'reimu-product-review-board.png',
+    'reimu-product-review-summary.json',
+  ].map((file) => fileExists(path.join(options.productReviewRoot, file))));
   const requiredDocs = [
     'reimu-quality-process-reconstruction-2026-06-17.md',
     'reimu-quality-recovery-index-2026-06-18.md',
     'reimu-openai-sleeve-candidate-2026-06-18.md',
     'reimu-baseline-delta-audit-2026-06-18.md',
+    'reimu-product-review-audit-2026-06-18.md',
     'reimu-goal-evidence-audit-2026-06-18.md',
   ];
   const docExists = await Promise.all(
@@ -531,6 +547,21 @@ async function main() {
       ))
       && allObjectValuesTrue(perceptualSummary.hardChecks),
     `candidates=${perceptualSummary.candidateCount}, actionable=${perceptualSummary.actionableCandidateCount}, severe=${perceptualSummary.severeIssueCount}`,
+  );
+  passRequirement(
+    requirements,
+    'product-review-board-present',
+    productReviewArtifacts.every(Boolean)
+      && productReviewSummary.publicFrameCount === EXPECTED.frames
+      && productReviewSummary.baselineFrameCount === EXPECTED.frames
+      && productReviewSummary.representativeFrameCount
+        === EXPECTED.productReviewRepresentativeFrames
+      && productReviewSummary.candidateCount === perceptualSummary.candidateCount
+      && productReviewSummary.actionableCandidateCount === 0
+      && productReviewSummary.severeIssueCount === 0
+      && productReviewSummary.reviewArtifactCount === EXPECTED.productReviewArtifacts
+      && productReviewSummary.board?.exists === true,
+    `artifacts=${productReviewArtifacts.filter(Boolean).length}/${productReviewArtifacts.length}, representatives=${productReviewSummary.representativeFrameCount}/${EXPECTED.productReviewRepresentativeFrames}, supportArtifacts=${productReviewSummary.reviewArtifactCount}/${EXPECTED.productReviewArtifacts}`,
   );
 
   const failed = requirements.filter((requirement) => requirement.status !== 'pass');

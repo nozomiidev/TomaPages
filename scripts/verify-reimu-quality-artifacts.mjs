@@ -30,6 +30,12 @@ const COMPARE_MODES = ['pink', 'dark'];
 const FRESHNESS_TOLERANCE_MS = 5000;
 const EXPECTED_REFERENCE_CURRENT_FRAMES = COMPARE_SHEETS.length * 25;
 const EXPECTED_OPENAI_REFERENCE_IMAGES = 5;
+const OPENAI_SLEEVE_MATERIAL_GATES = {
+  maxOutsideSleeveDiffRatio: 0.08,
+  maxSideWidthLoss: 0.101,
+  minAverageWidthDelta: 0.017,
+  minChangedFrames: 25,
+};
 const VISUAL_DIMENSIONS = {
   audit: { height: 800, width: 800 },
   baselineDelta: { height: 408, width: 960 },
@@ -539,6 +545,9 @@ async function main() {
   const qualitySummary = JSON.parse(
     await readFile(path.join(options.qualityRoot, 'reimu-asset-quality-summary.json'), 'utf8'),
   );
+  const sleeveGuardSummary = JSON.parse(
+    await readFile(path.join(options.qualityRoot, 'reimu-sleeve-guard-summary.json'), 'utf8'),
+  );
   const lineSummary = JSON.parse(
     await readFile(path.join(options.lineRoot, 'reimu-line-integrity-summary.json'), 'utf8'),
   );
@@ -560,8 +569,41 @@ async function main() {
       `OpenAI target sheet current rows ${openAiTargetSummary.currentFrameCount} < ${EXPECTED_REFERENCE_CURRENT_FRAMES}`,
     );
   }
-  if (openAiMaterialSummary.changedFrameCount < 1) {
-    failures.push('OpenAI material application changedFrameCount should be >= 1');
+  if (!(Number(openAiMaterialSummary.changedFrameCount) >= OPENAI_SLEEVE_MATERIAL_GATES.minChangedFrames)) {
+    failures.push(
+      'OpenAI material application changedFrameCount '
+      + `${openAiMaterialSummary.changedFrameCount} < ${OPENAI_SLEEVE_MATERIAL_GATES.minChangedFrames}`,
+    );
+  }
+  if (!(
+    Number(openAiMaterialSummary.maxOutsideSleeveDiffRatio?.outsideSleeveDiffRatio)
+    <= OPENAI_SLEEVE_MATERIAL_GATES.maxOutsideSleeveDiffRatio
+  )) {
+    failures.push(
+      'OpenAI material outside-sleeve diff ratio '
+      + `${openAiMaterialSummary.maxOutsideSleeveDiffRatio?.outsideSleeveDiffRatio} `
+      + `> ${OPENAI_SLEEVE_MATERIAL_GATES.maxOutsideSleeveDiffRatio}`,
+    );
+  }
+  if (!(
+    Number(openAiMaterialSummary.maxAverageWidthDelta?.averageWidthDelta)
+    >= OPENAI_SLEEVE_MATERIAL_GATES.minAverageWidthDelta
+  )) {
+    failures.push(
+      'OpenAI material max average sleeve-width delta '
+      + `${openAiMaterialSummary.maxAverageWidthDelta?.averageWidthDelta} `
+      + `< ${OPENAI_SLEEVE_MATERIAL_GATES.minAverageWidthDelta}`,
+    );
+  }
+  if (!(
+    Number(sleeveGuardSummary.maxSideWidthLoss?.sideWidthLoss)
+    <= OPENAI_SLEEVE_MATERIAL_GATES.maxSideWidthLoss
+  )) {
+    failures.push(
+      'Reimu tuned sleeve side-width loss '
+      + `${sleeveGuardSummary.maxSideWidthLoss?.sideWidthLoss} `
+      + `> ${OPENAI_SLEEVE_MATERIAL_GATES.maxSideWidthLoss}`,
+    );
   }
   if (baselineDeltaSummary.baselineFrameCount !== 225) {
     failures.push(`baseline delta baselineFrameCount ${baselineDeltaSummary.baselineFrameCount} !== 225`);
@@ -727,6 +769,9 @@ async function main() {
     noreshapeFrames: noreshapeFrames.length,
     openAiCandidateProcessed: openAiCandidateMetrics.processedCount,
     openAiMaterialChangedFrames: openAiMaterialSummary.changedFrameCount,
+    openAiMaterialMaxAverageWidthDelta: openAiMaterialSummary.maxAverageWidthDelta?.averageWidthDelta,
+    openAiMaterialMaxOutsideSleeveDiffRatio:
+      openAiMaterialSummary.maxOutsideSleeveDiffRatio?.outsideSleeveDiffRatio,
     openAiReferenceImages: referenceMetrics.openAiCount,
     openAiTargetRows: openAiTargetRows.length,
     perceptualActionableCandidates: perceptualSummary.actionableCandidateCount,

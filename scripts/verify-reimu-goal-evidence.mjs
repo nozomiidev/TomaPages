@@ -30,7 +30,12 @@ const EXPECTED = {
   lineMaxUnsupportedRatio: 0.055,
   minOpenAiReferenceRows: 5,
   minOutputMargin: 32,
+  openAiMaterialMaxOutsideSleeveDiffRatio: 0.08,
+  openAiMaterialMinAverageWidthDelta: 0.017,
+  openAiMaterialMinChangedFrames: 25,
   sleeveFrames: 150,
+  sleeveMaterialMinSideWidthRatio: 0.285,
+  sleeveTunedMaxSideWidthLoss: 0.101,
 };
 
 function readOption(args, name, fallback) {
@@ -420,8 +425,14 @@ async function main() {
     'openai-material-recipe-present',
     openAiSleeveMaterial.policy?.controlledMaterialAdoption === true
       && openAiSleeveMaterial.policy?.fullFrameReplacement === false
-      && Number(openAiSleeveMaterial.poseTargets?.t?.minSideWidthRatio ?? 0) > 0
-      && Number(openAiSleeveMaterial.poseTargets?.y?.minSideWidthRatio ?? 0) > 0
+      && greaterThanOrEqual(
+        openAiSleeveMaterial.poseTargets?.t?.minSideWidthRatio,
+        EXPECTED.sleeveMaterialMinSideWidthRatio,
+      )
+      && greaterThanOrEqual(
+        openAiSleeveMaterial.poseTargets?.y?.minSideWidthRatio,
+        EXPECTED.sleeveMaterialMinSideWidthRatio,
+      )
       && Array.isArray(openAiSleeveMaterial.candidateSleeveWidthRatios)
       && openAiSleeveMaterial.candidateSleeveWidthRatios.length >= 1,
     `controlledMaterial=${openAiSleeveMaterial.policy?.controlledMaterialAdoption}, tMin=${openAiSleeveMaterial.poseTargets?.t?.minSideWidthRatio}, yMin=${openAiSleeveMaterial.poseTargets?.y?.minSideWidthRatio}`,
@@ -429,9 +440,29 @@ async function main() {
   passRequirement(
     requirements,
     'openai-material-recipe-has-visible-scoped-effect',
-    openAiMaterialSummary.changedFrameCount >= 1
+    greaterThanOrEqual(
+      openAiMaterialSummary.changedFrameCount,
+      EXPECTED.openAiMaterialMinChangedFrames,
+    )
+      && greaterThanOrEqual(
+        openAiMaterialSummary.maxAverageWidthDelta?.averageWidthDelta,
+        EXPECTED.openAiMaterialMinAverageWidthDelta,
+      )
+      && lessThanOrEqual(
+        openAiMaterialSummary.maxOutsideSleeveDiffRatio?.outsideSleeveDiffRatio,
+        EXPECTED.openAiMaterialMaxOutsideSleeveDiffRatio,
+      )
       && allObjectValuesTrue(openAiMaterialSummary.checks),
-    `changedFrames=${openAiMaterialSummary.changedFrameCount}, maxOutsideSleeveDiffRatio=${openAiMaterialSummary.maxOutsideSleeveDiffRatio?.outsideSleeveDiffRatio}`,
+    `changedFrames=${openAiMaterialSummary.changedFrameCount}/${EXPECTED.openAiMaterialMinChangedFrames}, maxAverageWidthDelta=${openAiMaterialSummary.maxAverageWidthDelta?.averageWidthDelta}/${EXPECTED.openAiMaterialMinAverageWidthDelta}, maxOutsideSleeveDiffRatio=${openAiMaterialSummary.maxOutsideSleeveDiffRatio?.outsideSleeveDiffRatio}/${EXPECTED.openAiMaterialMaxOutsideSleeveDiffRatio}`,
+  );
+  passRequirement(
+    requirements,
+    'openai-sleeve-material-regression-headroom',
+    lessThanOrEqual(
+      sleeveGuardSummary.maxSideWidthLoss?.sideWidthLoss,
+      EXPECTED.sleeveTunedMaxSideWidthLoss,
+    ),
+    `maxSideWidthLoss=${sleeveGuardSummary.maxSideWidthLoss?.sideWidthLoss}/${EXPECTED.sleeveTunedMaxSideWidthLoss}`,
   );
   passRequirement(
     requirements,

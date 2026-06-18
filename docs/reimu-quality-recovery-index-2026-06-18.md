@@ -160,6 +160,7 @@ The Reimu quality pass now covers:
 - OpenAI sleeve candidate preprocessing artifacts in `tmp/imagegen/reimu-sleeve-candidates/processed`, including transparent alpha, normalized fit, projected sleeve guide, drift heat, and controlled materialization metrics
 - OpenAI-derived sleeve material recipe in `metaassets/fumo/reimu/reimu_openai_sleeve_material_recipe.json`
 - OpenAI material application audit in `tmp/openai-material-audit`, comparing current frames with a generated no-material baseline from `tmp/openai-material-baseline`
+- OpenAI sleeve material regression gates in `verify:reimu:quality` / `verify:reimu:goal`, requiring at least 25 scoped changed frames, outside-sleeve diff `<= 0.08`, average sleeve-width material signal `>= 0.017`, material width floor `0.285`, and max side-width loss `<= 0.101`
 - perceptual consistency review sheet in `tmp/perceptual-audit`, combining current/no-reshape/diff heat for top drawing-level candidates
 - local recovered baseline-delta comparison in `tmp/baseline-delta`, available through `npm run audit:assets:baseline-delta` and required by `verify:reimu:quality` / `verify:reimu:goal`
 - weak alpha pixels

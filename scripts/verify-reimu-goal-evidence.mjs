@@ -229,6 +229,7 @@ async function main() {
     'reimu-openai-sleeve-candidate-2026-06-18.md',
     'reimu-baseline-delta-audit-2026-06-18.md',
     'reimu-product-review-audit-2026-06-18.md',
+    'reimu-runtime-browser-audit-2026-06-18.md',
     'reimu-goal-evidence-audit-2026-06-18.md',
   ];
   const docExists = await Promise.all(

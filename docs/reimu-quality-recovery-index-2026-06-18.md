@@ -68,6 +68,8 @@ Recent quality commits:
   - Reimu drawing-level consistency review gate covering current/no-reshape/diff candidates across weak alpha, expression, neighbor, sleeve, and OpenAI target signals.
 - `docs/reimu-product-review-audit-2026-06-18.md`
   - Product-level visual review board, manifest, and supporting artifact hashes for representative frames plus the highest-risk review-only candidates.
+- `docs/reimu-runtime-browser-audit-2026-06-18.md`
+  - Deployed Talk-page browser evidence for Reimu `p/t/y`, including screenshots and DOM image-load checks for 225 loaded Reimu frames with exactly one active displayed image.
 - `docs/reimu-baseline-delta-audit-2026-06-18.md`
   - Local recovered before/after comparison against `tmp/before-lossless`, proving transparent RGB residue was cleared and internal gap totals were reduced without introducing detached parts or line-like holes.
 
@@ -179,6 +181,7 @@ The Reimu quality pass now covers:
 - issue overlays in `tmp/issues`
 - inspection zooms in `tmp/inspection`
 - full 225-frame visual sweeps in `tmp/sweep`
+- deployed Talk-page screenshots and runtime image-load summary in `tmp/browser-screenshots`
 - OpenAI reference metrics in `tmp/reference-audit`, covering the 5 recovered/reference OpenAI images and all 150 Reimu T/Y pose frames
 
 Current default hard caps include:

@@ -314,6 +314,29 @@ function isReimuSleevePixel(data, index, width, bounds, centerX) {
   return whiteCloth || redTrim || pinkEdge;
 }
 
+function isReimuSleeveAuditPixel(data, index, width, bounds, centerX) {
+  const offset = index * 4;
+  const red = data[offset];
+  const green = data[offset + 1];
+  const blue = data[offset + 2];
+  const alpha = data[offset + 3];
+  if (alpha < 32) return false;
+
+  const x = index % width;
+  const y = Math.floor(index / width);
+  const yNorm = (y - bounds.minY) / Math.max(1, bounds.maxY - bounds.minY + 1);
+  if (yNorm < 0.20 || yNorm > 0.82) return false;
+  if (Math.abs(x - centerX) < 32) return false;
+
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  const whiteCloth = red > 184 && green > 174 && blue > 166 && max - min < 82;
+  const redTrim = red > 145 && green < 122 && blue < 122;
+  const pinkEdge = red > 180 && green > 95 && green < 190 && blue > 95 && blue < 190;
+
+  return whiteCloth || redTrim || pinkEdge;
+}
+
 function reimuSleeveComponents(data, width, height) {
   const bounds = alphaBounds(data, width, height);
   const centerX = (bounds.minX + bounds.maxX) / 2;
@@ -329,6 +352,72 @@ function reimuSleeveComponents(data, width, height) {
     xDist: component.centerX - centerX,
     yNorm: (component.centerY - bounds.minY) / boundsHeight,
   }));
+}
+
+function mergeReimuAuditComponents(components) {
+  if (!components.length) return null;
+
+  return components.reduce((merged, component) => {
+    if (!merged) {
+      return {
+        area: component.pixels.length,
+        maxX: component.maxX,
+        maxY: component.maxY,
+        minX: component.minX,
+        minY: component.minY,
+      };
+    }
+
+    return {
+      area: merged.area + component.pixels.length,
+      maxX: Math.max(merged.maxX, component.maxX),
+      maxY: Math.max(merged.maxY, component.maxY),
+      minX: Math.min(merged.minX, component.minX),
+      minY: Math.min(merged.minY, component.minY),
+    };
+  }, null);
+}
+
+function reimuSleeveAuditFrameQualityMetric(data, width, height) {
+  const bounds = alphaBounds(data, width, height);
+  const centerX = (bounds.minX + bounds.maxX) / 2;
+  const mask = new Uint8Array(width * height);
+
+  for (let index = 0; index < mask.length; index += 1) {
+    if (isReimuSleeveAuditPixel(data, index, width, bounds, centerX)) mask[index] = 1;
+  }
+
+  const components = findForegroundComponents(mask, width, height)
+    .map((component) => ({
+      ...component,
+      area: component.pixels.length,
+    }))
+    .filter((component) => component.area >= 100)
+    .filter((component) => component.width >= 10 && component.height >= 10)
+    .filter((component) => Math.abs(component.centerX - centerX) >= 44)
+    .sort((a, b) => b.area - a.area);
+  const left = mergeReimuAuditComponents(
+    components
+      .filter((component) => component.centerX < centerX)
+      .slice(0, 2),
+  );
+  const right = mergeReimuAuditComponents(
+    components
+      .filter((component) => component.centerX > centerX)
+      .slice(0, 2),
+  );
+  const boundsWidth = Math.max(1, bounds.maxX - bounds.minX + 1);
+  const leftWidthRatio = left ? (left.maxX - left.minX + 1) / boundsWidth : 0;
+  const rightWidthRatio = right ? (right.maxX - right.minX + 1) / boundsWidth : 0;
+
+  return {
+    averageWidthRatio: (leftWidthRatio + rightWidthRatio) / 2,
+    hasBothSides: Boolean(left && right),
+    leftWidthRatio,
+    minSideWidthRatio: Math.min(leftWidthRatio, rightWidthRatio),
+    rightWidthRatio,
+    sideWidthImbalance: Math.abs(leftWidthRatio - rightWidthRatio),
+  };
 }
 
 function targetReimuSleeveComponents(components, side, poseKind) {
@@ -1024,6 +1113,23 @@ function shouldKeepReimuSleeveEdit(before, after) {
   );
 }
 
+function shouldKeepReimuSleeveFrameEdit(before, after) {
+  if (!before.hasBothSides || !after.hasBothSides) return true;
+
+  const averageWidthLoss = before.averageWidthRatio - after.averageWidthRatio;
+  const minSideWidthLoss = before.minSideWidthRatio - after.minSideWidthRatio;
+  const imbalanceIncrease = after.sideWidthImbalance - before.sideWidthImbalance;
+
+  const severeBalanceRegression = (
+    after.sideWidthImbalance > 0.14
+    && imbalanceIncrease > 0.08
+    && minSideWidthLoss > 0.03
+  );
+  const severeWidthRegression = averageWidthLoss > 0.04 && minSideWidthLoss > 0.04;
+
+  return !(severeBalanceRegression || severeWidthRegression);
+}
+
 function withComponentSourceWidth(components, width) {
   return components.map((component) => ({
     ...component,
@@ -1285,6 +1391,7 @@ async function reshapeReimuPoseSleeves({ lossless, outputFile, quality, referenc
   );
   const referenceComponents = reimuSleeveComponents(reference.data, reference.width, reference.height);
   const sleeveStyle = REIMU_SLEEVE_STYLE[poseKind];
+  const originalData = Buffer.from(target.data);
   const editedData = Buffer.from(target.data);
 
   for (const side of [-1, 1]) {
@@ -1370,6 +1477,20 @@ async function reshapeReimuPoseSleeves({ lossless, outputFile, quality, referenc
     if (!shouldKeepReimuSleeveEdit(beforeMetric, afterMetric)) {
       beforeEditData.copy(editedData);
     }
+  }
+
+  const beforeFrameMetric = reimuSleeveAuditFrameQualityMetric(
+    originalData,
+    target.width,
+    target.height,
+  );
+  const afterFrameMetric = reimuSleeveAuditFrameQualityMetric(
+    editedData,
+    target.width,
+    target.height,
+  );
+  if (!shouldKeepReimuSleeveFrameEdit(beforeFrameMetric, afterFrameMetric)) {
+    originalData.copy(editedData);
   }
 
   fillReferenceCoveredInteriorGaps(editedData, target.data, target.width, target.height);

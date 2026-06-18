@@ -4,7 +4,7 @@ This audit maps the active Reimu recovery goal to current evidence on `main`. It
 
 ## Current State
 
-- Reimu code/assets baseline audited: current main after residual-defect audit pass
+- Reimu code/assets baseline audited: current main after frame-level sleeve guard pass
 - GitHub Pages workflow: verify the newest pushed run in repository Actions; this document keeps durable local evidence instead of a stale run ID.
 - Public Reimu output: `public/characters/reimu`
 - Public frame count: 225 WebP frames
@@ -38,9 +38,9 @@ This audit maps the active Reimu recovery goal to current evidence on `main`. It
 | Use fresh OpenAI image-model output in the resumed approach | Built-in image-model sleeve edits were generated for `cy_01/r0c2` and `ct_01/r1c2`, copied into `tmp/imagegen/reimu-sleeve-candidates`, measured at sleeve ratios `0.231` and `0.233`, included in reference metrics when present, promoted into the OpenAI target sheet, and converted into alpha/normalized/projected sleeve guide artifacts by `npm run audit:assets:openai-sleeve-candidates` | Strong local evidence |
 | Block direct adoption when non-sleeve drift is too high | `tmp/imagegen/reimu-sleeve-candidates/processed/reimu-openai-sleeve-candidates-summary.json` records `nonSleeveDrift.driftRatio = 0.7008` and `0.8519` with `directAdoptionAllowed = false`; `verify:reimu:quality` reports `openAiCandidateProcessed = 2`, so generated images are used as sleeve guidance instead of replacing frames | Proven by candidate preprocessing and verifier |
 | Avoid T/Y separate sleeve-overlay asset approach | Sleeve edits are applied into generated WebP frames by `tools/slice-fumo-assets.mjs`; no separate sleeve overlay is shipped | Proven by source path |
-| Keep T/Y sleeve area close to plain-pose proportions | `tools/audit-reimu-sleeve-guards.mjs` and `tmp/quality-audit/reimu-sleeve-guard-summary.json` enforce width floors and loss limits | Proven by audit |
+| Keep T/Y sleeve area close to plain-pose proportions | `tools/audit-reimu-sleeve-guards.mjs` and `tmp/quality-audit/reimu-sleeve-guard-summary.json` enforce width floors and loss limits; `tools/slice-fumo-assets.mjs` now rejects frame-wide sleeve reshapes that create audit-compatible side-balance regressions; latest max side imbalance is `0.1530`, and `ct_01/r1c2.webp` improved from the previous `0.1763` imbalance case to `0.0976` | Proven by audit |
 | Reduce perceived center-of-mass jitter in live direction changes | `targetToStableCell` is covered by unit tests and deployed browser pointer checks | Proven for boundary scenario |
-| Verify static GitHub Pages site still works | `npm run check`, `npm run verify:pages`, deployed browser check on Talk page, and GitHub Pages workflow success after pushed quality passes | Proven for checked pages/build |
+| Verify static GitHub Pages site still works | `npm run check`, `npm run verify:pages`, deployed browser check on Talk page, local preview screenshots under `tmp/browser-screenshots/reimu-pose-{p,t,y}.png`, and GitHub Pages workflow success after pushed quality passes | Proven for checked pages/build |
 
 ## Commands Verified In This Pass
 
@@ -59,6 +59,14 @@ npm.cmd run audit:assets:sweep
 npm.cmd run check
 npm.cmd run test
 npm.cmd run lint
+```
+
+Additional verified evidence from the frame-level sleeve guard pass:
+
+```bash
+npm.cmd run build:assets:fumo -- --characters reimu --lossless --quality 100
+npm.cmd run quality:reimu
+npm.cmd run check
 ```
 
 Recent verified commands from the immediately preceding stability pass:

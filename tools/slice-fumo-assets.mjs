@@ -39,6 +39,7 @@ const DEFAULTS = {
   cols: 5,
   outputSize: 512,
   quality: 94,
+  reimuSleeveMaterialFile: 'metaassets/fumo/reimu/reimu_openai_sleeve_material_recipe.json',
   windowScale: 1.55,
   gravityBlend: 0.68,
   lossless: false,
@@ -288,7 +289,11 @@ function alphaBounds(data, width, height) {
     bounds.maxY = Math.max(bounds.maxY, y);
   }
 
-  return bounds;
+  return {
+    ...bounds,
+    height: bounds.maxY - bounds.minY + 1,
+    width: bounds.maxX - bounds.minX + 1,
+  };
 }
 
 function isReimuSleevePixel(data, index, width, bounds, centerX) {
@@ -971,6 +976,15 @@ async function readRgbaFrame(file) {
   };
 }
 
+async function readJsonIfFile(file) {
+  try {
+    return JSON.parse(await readFile(file, 'utf8'));
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
 async function isDirectoryEntry(parentDir, entry) {
   if (entry.isDirectory()) return true;
   if (entry.isFile()) return false;
@@ -1135,6 +1149,19 @@ function withComponentSourceWidth(components, width) {
     ...component,
     sourceWidth: width,
   }));
+}
+
+function reimuSleeveMaterialForPose(sleeveMaterial, poseKind) {
+  return sleeveMaterial?.policy?.controlledMaterialAdoption === true
+    ? sleeveMaterial.poseTargets?.[poseKind] ?? null
+    : null;
+}
+
+function reimuSleeveMaterialMinWidth(material, targetBounds) {
+  const minSideWidthRatio = Number(material?.minSideWidthRatio ?? 0);
+  if (!Number.isFinite(minSideWidthRatio) || minSideWidthRatio <= 0) return 0;
+
+  return targetBounds.width * minSideWidthRatio;
 }
 
 function reimuExpressionBlendAmount(x, y, bounds) {
@@ -1381,16 +1408,25 @@ function flaredSleevePatch({
   return output;
 }
 
-async function reshapeReimuPoseSleeves({ lossless, outputFile, quality, referenceFile, targetFile }) {
+async function reshapeReimuPoseSleeves({
+  lossless,
+  outputFile,
+  quality,
+  referenceFile,
+  sleeveMaterial,
+  targetFile,
+}) {
   const poseKind = path.basename(path.dirname(targetFile)).includes('y') ? 'y' : 't';
   const target = await readRgbaFrame(targetFile);
   const reference = await readRgbaFrame(referenceFile);
+  const targetBounds = alphaBounds(target.data, target.width, target.height);
   const targetComponents = withComponentSourceWidth(
     reimuSleeveComponents(target.data, target.width, target.height),
     target.width,
   );
   const referenceComponents = reimuSleeveComponents(reference.data, reference.width, reference.height);
   const sleeveStyle = REIMU_SLEEVE_STYLE[poseKind];
+  const material = reimuSleeveMaterialForPose(sleeveMaterial, poseKind);
   const originalData = Buffer.from(target.data);
   const editedData = Buffer.from(target.data);
 
@@ -1412,6 +1448,7 @@ async function reshapeReimuPoseSleeves({ lossless, outputFile, quality, referenc
     const minWidth = Math.max(
       targetSleeve.width,
       referenceSleeve.width * sleeveStyle.minWidthFromReference,
+      reimuSleeveMaterialMinWidth(material, targetBounds),
     );
     const maxWidth = Math.max(minWidth, referenceSleeve.width * sleeveStyle.maxWidthFromReference);
     const outputWidth = Math.round(clampNumber(
@@ -1505,7 +1542,14 @@ async function reshapeReimuPoseSleeves({ lossless, outputFile, quality, referenc
   });
 }
 
-async function reshapeReimuPoseSleeveSheets({ characterOutputDir, cols, lossless, quality, rows }) {
+async function reshapeReimuPoseSleeveSheets({
+  characterOutputDir,
+  cols,
+  lossless,
+  quality,
+  rows,
+  sleeveMaterial,
+}) {
   for (const [targetSheet, referenceSheet] of Object.entries(REIMU_SLEEVE_REFERENCE_SHEETS)) {
     for (let row = 0; row < rows; row += 1) {
       for (let col = 0; col < cols; col += 1) {
@@ -1517,6 +1561,7 @@ async function reshapeReimuPoseSleeveSheets({ characterOutputDir, cols, lossless
           outputFile: targetFile,
           quality,
           referenceFile,
+          sleeveMaterial,
           targetFile,
         });
       }
@@ -1754,9 +1799,15 @@ async function main() {
     windowScale: readNumberOption(args, 'window-scale', DEFAULTS.windowScale),
     gravityBlend: Math.min(1, readNumberOption(args, 'gravity-blend', DEFAULTS.gravityBlend)),
     lossless: hasOption(args, 'lossless') || DEFAULTS.lossless,
+    reimuSleeveMaterialFile: path.resolve(readOption(
+      args,
+      'reimu-sleeve-material',
+      DEFAULTS.reimuSleeveMaterialFile,
+    )),
   };
 
   await assertKnownCharacters(options.sourceRoot, options.characters);
+  const reimuSleeveMaterial = await readJsonIfFile(options.reimuSleeveMaterialFile);
 
   let written = 0;
   for (const characterId of options.characters) {
@@ -1790,8 +1841,13 @@ async function main() {
         lossless: options.lossless,
         quality: options.quality,
         rows: options.rows,
+        sleeveMaterial: reimuSleeveMaterial,
       });
-      console.log('reimu: reshaped T/Y sleeve pixels against plain-pose bounds');
+      console.log(
+        reimuSleeveMaterial?.policy?.controlledMaterialAdoption
+          ? 'reimu: reshaped T/Y sleeve pixels with OpenAI-derived material bounds'
+          : 'reimu: reshaped T/Y sleeve pixels against plain-pose bounds',
+      );
       await stabilizeReimuExpressionSheets({
         characterOutputDir,
         cols: options.cols,

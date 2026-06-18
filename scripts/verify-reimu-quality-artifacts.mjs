@@ -247,8 +247,17 @@ async function verifyOpenAiCandidateArtifacts(
   }
 
   for (const row of processedRows) {
-    if (row.directAdoptionAllowed !== false) {
-      failures.push(`${row.candidate?.file ?? 'candidate'} directAdoptionAllowed should be false`);
+    if (row.controlledMaterialAllowed !== true) {
+      failures.push(`${row.candidate?.file ?? 'candidate'} controlledMaterialAllowed should be true`);
+    }
+    if (row.materialization?.adoptionMode !== 'sleeve-mask-and-proportion-material') {
+      failures.push(`${row.candidate?.file ?? 'candidate'} missing controlled materialization mode`);
+    }
+    if (row.materialization?.preserveIdentityAndGrid !== true) {
+      failures.push(`${row.candidate?.file ?? 'candidate'} should preserve identity and grid`);
+    }
+    if (row.materialization?.fullFrameReplacementAllowed !== row.directAdoptionAllowed) {
+      failures.push(`${row.candidate?.file ?? 'candidate'} full-frame policy should match drift gate`);
     }
     if (!(row.nonSleeveDrift?.driftRatio > 0.08)) {
       failures.push(`${row.candidate?.file ?? 'candidate'} drift ratio should block direct adoption`);

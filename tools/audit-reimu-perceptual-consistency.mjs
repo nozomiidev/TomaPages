@@ -294,9 +294,9 @@ function classifyCandidate(candidate, {
 
   if (hasMetric(candidate, 'openAiSleeveTargetRatio')) {
     addGate(
-      'openai-reference-only',
+      'openai-material-postprocess',
       openAiSummary.directAdoptionBlocked === true && Number(openAiSummary.openAiReferenceCount ?? 0) >= 5,
-      'OpenAI sleeve targets are used as measured guidance while direct full-frame adoption remains blocked',
+      'OpenAI sleeve targets are measured material for local post-processing while full-frame replacement remains blocked',
     );
   }
 
@@ -776,7 +776,7 @@ async function legendTile(width, height, summary) {
   const lines = [
     'Reimu perceptual consistency audit',
     `225-frame visual review candidates: ${summary.candidateCount}; severe hard-check issues: ${summary.severeIssueCount}`,
-    'Candidates combine neighbor jumps, expression deltas, sleeve proportions, OpenAI sleeve targets, weak alpha, and original gaps.',
+    'Candidates combine neighbor jumps, expression deltas, sleeve proportions, OpenAI-derived sleeve material targets, weak alpha, and original gaps.',
   ];
 
   return sharp({

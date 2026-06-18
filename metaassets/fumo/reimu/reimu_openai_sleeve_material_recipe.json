@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "source": "OpenAI image-model sleeve edit candidates, normalized through local preprocessing.",
+  "policy": {
+    "fullFrameReplacement": false,
+    "controlledMaterialAdoption": true,
+    "preserve": [
+      "identity",
+      "face",
+      "head scale",
+      "body scale",
+      "canvas",
+      "line weight",
+      "5x5 grid alignment"
+    ]
+  },
+  "candidateSleeveWidthRatios": [
+    {
+      "file": "tmp/imagegen/reimu-sleeve-candidates/reimu-cy-r0c2-openai-sleeve-edit-raw.png",
+      "averageSleeveWidthRatio": 0.231
+    },
+    {
+      "file": "tmp/imagegen/reimu-sleeve-candidates/reimu-ct-r1c2-openai-sleeve-edit-raw.png",
+      "averageSleeveWidthRatio": 0.233
+    }
+  ],
+  "poseTargets": {
+    "t": {
+      "minSideWidthRatio": 0.27
+    },
+    "y": {
+      "minSideWidthRatio": 0.27
+    }
+  }
+}

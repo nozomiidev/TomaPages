@@ -523,7 +523,7 @@ async function renderSheet({ candidateFile, driftFile, guideFile, normalizedFile
     `<svg width="${width}" height="78" xmlns="http://www.w3.org/2000/svg">`
     + '<rect width="100%" height="100%" fill="#f8fafc"/>'
     + '<text x="14" y="25" font-family="Arial" font-size="17" font-weight="700" fill="#111827">Reimu OpenAI sleeve candidate preprocessing</text>'
-    + `<text x="14" y="49" font-family="Arial" font-size="12" fill="#475569">candidate sleeve ${summary.candidate.averageSleeveWidthRatio}; target sleeve ${summary.target.averageSleeveWidthRatio}; non-sleeve drift ${(summary.nonSleeveDrift.driftRatio * 100).toFixed(1)}%; direct adoption ${summary.directAdoptionAllowed ? 'allowed' : 'blocked'}</text>`
+    + `<text x="14" y="49" font-family="Arial" font-size="12" fill="#475569">candidate sleeve ${summary.candidate.averageSleeveWidthRatio}; target sleeve ${summary.target.averageSleeveWidthRatio}; non-sleeve drift ${(summary.nonSleeveDrift.driftRatio * 100).toFixed(1)}%; material adoption ${summary.controlledMaterialAllowed ? 'allowed' : 'blocked'}</text>`
     + '</svg>',
   );
   const tiles = await Promise.all([
@@ -635,10 +635,17 @@ async function processCandidate(candidateFile, options, referenceRows) {
         width: candidate.width,
       },
     },
+    controlledMaterialAllowed: true,
     directAdoptionAllowed,
     directAdoptionBlockers: directAdoptionAllowed
       ? []
       : ['non-sleeve drift is above the safe direct-adoption threshold'],
+    materialization: {
+      adoptionMode: 'sleeve-mask-and-proportion-material',
+      fullFrameReplacementAllowed: directAdoptionAllowed,
+      localPostprocessRequired: true,
+      preserveIdentityAndGrid: true,
+    },
     nonSleeveDrift: drift,
     outputs: Object.fromEntries(Object.entries(outputFiles).map(([key, file]) => [
       key,
@@ -699,7 +706,8 @@ async function main() {
     generatedAt: new Date().toISOString(),
     notes: [
       'OpenAI candidates are converted from green-screen output to local transparent material.',
-      'Normalized outputs and sleeve guides are review/preprocessing artifacts, not shipped avatar frames.',
+      'Normalized outputs and sleeve guides are controlled preprocessing material for deterministic local post-processing.',
+      'Full-frame replacement is blocked when drift is high, but sleeve material adoption remains allowed after local guards.',
       'Sleeve ratios are read from the reference audit when available so candidate and target use the same metric definition.',
     ],
     processedCount: rows.filter((row) => row.status === 'processed').length,

@@ -17,6 +17,7 @@ const DEFAULTS = {
   publicRoot: 'public/characters/reimu',
   qualityRoot: 'tmp/quality-audit',
   referenceRoot: 'tmp/reference-audit',
+  sleeveMaterialFile: 'metaassets/fumo/reimu/reimu_openai_sleeve_material_recipe.json',
 };
 
 const EXPECTED = {
@@ -132,6 +133,11 @@ async function main() {
     publicRoot: path.resolve(readOption(args, 'public-root', DEFAULTS.publicRoot)),
     qualityRoot: path.resolve(readOption(args, 'quality-root', DEFAULTS.qualityRoot)),
     referenceRoot: path.resolve(readOption(args, 'reference-root', DEFAULTS.referenceRoot)),
+    sleeveMaterialFile: path.resolve(readOption(
+      args,
+      'sleeve-material-file',
+      DEFAULTS.sleeveMaterialFile,
+    )),
   };
 
   const [
@@ -141,6 +147,7 @@ async function main() {
     gapSummary,
     lineSummary,
     openAiCandidateSummary,
+    openAiSleeveMaterial,
     openAiTargetSummary,
     perceptualDispositions,
     perceptualSummary,
@@ -160,6 +167,7 @@ async function main() {
       options.openAiCandidateRoot,
       'reimu-openai-sleeve-candidates-summary.json',
     )),
+    readJson(options.sleeveMaterialFile),
     readJson(path.join(options.referenceRoot, 'reimu-openai-reference-targets-summary.json')),
     readJson(path.join(options.perceptualRoot, 'reimu-perceptual-candidate-disposition.json')),
     readJson(path.join(options.perceptualRoot, 'reimu-perceptual-consistency-summary.json')),
@@ -325,6 +333,17 @@ async function main() {
   );
   passRequirement(
     requirements,
+    'openai-material-recipe-present',
+    openAiSleeveMaterial.policy?.controlledMaterialAdoption === true
+      && openAiSleeveMaterial.policy?.fullFrameReplacement === false
+      && Number(openAiSleeveMaterial.poseTargets?.t?.minSideWidthRatio ?? 0) > 0
+      && Number(openAiSleeveMaterial.poseTargets?.y?.minSideWidthRatio ?? 0) > 0
+      && Array.isArray(openAiSleeveMaterial.candidateSleeveWidthRatios)
+      && openAiSleeveMaterial.candidateSleeveWidthRatios.length >= 1,
+    `controlledMaterial=${openAiSleeveMaterial.policy?.controlledMaterialAdoption}, tMin=${openAiSleeveMaterial.poseTargets?.t?.minSideWidthRatio}, yMin=${openAiSleeveMaterial.poseTargets?.y?.minSideWidthRatio}`,
+  );
+  passRequirement(
+    requirements,
     'openai-reference-guidance-present',
     openAiTargetSummary.openAiReferenceCount >= EXPECTED.minOpenAiReferenceRows
       && openAiTargetSummary.currentFrameCount >= EXPECTED.currentReferenceFrames
@@ -333,12 +352,17 @@ async function main() {
   );
   passRequirement(
     requirements,
-    'openai-candidates-not-directly-shipped',
+    'openai-candidates-materialized-through-local-postprocess',
     openAiCandidateSummary.candidateCount >= 1
       && openAiCandidateSummary.processedCount === openAiCandidateSummary.candidateCount
       && candidateRows.every((row) => row.status === 'processed')
+      && candidateRows.every((row) => row.controlledMaterialAllowed === true)
+      && candidateRows.every((row) => (
+        row.materialization?.adoptionMode === 'sleeve-mask-and-proportion-material'
+      ))
+      && candidateRows.every((row) => row.materialization?.preserveIdentityAndGrid === true)
       && candidateRows.every((row) => row.directAdoptionAllowed === false),
-    `candidates=${openAiCandidateSummary.candidateCount}, processed=${openAiCandidateSummary.processedCount}, directAllowed=${candidateRows.filter((row) => row.directAdoptionAllowed).length}`,
+    `candidates=${openAiCandidateSummary.candidateCount}, processed=${openAiCandidateSummary.processedCount}, materialAllowed=${candidateRows.filter((row) => row.controlledMaterialAllowed).length}, directFullFrameAllowed=${candidateRows.filter((row) => row.directAdoptionAllowed).length}`,
   );
   passRequirement(
     requirements,

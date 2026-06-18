@@ -4,7 +4,7 @@ This note records the recoverable OpenAI-assisted asset workflow for Reimu. It i
 
 ## Principle
 
-OpenAI image outputs are allowed in the Reimu recovery pipeline, but they are not shipped directly unless they survive deterministic post-processing and the same 225-frame quality gates as the source-sheet output.
+OpenAI image outputs are allowed in the Reimu recovery pipeline. The full generated frame is not shipped when it drifts, but normalized sleeve masks, sleeve ratios, and local material recipes can be adopted after deterministic post-processing and the same 225-frame quality gates as the source-sheet output.
 
 The product asset invariants remain:
 
@@ -12,7 +12,7 @@ The product asset invariants remain:
 - preserve transparent WebP output at 512x512
 - preserve motion stability between neighboring grid frames
 - avoid separate sleeve overlays or doubled assets
-- avoid direct adoption of one-off generated full-body images that drift in line weight, framing, or identity
+- avoid unprocessed adoption of one-off generated full-body images that drift in line weight, framing, or identity
 
 ## Recovered Inputs
 
@@ -23,6 +23,7 @@ metaassets/fumo/reimu/reimu_sleeve_reference_imagegen.png
 metaassets/fumo/reimu/reimu_sleeve_reference_imagegen_tpose_20260617.png
 tmp/recovery/reimu-quality-2026-06-17/openai-generated
 tmp/imagegen/reimu-sleeve-candidates
+metaassets/fumo/reimu/reimu_openai_sleeve_material_recipe.json
 ```
 
 The `tmp/imagegen/reimu-sleeve-candidates` directory is optional local evidence. It is used when a fresh OpenAI image-model edit candidate exists locally, and ignored on clean checkouts where that directory is absent.
@@ -44,7 +45,7 @@ tmp/reference-audit/reimu-openai-reference-targets.csv
 tmp/reference-audit/reimu-openai-reference-targets-summary.json
 ```
 
-The target sheet keeps OpenAI reference masks and the lowest current Reimu sleeve-ratio frames in the same visual review surface. This is intentionally a review surface, not an automatic replacement pass.
+The target sheet keeps OpenAI reference masks and the lowest current Reimu sleeve-ratio frames in the same visual review surface. The material recipe turns that evidence into conservative local sleeve-width floors for the deterministic slicer.
 
 ## Current Metrics
 
@@ -84,7 +85,7 @@ tmp/imagegen/reimu-sleeve-candidates/processed/*-drift-heat.png
 tmp/imagegen/reimu-sleeve-candidates/processed/*-preprocess-sheet.png
 ```
 
-The latest local candidates have `nonSleeveDrift.driftRatio = 0.7008` and `0.8519`, so they remain controlled sleeve guides rather than replacement frames.
+The latest local candidates have `nonSleeveDrift.driftRatio = 0.7008` and `0.8519`, so the whole generated frames remain blocked as replacements. Their sleeve measurements are now materialized through `metaassets/fumo/reimu/reimu_openai_sleeve_material_recipe.json`, which sets conservative `t` and `y` pose sleeve-width floors.
 
 Lowest current-frame sleeve ratio review candidates:
 
@@ -108,11 +109,12 @@ The intended OpenAI-assisted route is:
 1. Generate or recover an OpenAI reference that solves only the local visual problem, such as sleeve breadth or soft cloth contour.
 2. Extract foreground and sleeve masks from the generated reference.
 3. Normalize the mask signal into the existing Reimu 512x512 coordinate system.
-4. Apply only the permitted local edit to the source-sheet-derived frame or source-sheet cleanup logic.
-5. Preserve the existing face, head, body, canvas, alpha, and 5x5 grid.
-6. Regenerate all Reimu frames.
-7. Rebuild `tmp/audit` and `tmp/compare`.
-8. Verify that defects reduce without new clipping, doubled sleeves, transparent residue, or motion jitter.
+4. Record safe material targets in `metaassets/fumo/reimu/reimu_openai_sleeve_material_recipe.json`.
+5. Apply only the permitted local edit to the source-sheet-derived frame or source-sheet cleanup logic.
+6. Preserve the existing face, head, body, canvas, alpha, and 5x5 grid.
+7. Regenerate all Reimu frames.
+8. Rebuild `tmp/audit` and `tmp/compare`.
+9. Verify that defects reduce without new clipping, doubled sleeves, transparent residue, or motion jitter.
 
 ## Verification Commands
 
@@ -141,6 +143,12 @@ tmp/inspection
 tmp/sweep
 ```
 
+The slicer reads the OpenAI-derived material recipe when present and logs:
+
+```text
+reimu: reshaped T/Y sleeve pixels with OpenAI-derived material bounds
+```
+
 `verify:reimu:quality` requires the OpenAI target sheet and reports:
 
 ```text
@@ -162,4 +170,4 @@ That sheet promotes the lowest current sleeve-ratio frames into the same current
 
 ## Current Status
 
-The current shipped Reimu frames pass the hard asset audits. OpenAI references are now available as measured, reproducible inputs and target sheets for future controlled local edits instead of being treated as vague visual inspiration.
+The current shipped Reimu frames pass the hard asset audits. OpenAI references are now measured, reproducible inputs for controlled local material edits instead of being treated as vague visual inspiration or discarded whole-frame candidates.

@@ -151,8 +151,9 @@ The Reimu quality pass now covers:
 - residual actionable-defect disposition in `tmp/quality-audit/reimu-residual-defect-summary.json`
 - alpha-edge line integrity in `tmp/line-audit`
 - OpenAI reference mask, sleeve-ratio analysis, and controlled-edit target sheet in `tmp/reference-audit`
-- optional fresh OpenAI sleeve-edit candidates in `tmp/imagegen/reimu-sleeve-candidates`, measured as reference inputs when present
-- OpenAI sleeve candidate preprocessing artifacts in `tmp/imagegen/reimu-sleeve-candidates/processed`, including transparent alpha, normalized fit, projected sleeve guide, drift heat, and direct-adoption blocker metrics
+- optional fresh OpenAI sleeve-edit candidates in `tmp/imagegen/reimu-sleeve-candidates`, measured as material inputs when present
+- OpenAI sleeve candidate preprocessing artifacts in `tmp/imagegen/reimu-sleeve-candidates/processed`, including transparent alpha, normalized fit, projected sleeve guide, drift heat, and controlled materialization metrics
+- OpenAI-derived sleeve material recipe in `metaassets/fumo/reimu/reimu_openai_sleeve_material_recipe.json`
 - perceptual consistency review sheet in `tmp/perceptual-audit`, combining current/no-reshape/diff heat for top drawing-level candidates
 - local recovered baseline-delta comparison in `tmp/baseline-delta`, available through `npm run audit:assets:baseline-delta`
 - weak alpha pixels
@@ -202,5 +203,5 @@ minSideWidthRatio = 0.20
 - Use the in-app Browser for localhost or GitHub Pages verification by default.
 - If Chrome GUI is required, first verify that the Chrome window belongs to `nozomidevbusin@gmail.com`.
 - Do not reintroduce separate sleeve-overlay assets for Reimu T/Y poses. The user explicitly rejected that approach.
-- Do not directly mix OpenAI generated whole-body frames into the 225-frame grid unless a controlled edit pipeline preserves Reimu identity, line weight, canvas, and all pose-grid invariants.
+- Do not directly mix unprocessed OpenAI generated whole-body frames into the 225-frame grid. Use them through controlled materialization only when the edit pipeline preserves Reimu identity, line weight, canvas, and all pose-grid invariants.
 - Keep the Reimu product-quality regeneration path lossless unless a replacement encoding proves zero transparent RGB residue after decode.

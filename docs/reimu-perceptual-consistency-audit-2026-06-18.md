@@ -77,7 +77,7 @@ The disposition file records the reason each candidate is still review-only. Exa
 ```text
 pt_01/r0c1.webp: original internal gap is not suspicious, line-like, light-cloth, or reference-covered
 ct_01/r1c2.webp: sleeve candidate remains inside width, side-loss, and side-imbalance guard thresholds
-cy_01/r0c2.webp: weak alpha is attached to visible edges, expression ratio is below threshold, and OpenAI sleeve targets are reference-only
+cy_01/r0c2.webp: weak alpha is attached to visible edges, expression ratio is below threshold, and OpenAI sleeve targets are controlled post-processing material
 ```
 
 ## Verification

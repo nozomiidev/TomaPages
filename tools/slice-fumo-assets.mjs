@@ -78,7 +78,7 @@ const REIMU_SLEEVE_STYLE = {
     outerSilhouette: 0.98,
     innerSilhouette: 0.80,
     topOffsetY: 2,
-    widthScale: 1.09,
+    widthScale: 1.12,
   },
   y: {
     cornerFeather: 0.10,
@@ -94,7 +94,7 @@ const REIMU_SLEEVE_STYLE = {
     outerSilhouette: 0.97,
     innerSilhouette: 0.78,
     topOffsetY: 1,
-    widthScale: 1.11,
+    widthScale: 1.14,
   },
 };
 

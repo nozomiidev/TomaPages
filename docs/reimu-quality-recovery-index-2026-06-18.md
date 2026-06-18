@@ -4,7 +4,7 @@ This index records where the recovered Reimu quality work lives and how it maps 
 
 ## Current Main State
 
-- Latest Reimu code/assets state covered by this index: current `main` after the expression-region leakage evidence gate pass
+- Latest Reimu code/assets state covered by this index: current `main` after the OpenAI sleeve material width tuning pass
 - Repository: `https://github.com/nozomiidev/TomaPages.git`
 - Branch: `main`
 - Shipped Reimu frames: `public/characters/reimu`, 9 sheets x 25 frames = 225 WebP files
@@ -14,6 +14,7 @@ This index records where the recovered Reimu quality work lives and how it maps 
 
 Recent quality commits:
 
+- OpenAI sleeve material width tuning pass, broadening controlled T/Y sleeve material while keeping no-overlay, no-full-frame-replacement guards
 - expression-region leakage evidence gate, requiring mouth/blink deltas to stay bounded around the face blend region
 - baseline-delta artifact evidence gate, requiring local before/after comparison CSV/JSON/PNG outputs
 - OpenAI material application audit pass, comparing shipped Reimu frames with a no-material baseline

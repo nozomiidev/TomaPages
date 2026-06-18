@@ -26,10 +26,10 @@
   ],
   "poseTargets": {
     "t": {
-      "minSideWidthRatio": 0.27
+      "minSideWidthRatio": 0.285
     },
     "y": {
-      "minSideWidthRatio": 0.27
+      "minSideWidthRatio": 0.285
     }
   }
 }

@@ -40,8 +40,8 @@ Latest local run:
 qualityFrames = 225
 sleeveFrames = 150
 expressionComparisons = 225
-openAiReferenceRows = 5
-openAiTargetRows = 17
+openAiReferenceRows = 7
+openAiTargetRows = 19
 perceptualCandidates = 12
 severeIssueCount = 0
 ```

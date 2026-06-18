@@ -51,9 +51,9 @@ The target sheet keeps OpenAI reference masks and the lowest current Reimu sleev
 Latest regenerated reference audit:
 
 ```text
-OpenAI references: 6 when the local sleeve candidate exists, otherwise 5 recovered/reference images
+OpenAI references: 7 when both local sleeve candidates exist, otherwise 5 recovered/reference images
 Current T/Y frames: 150
-OpenAI target rows: 18 with the local sleeve candidate, otherwise 17
+OpenAI target rows: 19 with both local sleeve candidates, otherwise 17
 OpenAI sleeve width ratio range: 0.144 - 0.294
 Current sleeve width ratio range: 0.098 - 0.260
 Current low sleeve-ratio review frames at <= 0.18: 22
@@ -65,13 +65,14 @@ Useful OpenAI reference readings:
 reimu_sleeve_reference_imagegen.png: 0.222
 ig_0c9f715f97270ac3016a32773cb8088191af4774c1cd0b94a2.png: 0.222
 tmp/imagegen/reimu-sleeve-candidates/reimu-cy-r0c2-openai-sleeve-edit-raw.png: 0.231
+tmp/imagegen/reimu-sleeve-candidates/reimu-ct-r1c2-openai-sleeve-edit-raw.png: 0.233
 ig_03eb4ba73c27a25f016a3264fc9cf48196923471f62f9ebad3.png: 0.233
 ig_03eb4ba73c27a25f016a3261b063788196aff9f2d64c56e2d7.png: 0.294
 ```
 
 The `0.294` reference is useful as an upper-bound broad-sleeve target, but it is too large for direct adoption because it risks contradicting the shipped `p` pose family.
 
-The local `0.231` candidate was generated from the current `cy_01/r0c2.webp` target and measured as a useful moderate-sleeve reference, but it is not directly shippable because the image-model output drifts in face, bow scale, whole-body scale, and canvas framing.
+The local `0.231` candidate was generated from the current `cy_01/r0c2.webp` target, and the local `0.233` candidate was generated from the near-threshold `ct_01/r1c2.webp` target. Both are useful moderate-sleeve references, but neither is directly shippable because the image-model output drifts in face, bow scale, whole-body scale, and canvas framing.
 
 `tools/prepare-reimu-openai-sleeve-candidates.mjs` turns local green-screen OpenAI outputs into preprocessing material:
 
@@ -83,7 +84,7 @@ tmp/imagegen/reimu-sleeve-candidates/processed/*-drift-heat.png
 tmp/imagegen/reimu-sleeve-candidates/processed/*-preprocess-sheet.png
 ```
 
-The latest local candidate has `nonSleeveDrift.driftRatio = 0.7008`, so the candidate remains a controlled sleeve guide rather than a replacement frame.
+The latest local candidates have `nonSleeveDrift.driftRatio = 0.7008` and `0.8519`, so they remain controlled sleeve guides rather than replacement frames.
 
 Lowest current-frame sleeve ratio review candidates:
 
@@ -143,11 +144,11 @@ tmp/sweep
 `verify:reimu:quality` requires the OpenAI target sheet and reports:
 
 ```text
-openAiReferenceImages = 6 when local imagegen candidate exists, otherwise 5
-openAiTargetRows = 18 when local imagegen candidate exists, otherwise 17
+openAiReferenceImages = 7 when both local imagegen candidates exist, otherwise 5
+openAiTargetRows = 19 when both local imagegen candidates exist, otherwise 17
 referenceFrames = 150
-referencePngs = 312 when local imagegen candidate exists, otherwise 310
-openAiCandidateProcessed = 1 when local sleeve candidate exists, otherwise 0
+referencePngs = 314 when both local imagegen candidates exist, otherwise 310
+openAiCandidateProcessed = 2 when both local sleeve candidates exist, otherwise 0
 ```
 
 The OpenAI target rows are also consumed by the perceptual consistency audit:

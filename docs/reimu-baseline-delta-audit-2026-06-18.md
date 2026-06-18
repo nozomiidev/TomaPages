@@ -10,6 +10,12 @@ The comparison script is:
 npm.cmd run audit:assets:baseline-delta
 ```
 
+It is also part of the full Reimu evidence pipeline:
+
+```bash
+npm.cmd run quality:reimu
+```
+
 It compares:
 
 ```text
@@ -17,7 +23,7 @@ baseline: tmp/before-lossless/public/characters/reimu
 current:  public/characters/reimu
 ```
 
-Both sides contain 225 WebP frames. The baseline lives in `tmp/`, so this audit is intentionally a local recovery/evidence tool rather than a GitHub Actions gate.
+Both sides contain 225 WebP frames. The baseline lives in `tmp/`, so this audit is intentionally a local recovery/evidence tool rather than a GitHub Actions gate. The result is consumed by `npm.cmd run verify:reimu:goal` as one of the requirement-level recovery checks.
 
 ## Output Artifacts
 

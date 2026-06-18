@@ -23,7 +23,7 @@ baseline: tmp/before-lossless/public/characters/reimu
 current:  public/characters/reimu
 ```
 
-Both sides contain 225 WebP frames. The baseline lives in `tmp/`, so this audit is intentionally a local recovery/evidence tool rather than a GitHub Actions gate. The result is consumed by `npm.cmd run verify:reimu:goal` as one of the requirement-level recovery checks.
+Both sides contain 225 WebP frames. The baseline lives in `tmp/`, so this audit is intentionally a local recovery/evidence tool rather than a GitHub Actions gate. The result is consumed by `npm.cmd run verify:reimu:quality` and `npm.cmd run verify:reimu:goal` as one of the requirement-level recovery checks.
 
 ## Output Artifacts
 
@@ -34,6 +34,7 @@ tmp/baseline-delta/reimu-baseline-quality-delta.png
 ```
 
 The PNG summary is a compact chart for reviewing metric totals before and after.
+`verify:reimu:quality` requires all three files to be present, non-empty, fresh relative to the regenerated public/no-reshape frames, and requires the PNG to stay at `960x408` so the before/after review artifact cannot silently disappear or drift format.
 
 ## Latest Result
 
@@ -56,7 +57,7 @@ Key totals:
 | `lineLikeHoleArea` | 0 | 0 | 0 | 100.00% |
 | `lightInteriorGapArea` | 0 | 0 | 0 | 100.00% |
 
-Weak alpha pixels increased from `23755` to `28132`, with a maximum current frame value of `309`. This is within the existing product audit budget of `maxWeakAlpha = 320` and is treated as supported antialiasing, not a hard defect.
+Weak alpha pixels increased from `23755` to `28235`, with a maximum current frame value of `309`. This is within the existing product audit budget of `maxWeakAlpha = 320` and is treated as supported antialiasing, not a hard defect.
 
 The only current internal-gap regression by frame is `pt_01/r0c1.webp`, `822 -> 914`; the total internal-gap area still drops by `7138` px and the maximum current frame remains within `maxInternalGapArea = 1800`.
 

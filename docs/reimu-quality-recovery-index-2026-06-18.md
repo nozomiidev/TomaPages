@@ -4,7 +4,7 @@ This index records where the recovered Reimu quality work lives and how it maps 
 
 ## Current Main State
 
-- Latest Reimu code/assets state covered by this index: current `main` after the OpenAI material application audit pass
+- Latest Reimu code/assets state covered by this index: current `main` after the baseline-delta artifact evidence gate pass
 - Repository: `https://github.com/nozomiidev/TomaPages.git`
 - Branch: `main`
 - Shipped Reimu frames: `public/characters/reimu`, 9 sheets x 25 frames = 225 WebP files
@@ -14,6 +14,7 @@ This index records where the recovered Reimu quality work lives and how it maps 
 
 Recent quality commits:
 
+- baseline-delta artifact evidence gate, requiring local before/after comparison CSV/JSON/PNG outputs
 - OpenAI material application audit pass, comparing shipped Reimu frames with a no-material baseline
 - line-integrity audit pass, checking that alpha edges stay near visible ink/trim support across all Reimu frames
 - residual-defect audit pass, separating actionable Reimu defects from supported antialiasing and original negative-space review candidates
@@ -158,7 +159,7 @@ The Reimu quality pass now covers:
 - OpenAI-derived sleeve material recipe in `metaassets/fumo/reimu/reimu_openai_sleeve_material_recipe.json`
 - OpenAI material application audit in `tmp/openai-material-audit`, comparing current frames with a generated no-material baseline from `tmp/openai-material-baseline`
 - perceptual consistency review sheet in `tmp/perceptual-audit`, combining current/no-reshape/diff heat for top drawing-level candidates
-- local recovered baseline-delta comparison in `tmp/baseline-delta`, available through `npm run audit:assets:baseline-delta`
+- local recovered baseline-delta comparison in `tmp/baseline-delta`, available through `npm run audit:assets:baseline-delta` and required by `verify:reimu:quality` / `verify:reimu:goal`
 - weak alpha pixels
 - weak alpha edge support and orphan weak-alpha ghost detection in `tmp/edge-audit`
 - expression-frame diff review in `tmp/expression-audit`

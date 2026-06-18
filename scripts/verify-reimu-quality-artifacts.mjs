@@ -4,6 +4,7 @@ import sharp from 'sharp';
 
 const DEFAULTS = {
   auditRoot: 'tmp/audit',
+  baselineDeltaRoot: 'tmp/baseline-delta',
   compareRoot: 'tmp/compare',
   edgeRoot: 'tmp/edge-audit',
   expressionRoot: 'tmp/expression-audit',
@@ -31,6 +32,7 @@ const EXPECTED_REFERENCE_CURRENT_FRAMES = COMPARE_SHEETS.length * 25;
 const EXPECTED_OPENAI_REFERENCE_IMAGES = 5;
 const VISUAL_DIMENSIONS = {
   audit: { height: 800, width: 800 },
+  baselineDelta: { height: 408, width: 960 },
   compare: { height: 800, width: 1616 },
   edge: { height: 850, width: 960 },
   expression: { height: 864, width: 1440 },
@@ -300,6 +302,11 @@ async function main() {
   const args = process.argv.slice(2);
   const options = {
     auditRoot: path.resolve(readOption(args, 'audit-root', DEFAULTS.auditRoot)),
+    baselineDeltaRoot: path.resolve(readOption(
+      args,
+      'baseline-delta-root',
+      DEFAULTS.baselineDeltaRoot,
+    )),
     compareRoot: path.resolve(readOption(args, 'compare-root', DEFAULTS.compareRoot)),
     edgeRoot: path.resolve(readOption(args, 'edge-root', DEFAULTS.edgeRoot)),
     expressionRoot: path.resolve(readOption(args, 'expression-root', DEFAULTS.expressionRoot)),
@@ -350,6 +357,18 @@ async function main() {
 
   const referenceMtime = await latestMtimeMs([...sourceFrames, ...noreshapeFrames]);
   const auditFiles = expectedAuditFiles(options.auditRoot);
+  const baselineDeltaCsvFile = path.join(
+    options.baselineDeltaRoot,
+    'reimu-baseline-quality-delta.csv',
+  );
+  const baselineDeltaSummaryFile = path.join(
+    options.baselineDeltaRoot,
+    'reimu-baseline-quality-delta-summary.json',
+  );
+  const baselineDeltaPngFile = path.join(
+    options.baselineDeltaRoot,
+    'reimu-baseline-quality-delta.png',
+  );
   const compareFiles = expectedCompareFiles(options.compareRoot);
   const sweepFiles = expectedSweepFiles(options.sweepRoot);
   const issueOverlayFile = path.join(options.issueRoot, 'reimu-issue-overlay.png');
@@ -388,6 +407,9 @@ async function main() {
     path.join(options.perceptualRoot, 'reimu-perceptual-candidate-disposition.csv'),
     perceptualDispositionJsonFile,
     ...auditFiles,
+    baselineDeltaCsvFile,
+    baselineDeltaSummaryFile,
+    baselineDeltaPngFile,
     ...compareFiles,
     ...sweepFiles,
     edgeOverlayFile,
@@ -419,6 +441,12 @@ async function main() {
       ...VISUAL_DIMENSIONS.audit,
     });
   }
+  await assertImageMetadata({
+    file: baselineDeltaPngFile,
+    failures,
+    format: 'png',
+    ...VISUAL_DIMENSIONS.baselineDelta,
+  });
   for (const file of compareFiles) {
     await assertImageMetadata({
       file,
@@ -504,6 +532,7 @@ async function main() {
   );
   const openAiTargetSummaryFile = path.join(options.referenceRoot, 'reimu-openai-reference-targets-summary.json');
   const openAiTargetSummary = JSON.parse(await readFile(openAiTargetSummaryFile, 'utf8'));
+  const baselineDeltaSummary = JSON.parse(await readFile(baselineDeltaSummaryFile, 'utf8'));
   const qualitySummary = JSON.parse(
     await readFile(path.join(options.qualityRoot, 'reimu-asset-quality-summary.json'), 'utf8'),
   );
@@ -530,6 +559,27 @@ async function main() {
   }
   if (openAiMaterialSummary.changedFrameCount < 1) {
     failures.push('OpenAI material application changedFrameCount should be >= 1');
+  }
+  if (baselineDeltaSummary.baselineFrameCount !== 225) {
+    failures.push(`baseline delta baselineFrameCount ${baselineDeltaSummary.baselineFrameCount} !== 225`);
+  }
+  if (baselineDeltaSummary.currentFrameCount !== 225) {
+    failures.push(`baseline delta currentFrameCount ${baselineDeltaSummary.currentFrameCount} !== 225`);
+  }
+  for (const [checkName, passed] of Object.entries(baselineDeltaSummary.checks ?? {})) {
+    if (passed !== true) {
+      failures.push(`baseline delta check failed: ${checkName}`);
+    }
+  }
+  if (!(baselineDeltaSummary.totals?.transparentNonBlack?.before > 0)
+    || baselineDeltaSummary.totals?.transparentNonBlack?.after !== 0) {
+    failures.push('baseline delta should prove transparent non-black pixels were cleared');
+  }
+  if (!(
+    baselineDeltaSummary.totals?.internalGapArea?.after
+    < baselineDeltaSummary.totals?.internalGapArea?.before
+  )) {
+    failures.push('baseline delta should prove internal gap area decreased');
   }
   for (const [checkName, passed] of Object.entries(openAiMaterialSummary.checks ?? {})) {
     if (passed !== true) {
@@ -635,6 +685,9 @@ async function main() {
   console.log('Reimu quality artifact verification passed.');
   console.log(JSON.stringify({
     auditSheets: AUDIT_SHEETS.length * AUDIT_MODES.length,
+    baselineDeltaImprovedFrames: baselineDeltaSummary.improvedFrameCount,
+    baselineDeltaInternalGapReduction: baselineDeltaSummary.totals?.internalGapArea?.reductionRatio,
+    baselineDeltaTransparentReduction: baselineDeltaSummary.totals?.transparentNonBlack?.reductionRatio,
     compareSheets: COMPARE_SHEETS.length * COMPARE_MODES.length,
     edgeSheets: 1,
     expressionSheets: 1,

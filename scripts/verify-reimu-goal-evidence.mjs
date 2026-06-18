@@ -193,6 +193,11 @@ async function main() {
     walkFiles(options.noreshapeRoot, '.webp'),
     walkFiles(options.publicRoot, '.webp'),
   ]);
+  const baselineDeltaArtifacts = await Promise.all([
+    'reimu-baseline-quality-delta.csv',
+    'reimu-baseline-quality-delta.png',
+    'reimu-baseline-quality-delta-summary.json',
+  ].map((file) => fileExists(path.join(options.baselineDeltaRoot, file))));
   const requiredDocs = [
     'reimu-quality-process-reconstruction-2026-06-17.md',
     'reimu-quality-recovery-index-2026-06-18.md',
@@ -254,6 +259,12 @@ async function main() {
     'baseline-delta-hard-checks',
     allObjectValuesTrue(baselineDelta.checks),
     `baseline checks ${JSON.stringify(baselineDelta.checks)}`,
+  );
+  passRequirement(
+    requirements,
+    'baseline-delta-artifacts-present',
+    baselineDeltaArtifacts.every(Boolean),
+    `artifacts=${baselineDeltaArtifacts.filter(Boolean).length}/${baselineDeltaArtifacts.length}`,
   );
   passRequirement(
     requirements,

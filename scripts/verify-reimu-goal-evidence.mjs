@@ -26,6 +26,11 @@ const EXPECTED = {
   comparePngs: 12,
   currentReferenceFrames: 150,
   frames: 225,
+  lineHeadroomMaxUnsupportedComponentArea: 36,
+  lineHeadroomMaxUnsupportedComponentCount: 10,
+  lineHeadroomMaxUnsupportedComponentSpan: 36,
+  lineHeadroomMaxUnsupportedPixels: 66,
+  lineHeadroomMaxUnsupportedRatio: 0.047,
   lineMaxUnsupportedPixels: 90,
   lineMaxUnsupportedRatio: 0.055,
   minOpenAiReferenceRows: 5,
@@ -331,6 +336,31 @@ async function main() {
         lineComponentSpanThreshold,
       ),
     `pixels=${lineSummary.maxUnsupportedEdgeInkPixels?.unsupportedEdgeInkPixels}/${linePixelThreshold}, ratio=${lineSummary.maxUnsupportedEdgeInkRatio?.unsupportedEdgeInkRatio}/${lineRatioThreshold}, componentSpan=${lineSummary.maxUnsupportedEdgeComponentSpan?.componentSpan}/${lineComponentSpanThreshold}`,
+  );
+  passRequirement(
+    requirements,
+    'line-integrity-regression-headroom',
+    lessThanOrEqual(
+      lineSummary.maxUnsupportedEdgeInkPixels?.unsupportedEdgeInkPixels,
+      EXPECTED.lineHeadroomMaxUnsupportedPixels,
+    )
+      && lessThanOrEqual(
+        lineSummary.maxUnsupportedEdgeInkRatio?.unsupportedEdgeInkRatio,
+        EXPECTED.lineHeadroomMaxUnsupportedRatio,
+      )
+      && lessThanOrEqual(
+        lineSummary.maxUnsupportedEdgeComponentArea?.componentArea,
+        EXPECTED.lineHeadroomMaxUnsupportedComponentArea,
+      )
+      && lessThanOrEqual(
+        lineSummary.maxUnsupportedEdgeComponentCount?.unsupportedEdgeComponentCount,
+        EXPECTED.lineHeadroomMaxUnsupportedComponentCount,
+      )
+      && lessThanOrEqual(
+        lineSummary.maxUnsupportedEdgeComponentSpan?.componentSpan,
+        EXPECTED.lineHeadroomMaxUnsupportedComponentSpan,
+      ),
+    `pixels=${lineSummary.maxUnsupportedEdgeInkPixels?.unsupportedEdgeInkPixels}/${EXPECTED.lineHeadroomMaxUnsupportedPixels}, ratio=${lineSummary.maxUnsupportedEdgeInkRatio?.unsupportedEdgeInkRatio}/${EXPECTED.lineHeadroomMaxUnsupportedRatio}, components=${lineSummary.maxUnsupportedEdgeComponentCount?.unsupportedEdgeComponentCount}/${EXPECTED.lineHeadroomMaxUnsupportedComponentCount}, span=${lineSummary.maxUnsupportedEdgeComponentSpan?.componentSpan}/${EXPECTED.lineHeadroomMaxUnsupportedComponentSpan}`,
   );
   passRequirement(
     requirements,

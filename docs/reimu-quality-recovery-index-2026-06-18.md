@@ -155,6 +155,7 @@ The Reimu quality pass now covers:
 - reference-covered internal gap hard cap against `tmp/noreshape/reimu`
 - residual actionable-defect disposition in `tmp/quality-audit/reimu-residual-defect-summary.json`
 - alpha-edge line integrity in `tmp/line-audit`
+- line-integrity regression headroom in `verify:reimu:quality` / `verify:reimu:goal`, preserving current contour-support caps of `66` unsupported edge pixels, `0.047` unsupported edge ratio, component area `36`, component count `10`, and component span `36`
 - OpenAI reference mask, sleeve-ratio analysis, and controlled-edit target sheet in `tmp/reference-audit`
 - optional fresh OpenAI sleeve-edit candidates in `tmp/imagegen/reimu-sleeve-candidates`, measured as material inputs when present
 - OpenAI sleeve candidate preprocessing artifacts in `tmp/imagegen/reimu-sleeve-candidates/processed`, including transparent alpha, normalized fit, projected sleeve guide, drift heat, and controlled materialization metrics

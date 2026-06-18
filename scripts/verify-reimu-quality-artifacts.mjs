@@ -36,6 +36,13 @@ const OPENAI_SLEEVE_MATERIAL_GATES = {
   minAverageWidthDelta: 0.017,
   minChangedFrames: 25,
 };
+const LINE_INTEGRITY_HEADROOM_GATES = {
+  maxUnsupportedEdgeComponentArea: 36,
+  maxUnsupportedEdgeComponentCount: 10,
+  maxUnsupportedEdgeComponentSpan: 36,
+  maxUnsupportedEdgeInkPixels: 66,
+  maxUnsupportedEdgeInkRatio: 0.047,
+};
 const VISUAL_DIMENSIONS = {
   audit: { height: 800, width: 800 },
   baselineDelta: { height: 408, width: 960 },
@@ -678,6 +685,33 @@ async function main() {
       failures.push(`line integrity check failed: ${checkName}`);
     }
   }
+  const lineHeadroomChecks = {
+    maxUnsupportedEdgeComponentArea: (
+      lineSummary.maxUnsupportedEdgeComponentArea?.componentArea
+      <= LINE_INTEGRITY_HEADROOM_GATES.maxUnsupportedEdgeComponentArea
+    ),
+    maxUnsupportedEdgeComponentCount: (
+      lineSummary.maxUnsupportedEdgeComponentCount?.unsupportedEdgeComponentCount
+      <= LINE_INTEGRITY_HEADROOM_GATES.maxUnsupportedEdgeComponentCount
+    ),
+    maxUnsupportedEdgeComponentSpan: (
+      lineSummary.maxUnsupportedEdgeComponentSpan?.componentSpan
+      <= LINE_INTEGRITY_HEADROOM_GATES.maxUnsupportedEdgeComponentSpan
+    ),
+    maxUnsupportedEdgeInkPixels: (
+      lineSummary.maxUnsupportedEdgeInkPixels?.unsupportedEdgeInkPixels
+      <= LINE_INTEGRITY_HEADROOM_GATES.maxUnsupportedEdgeInkPixels
+    ),
+    maxUnsupportedEdgeInkRatio: (
+      lineSummary.maxUnsupportedEdgeInkRatio?.unsupportedEdgeInkRatio
+      <= LINE_INTEGRITY_HEADROOM_GATES.maxUnsupportedEdgeInkRatio
+    ),
+  };
+  for (const [checkName, passed] of Object.entries(lineHeadroomChecks)) {
+    if (passed !== true) {
+      failures.push(`line integrity headroom check failed: ${checkName}`);
+    }
+  }
   const stabilityChecks = {
     maxExpressionAlphaSpread: (
       qualitySummary.stability?.expression?.maxAlphaSpreadRatio?.alphaSpreadRatio
@@ -765,7 +799,12 @@ async function main() {
     expressionSheets: 1,
     gapSheets: 1,
     lineSheets: 1,
+    lineMaxUnsupportedComponentArea: lineSummary.maxUnsupportedEdgeComponentArea?.componentArea,
+    lineMaxUnsupportedComponentCount:
+      lineSummary.maxUnsupportedEdgeComponentCount?.unsupportedEdgeComponentCount,
     lineMaxUnsupportedComponentSpan: lineSummary.maxUnsupportedEdgeComponentSpan?.componentSpan,
+    lineMaxUnsupportedEdgeInkPixels: lineSummary.maxUnsupportedEdgeInkPixels?.unsupportedEdgeInkPixels,
+    lineMaxUnsupportedEdgeInkRatio: lineSummary.maxUnsupportedEdgeInkRatio?.unsupportedEdgeInkRatio,
     noreshapeFrames: noreshapeFrames.length,
     openAiCandidateProcessed: openAiCandidateMetrics.processedCount,
     openAiMaterialChangedFrames: openAiMaterialSummary.changedFrameCount,

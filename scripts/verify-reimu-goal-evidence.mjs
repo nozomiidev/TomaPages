@@ -353,6 +353,22 @@ async function main() {
   );
   passRequirement(
     requirements,
+    'expression-outside-region-gate',
+    expressionSummary.comparisonCount === EXPECTED.frames
+      && allObjectValuesTrue(expressionSummary.checks)
+      && lessThanOrEqual(
+        expressionSummary.maxOutsideExpressionPixels?.outsideExpressionPixels,
+        expressionSummary.thresholds?.maxOutsideExpressionPixels,
+      )
+      && lessThanOrEqual(
+        expressionSummary.maxOutsideExpressionRatio?.outsideExpressionRatio,
+        expressionSummary.thresholds?.maxOutsideExpressionRatio,
+      )
+      && perceptualSummary.hardChecks?.expressionRegionLeakage === true,
+    `outside=${expressionSummary.maxOutsideExpressionPixels?.outsideExpressionPixels}/${expressionSummary.thresholds?.maxOutsideExpressionPixels}, ratio=${expressionSummary.maxOutsideExpressionRatio?.outsideExpressionRatio}/${expressionSummary.thresholds?.maxOutsideExpressionRatio}`,
+  );
+  passRequirement(
+    requirements,
     'direction-neighbor-stability-gates',
     qualitySummary.frameCount === EXPECTED.frames
       && lessThanOrEqual(

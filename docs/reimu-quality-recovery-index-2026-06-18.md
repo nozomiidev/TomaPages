@@ -4,7 +4,7 @@ This index records where the recovered Reimu quality work lives and how it maps 
 
 ## Current Main State
 
-- Latest Reimu code/assets state covered by this index: current `main` after the baseline-delta artifact evidence gate pass
+- Latest Reimu code/assets state covered by this index: current `main` after the expression-region leakage evidence gate pass
 - Repository: `https://github.com/nozomiidev/TomaPages.git`
 - Branch: `main`
 - Shipped Reimu frames: `public/characters/reimu`, 9 sheets x 25 frames = 225 WebP files
@@ -14,6 +14,7 @@ This index records where the recovered Reimu quality work lives and how it maps 
 
 Recent quality commits:
 
+- expression-region leakage evidence gate, requiring mouth/blink deltas to stay bounded around the face blend region
 - baseline-delta artifact evidence gate, requiring local before/after comparison CSV/JSON/PNG outputs
 - OpenAI material application audit pass, comparing shipped Reimu frames with a no-material baseline
 - line-integrity audit pass, checking that alpha edges stay near visible ink/trim support across all Reimu frames
@@ -49,7 +50,7 @@ Recent quality commits:
 - `docs/reimu-edge-integrity-audit-2026-06-18.md`
   - Low-alpha and transparent-color integrity proof covering all 225 shipped Reimu frames.
 - `docs/reimu-expression-stability-audit-2026-06-18.md`
-  - Expression-frame stability proof showing same-pose mouth/blink differences reduced from body-wide deltas to face-local deltas.
+  - Expression-frame stability proof showing same-pose mouth/blink differences reduced from body-wide deltas to face-local deltas, with outside-region leakage limits.
 - `docs/reimu-light-interior-gap-audit-2026-06-18.md`
   - Small white-sleeve internal transparent gap cleanup proof and the matching audit guard.
 - `docs/reimu-reference-covered-gap-audit-2026-06-18.md`
@@ -163,6 +164,7 @@ The Reimu quality pass now covers:
 - weak alpha pixels
 - weak alpha edge support and orphan weak-alpha ghost detection in `tmp/edge-audit`
 - expression-frame diff review in `tmp/expression-audit`
+- expression-region leakage thresholds in `tmp/expression-audit/reimu-expression-diff-audit-summary.json`
 - transparent RGB residue
 - T/Y sleeve-width regression against the no-reshape baseline
 - visual contact sheets in `tmp/audit`
@@ -196,6 +198,8 @@ maxNeighborAlphaStep = 0.28
 maxNeighborCenterStep = 32
 maxNeighborHeightStep = 80
 maxNeighborWidthStep = 76
+maxOutsideExpressionPixels = 1100
+maxOutsideExpressionRatio = 0.08
 perceptual severeIssueCount = 0
 ```
 

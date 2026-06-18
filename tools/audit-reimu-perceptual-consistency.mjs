@@ -872,6 +872,10 @@ function hardChecks({
       && qualitySummary.maxDetachedSliverArea?.detachedSliverArea === 0,
     expressionAlphaDelta: expressionMaxAlpha <= options.maxExpressionAlphaChangedPixels,
     expressionChangedRatio: expressionMaxRatio <= options.maxExpressionChangedRatio,
+    expressionRegionLeakage: expressionSummary.maxOutsideExpressionPixels?.outsideExpressionPixels
+      <= expressionSummary.thresholds?.maxOutsideExpressionPixels
+      && expressionSummary.maxOutsideExpressionRatio?.outsideExpressionRatio
+      <= expressionSummary.thresholds?.maxOutsideExpressionRatio,
     frameCount: qualitySummary.frameCount === 225 && residualSummary.frameCount === 225,
     lineIntegrity: lineSummary.maxUnsupportedEdgeInkPixels?.unsupportedEdgeInkPixels
       <= lineSummary.thresholds?.maxUnsupportedEdgeInkPixels

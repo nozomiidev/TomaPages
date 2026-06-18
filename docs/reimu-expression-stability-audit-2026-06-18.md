@@ -41,9 +41,11 @@ Summary:
 
 ```text
 comparisonCount = 225
-after maxChangedPixels = 13825
-after maxAlphaChangedPixels = 1377
-after maxChangedRatio = 0.2542
+after maxChangedPixels = 13797
+after maxAlphaChangedPixels = 1409
+after maxChangedRatio = 0.2637
+maxOutsideExpressionPixels = 913 / 1100
+maxOutsideExpressionRatio = 0.0742 / 0.08
 ```
 
 The expression diff review sheet is generated at:
@@ -64,3 +66,5 @@ oy_01, cy_01 -> py_01
 ```
 
 The average sleeve-width loss cap is now `0.07`; side loss, side imbalance, and absolute minimum-width gates remain strict. The edge-integrity gate still requires zero orphan weak-alpha pixels and zero transparent colored residue.
+
+The expression diff audit also reuses the same face-ellipse blend region as `tools/slice-fumo-assets.mjs`. `verify:reimu:quality`, `verify:reimu:goal`, and the perceptual hard checks now fail if mouth/blink changes leak too far outside that region, preventing a future regression back to full-body expression flicker.

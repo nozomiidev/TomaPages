@@ -59,6 +59,7 @@ perceptualZoomSheets = 1
 reviewOnlyCandidateCount = 12
 severeIssueCount = 0
 neighborStability = true
+expressionRegionLeakage = true
 ```
 
 Current top review candidates include:
@@ -71,7 +72,7 @@ oy_01/r3c2.webp: sleeve side loss 0.1021
 cy_01/r0c2.webp: supported weak alpha 252, expression changed ratio 0.2451, OpenAI sleeve target review 0.098
 ```
 
-These are review candidates, not automatic failures. The hard gate fails if existing severe-quality checks regress, if expression/coverage limits are exceeded, or if the stored 5x5 neighbor center/alpha/width/height step thresholds are exceeded.
+These are review candidates, not automatic failures. The hard gate fails if existing severe-quality checks regress, if expression/coverage limits are exceeded, if mouth/blink deltas leak too far outside the expression face region, or if the stored 5x5 neighbor center/alpha/width/height step thresholds are exceeded.
 
 The disposition file records the reason each candidate is still review-only. Examples:
 
@@ -91,7 +92,7 @@ npm.cmd run verify:reimu:quality
 npm.cmd run quality:reimu
 ```
 
-`scripts/verify-reimu-quality-artifacts.mjs` now requires the perceptual PNG/CSV/summary, the candidate zoom PNG, and the candidate disposition CSV/JSON. It verifies both PNG dimensions, requires `qualityFrames = 225`, requires at least 150 sleeve frames, requires `actionableCandidateCount = 0`, verifies every disposition row is `review-only`, requires `severeIssueCount = 0`, and rechecks the stored direction-neighbor stability thresholds from `tmp/quality-audit/reimu-asset-quality-summary.json`.
+`scripts/verify-reimu-quality-artifacts.mjs` now requires the perceptual PNG/CSV/summary, the candidate zoom PNG, and the candidate disposition CSV/JSON. It verifies both PNG dimensions, requires `qualityFrames = 225`, requires at least 150 sleeve frames, requires `actionableCandidateCount = 0`, verifies every disposition row is `review-only`, requires `severeIssueCount = 0`, rechecks expression-region leakage limits, and rechecks the stored direction-neighbor stability thresholds from `tmp/quality-audit/reimu-asset-quality-summary.json`.
 
 ## Status
 

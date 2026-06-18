@@ -533,6 +533,9 @@ async function main() {
   const openAiTargetSummaryFile = path.join(options.referenceRoot, 'reimu-openai-reference-targets-summary.json');
   const openAiTargetSummary = JSON.parse(await readFile(openAiTargetSummaryFile, 'utf8'));
   const baselineDeltaSummary = JSON.parse(await readFile(baselineDeltaSummaryFile, 'utf8'));
+  const expressionSummary = JSON.parse(
+    await readFile(path.join(options.expressionRoot, 'reimu-expression-diff-audit-summary.json'), 'utf8'),
+  );
   const qualitySummary = JSON.parse(
     await readFile(path.join(options.qualityRoot, 'reimu-asset-quality-summary.json'), 'utf8'),
   );
@@ -585,6 +588,26 @@ async function main() {
     if (passed !== true) {
       failures.push(`OpenAI material application check failed: ${checkName}`);
     }
+  }
+  for (const [checkName, passed] of Object.entries(expressionSummary.checks ?? {})) {
+    if (passed !== true) {
+      failures.push(`expression diff check failed: ${checkName}`);
+    }
+  }
+  if (expressionSummary.comparisonCount !== 225) {
+    failures.push(`expression comparisonCount ${expressionSummary.comparisonCount} !== 225`);
+  }
+  if (
+    expressionSummary.maxOutsideExpressionPixels?.outsideExpressionPixels
+    > expressionSummary.thresholds?.maxOutsideExpressionPixels
+  ) {
+    failures.push('expression outside-region pixels exceed threshold');
+  }
+  if (
+    expressionSummary.maxOutsideExpressionRatio?.outsideExpressionRatio
+    > expressionSummary.thresholds?.maxOutsideExpressionRatio
+  ) {
+    failures.push('expression outside-region ratio exceeds threshold');
   }
   const lineChecks = {
     maxUnsupportedEdgeComponentArea: (
@@ -677,6 +700,11 @@ async function main() {
   } else if (perceptualDispositions.some((candidate) => candidate.disposition !== 'review-only')) {
     failures.push('perceptual disposition contains actionable candidates');
   }
+  for (const [checkName, passed] of Object.entries(perceptualSummary.hardChecks ?? {})) {
+    if (passed !== true) {
+      failures.push(`perceptual hard check failed: ${checkName}`);
+    }
+  }
 
   if (failures.length) {
     throw new Error(`Reimu quality artifact verification failed:\n- ${failures.join('\n- ')}`);
@@ -690,6 +718,8 @@ async function main() {
     baselineDeltaTransparentReduction: baselineDeltaSummary.totals?.transparentNonBlack?.reductionRatio,
     compareSheets: COMPARE_SHEETS.length * COMPARE_MODES.length,
     edgeSheets: 1,
+    expressionMaxOutsidePixels: expressionSummary.maxOutsideExpressionPixels?.outsideExpressionPixels,
+    expressionMaxOutsideRatio: expressionSummary.maxOutsideExpressionRatio?.outsideExpressionRatio,
     expressionSheets: 1,
     gapSheets: 1,
     lineSheets: 1,

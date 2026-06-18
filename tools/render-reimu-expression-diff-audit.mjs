@@ -6,6 +6,8 @@ const DEFAULTS = {
   character: 'reimu',
   cols: 3,
   diffThreshold: 24,
+  maxOutsideExpressionPixels: 1100,
+  maxOutsideExpressionRatio: 0.08,
   maxFrames: 12,
   outputRoot: 'tmp/expression-audit',
   sourceRoot: 'public/characters',
@@ -97,9 +99,53 @@ function alphaUnionPixels(a, b) {
   return pixels;
 }
 
+function alphaBounds(data, width, height) {
+  const bounds = {
+    maxX: 0,
+    maxY: 0,
+    minX: width,
+    minY: height,
+  };
+
+  for (let index = 0; index < width * height; index += 1) {
+    if (data[index * 4 + 3] <= 32) continue;
+
+    const x = index % width;
+    const y = Math.floor(index / width);
+    bounds.minX = Math.min(bounds.minX, x);
+    bounds.minY = Math.min(bounds.minY, y);
+    bounds.maxX = Math.max(bounds.maxX, x);
+    bounds.maxY = Math.max(bounds.maxY, y);
+  }
+
+  return bounds;
+}
+
+function reimuExpressionBlendAmount(x, y, bounds) {
+  const boundsWidth = bounds.maxX - bounds.minX + 1;
+  const boundsHeight = bounds.maxY - bounds.minY + 1;
+  const centerX = (bounds.minX + bounds.maxX) / 2;
+  const centerY = bounds.minY + boundsHeight * 0.39;
+  const radiusX = boundsWidth * 0.34;
+  const radiusY = boundsHeight * 0.27;
+  const distance = Math.hypot((x - centerX) / radiusX, (y - centerY) / radiusY);
+
+  if (distance <= 0.72) return 1;
+  if (distance >= 1.08) return 0;
+
+  const feather = (1.08 - distance) / (1.08 - 0.72);
+  return feather * feather * (3 - 2 * feather);
+}
+
+function insideExpressionRegion(x, y, boundsA, boundsB) {
+  return reimuExpressionBlendAmount(x, y, boundsA) > 0
+    || reimuExpressionBlendAmount(x, y, boundsB) > 0;
+}
+
 function measureDiff(a, b, options) {
   let changedPixels = 0;
   let alphaChangedPixels = 0;
+  let outsideExpressionPixels = 0;
   let totalMagnitude = 0;
   let maxMagnitude = 0;
   let maxX = 0;
@@ -108,6 +154,8 @@ function measureDiff(a, b, options) {
   let minY = a.info.height;
   let weightedX = 0;
   let weightedY = 0;
+  const boundsA = alphaBounds(a.data, a.info.width, a.info.height);
+  const boundsB = alphaBounds(b.data, b.info.width, b.info.height);
 
   for (let index = 0; index < a.data.length / 4; index += 1) {
     const magnitude = diffMagnitude(a, b, index);
@@ -119,6 +167,7 @@ function measureDiff(a, b, options) {
 
     changedPixels += 1;
     if (alphaDiff > options.diffThreshold) alphaChangedPixels += 1;
+    if (!insideExpressionRegion(x, y, boundsA, boundsB)) outsideExpressionPixels += 1;
     totalMagnitude += magnitude;
     maxMagnitude = Math.max(maxMagnitude, magnitude);
     minX = Math.min(minX, x);
@@ -145,6 +194,8 @@ function measureDiff(a, b, options) {
     changedRatio: Number((changedPixels / Math.max(1, unionPixels)).toFixed(4)),
     maxMagnitude: Math.round(maxMagnitude),
     meanMagnitude: changedPixels ? Number((totalMagnitude / changedPixels).toFixed(2)) : 0,
+    outsideExpressionPixels,
+    outsideExpressionRatio: Number((outsideExpressionPixels / Math.max(1, changedPixels)).toFixed(4)),
     unionPixels,
   };
 }
@@ -221,13 +272,28 @@ function maxBy(rows, key) {
   return [...rows].sort((a, b) => b[key] - a[key])[0] ?? { [key]: 0 };
 }
 
-function summarize(rows) {
+function summarize(rows, options) {
+  const maxOutsideExpressionPixels = maxBy(rows, 'outsideExpressionPixels');
+  const maxOutsideExpressionRatio = maxBy(rows, 'outsideExpressionRatio');
+
   return {
+    checks: {
+      outsideExpressionPixels: maxOutsideExpressionPixels.outsideExpressionPixels
+        <= options.maxOutsideExpressionPixels,
+      outsideExpressionRatio: maxOutsideExpressionRatio.outsideExpressionRatio
+        <= options.maxOutsideExpressionRatio,
+    },
     comparisonCount: rows.length,
     maxAlphaChangedPixels: maxBy(rows, 'alphaChangedPixels'),
     maxChangedPixels: maxBy(rows, 'changedPixels'),
     maxChangedRatio: maxBy(rows, 'changedRatio'),
     maxMeanMagnitude: maxBy(rows, 'meanMagnitude'),
+    maxOutsideExpressionPixels,
+    maxOutsideExpressionRatio,
+    thresholds: {
+      maxOutsideExpressionPixels: options.maxOutsideExpressionPixels,
+      maxOutsideExpressionRatio: options.maxOutsideExpressionRatio,
+    },
   };
 }
 
@@ -408,6 +474,16 @@ async function main() {
     character: readOption(args, 'character', DEFAULTS.character),
     cols: readNumberOption(args, 'cols', DEFAULTS.cols),
     diffThreshold: readNumberOption(args, 'diff-threshold', DEFAULTS.diffThreshold),
+    maxOutsideExpressionPixels: readNumberOption(
+      args,
+      'max-outside-expression-pixels',
+      DEFAULTS.maxOutsideExpressionPixels,
+    ),
+    maxOutsideExpressionRatio: readNumberOption(
+      args,
+      'max-outside-expression-ratio',
+      DEFAULTS.maxOutsideExpressionRatio,
+    ),
     maxFrames: readNumberOption(args, 'max-frames', DEFAULTS.maxFrames),
     outputRoot: path.resolve(readOption(args, 'out', DEFAULTS.outputRoot)),
     sourceRoot: readOption(args, 'source', DEFAULTS.sourceRoot),
@@ -416,7 +492,7 @@ async function main() {
   options.characterRoot = await resolveCharacterRoot(options.sourceRoot, options.character);
 
   const { frames, rows } = await scanDiffs(options);
-  const summary = summarize(rows);
+  const summary = summarize(rows, options);
   await mkdir(options.outputRoot, { recursive: true });
 
   const csvHeader = Object.keys(rows[0]);

@@ -342,6 +342,28 @@ async function main() {
   );
   passRequirement(
     requirements,
+    'direction-neighbor-stability-gates',
+    qualitySummary.frameCount === EXPECTED.frames
+      && lessThanOrEqual(
+        qualitySummary.stability?.neighbor?.maxAlphaStepRatio?.alphaStepRatio,
+        qualitySummary.thresholds?.maxNeighborAlphaStep,
+      )
+      && lessThanOrEqual(
+        qualitySummary.stability?.neighbor?.maxCenterStep?.centerStep,
+        qualitySummary.thresholds?.maxNeighborCenterStep,
+      )
+      && lessThanOrEqual(
+        qualitySummary.stability?.neighbor?.maxHeightStep?.heightStep,
+        qualitySummary.thresholds?.maxNeighborHeightStep,
+      )
+      && lessThanOrEqual(
+        qualitySummary.stability?.neighbor?.maxWidthStep?.widthStep,
+        qualitySummary.thresholds?.maxNeighborWidthStep,
+      ),
+    `center=${qualitySummary.stability?.neighbor?.maxCenterStep?.centerStep}/${qualitySummary.thresholds?.maxNeighborCenterStep}, alpha=${qualitySummary.stability?.neighbor?.maxAlphaStepRatio?.alphaStepRatio}/${qualitySummary.thresholds?.maxNeighborAlphaStep}`,
+  );
+  passRequirement(
+    requirements,
     'sleeve-guards-within-thresholds',
     sleeveGuardSummary.frameCount === EXPECTED.sleeveFrames
       && lessThanOrEqual(

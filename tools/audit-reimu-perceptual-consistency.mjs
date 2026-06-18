@@ -885,6 +885,14 @@ function hardChecks({
       <= lineSummary.thresholds?.maxUnsupportedEdgeComponentSpan,
     noReferenceCoveredGaps: gapSummary.totalReferenceCoveredGapArea === 0
       && gapSummary.totalReferenceCoveredGapCount === 0,
+    neighborStability: qualitySummary.stability?.neighbor?.maxAlphaStepRatio?.alphaStepRatio
+      <= qualitySummary.thresholds?.maxNeighborAlphaStep
+      && qualitySummary.stability?.neighbor?.maxCenterStep?.centerStep
+      <= qualitySummary.thresholds?.maxNeighborCenterStep
+      && qualitySummary.stability?.neighbor?.maxHeightStep?.heightStep
+      <= qualitySummary.thresholds?.maxNeighborHeightStep
+      && qualitySummary.stability?.neighbor?.maxWidthStep?.widthStep
+      <= qualitySummary.thresholds?.maxNeighborWidthStep,
     openAiReferenceCoverage: openAiSummary.openAiReferenceCount >= 5
       && openAiSummary.currentFrameCount >= 150,
     sleeveGuard: sleeveSummary.maxAverageWidthLoss?.averageWidthLoss

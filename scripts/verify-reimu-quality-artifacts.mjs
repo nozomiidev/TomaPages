@@ -504,6 +504,9 @@ async function main() {
   );
   const openAiTargetSummaryFile = path.join(options.referenceRoot, 'reimu-openai-reference-targets-summary.json');
   const openAiTargetSummary = JSON.parse(await readFile(openAiTargetSummaryFile, 'utf8'));
+  const qualitySummary = JSON.parse(
+    await readFile(path.join(options.qualityRoot, 'reimu-asset-quality-summary.json'), 'utf8'),
+  );
   const lineSummary = JSON.parse(
     await readFile(path.join(options.lineRoot, 'reimu-line-integrity-summary.json'), 'utf8'),
   );
@@ -560,6 +563,45 @@ async function main() {
       failures.push(`line integrity check failed: ${checkName}`);
     }
   }
+  const stabilityChecks = {
+    maxExpressionAlphaSpread: (
+      qualitySummary.stability?.expression?.maxAlphaSpreadRatio?.alphaSpreadRatio
+      <= qualitySummary.thresholds?.maxExpressionAlphaSpread
+    ),
+    maxExpressionCenterSpread: (
+      qualitySummary.stability?.expression?.maxCenterSpread?.centerSpread
+      <= qualitySummary.thresholds?.maxExpressionCenterSpread
+    ),
+    maxExpressionHeightSpread: (
+      qualitySummary.stability?.expression?.maxHeightSpread?.heightSpread
+      <= qualitySummary.thresholds?.maxExpressionHeightSpread
+    ),
+    maxExpressionWidthSpread: (
+      qualitySummary.stability?.expression?.maxWidthSpread?.widthSpread
+      <= qualitySummary.thresholds?.maxExpressionWidthSpread
+    ),
+    maxNeighborAlphaStep: (
+      qualitySummary.stability?.neighbor?.maxAlphaStepRatio?.alphaStepRatio
+      <= qualitySummary.thresholds?.maxNeighborAlphaStep
+    ),
+    maxNeighborCenterStep: (
+      qualitySummary.stability?.neighbor?.maxCenterStep?.centerStep
+      <= qualitySummary.thresholds?.maxNeighborCenterStep
+    ),
+    maxNeighborHeightStep: (
+      qualitySummary.stability?.neighbor?.maxHeightStep?.heightStep
+      <= qualitySummary.thresholds?.maxNeighborHeightStep
+    ),
+    maxNeighborWidthStep: (
+      qualitySummary.stability?.neighbor?.maxWidthStep?.widthStep
+      <= qualitySummary.thresholds?.maxNeighborWidthStep
+    ),
+  };
+  for (const [checkName, passed] of Object.entries(stabilityChecks)) {
+    if (passed !== true) {
+      failures.push(`stability check failed: ${checkName}`);
+    }
+  }
   const perceptualSummaryFile = path.join(options.perceptualRoot, 'reimu-perceptual-consistency-summary.json');
   const perceptualSummary = JSON.parse(await readFile(perceptualSummaryFile, 'utf8'));
   const perceptualDispositions = JSON.parse(await readFile(perceptualDispositionJsonFile, 'utf8'));
@@ -610,6 +652,7 @@ async function main() {
     publicFrames: sourceFrames.length,
     referenceFrames: referenceMetrics.currentCount,
     referencePngs: referenceMetrics.referencePngCount,
+    stabilityMaxNeighborCenterStep: qualitySummary.stability?.neighbor?.maxCenterStep?.centerStep,
     sweepSheets: sweepFiles.length,
   }, null, 2));
 }

@@ -2,6 +2,8 @@
 
 This report records the UI-side stability pass for Reimu 5x5 direction changes after the lossless asset pass.
 
+The asset-side stability gate now also stores and verifies 5x5 neighbor alpha, center, width, and height step thresholds in `tmp/quality-audit/reimu-asset-quality-summary.json`. `verify:reimu:quality`, `verify:reimu:goal`, and the perceptual consistency hard checks re-read those thresholds so runtime cell smoothing is paired with frame-level motion evidence.
+
 ## Change
 
 - Added `targetToStableCell` in `src/domain/character.js`.

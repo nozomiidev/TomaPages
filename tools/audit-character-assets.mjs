@@ -277,7 +277,7 @@ async function auditFrame(file, relativeFile, transparentThreshold) {
   };
 }
 
-function summarize(rows) {
+function summarize(rows, options) {
   const maxBy = (key) => [...rows].sort((a, b) => b[key] - a[key])[0];
   const minMarginRows = [...rows].sort((a, b) => (
     Math.min(a.leftMargin, a.topMargin, a.rightMargin, a.bottomMargin)
@@ -308,6 +308,16 @@ function summarize(rows) {
         : null,
     },
     stability,
+    thresholds: {
+      maxExpressionAlphaSpread: options.maxExpressionAlphaSpread,
+      maxExpressionCenterSpread: options.maxExpressionCenterSpread,
+      maxExpressionHeightSpread: options.maxExpressionHeightSpread,
+      maxExpressionWidthSpread: options.maxExpressionWidthSpread,
+      maxNeighborAlphaStep: options.maxNeighborAlphaStep,
+      maxNeighborCenterStep: options.maxNeighborCenterStep,
+      maxNeighborHeightStep: options.maxNeighborHeightStep,
+      maxNeighborWidthStep: options.maxNeighborWidthStep,
+    },
   };
 }
 
@@ -520,7 +530,7 @@ async function main() {
     csvHeader.join(','),
     ...rows.map((row) => csvHeader.map((key) => csvCell(row[key])).join(',')),
   ].join('\n');
-  const summary = summarize(rows);
+  const summary = summarize(rows, options);
 
   await writeFile(
     path.join(options.outputRoot, `${options.character}-asset-quality.csv`),

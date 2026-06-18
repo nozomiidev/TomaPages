@@ -144,6 +144,7 @@ The Reimu quality pass now covers:
 - 225-frame count validation
 - lossless Reimu WebP output so transparent pixels round-trip with black RGB
 - canvas margins, head/body cut-off risk, and 5x5 neighbor center-step stability
+- direction-neighbor alpha, center, width, and height step thresholds stored in `tmp/quality-audit/reimu-asset-quality-summary.json` and rechecked by `verify:reimu:quality` / `verify:reimu:goal`
 - detached alpha fragments and thin detached slivers
 - suspicious line-like transparent holes
 - larger internal transparent gap cap and overlay review
@@ -190,6 +191,10 @@ maxUnsupportedEdgeInkRatio = 0.055
 maxUnsupportedEdgeComponentArea = 48
 maxUnsupportedEdgeComponentCount = 12
 maxUnsupportedEdgeComponentSpan = 42
+maxNeighborAlphaStep = 0.28
+maxNeighborCenterStep = 32
+maxNeighborHeightStep = 80
+maxNeighborWidthStep = 76
 perceptual severeIssueCount = 0
 ```
 

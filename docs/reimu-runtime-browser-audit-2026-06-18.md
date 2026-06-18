@@ -23,7 +23,7 @@ eyeMix=0.85
 verify=b370ca8-browser-{pose}
 ```
 
-## Browser Evidence
+## Deployed Browser Evidence - `b370ca88`
 
 Artifacts:
 
@@ -41,6 +41,31 @@ Runtime checks in the summary:
 | `y` | `py_01` | 225 | 225 | 1 | 0 |
 
 The check waits for all 225 Reimu image elements to load and verifies that exactly one active image remains visible for the selected pose. This avoids falsely treating the hidden/preloaded frame stack as multiple displayed avatars.
+
+## Deployed Browser Evidence - `0efd657e`
+
+After the weak-alpha normalization and face-local expression blend pass was pushed, the deployed GitHub Pages Talk page was checked again with:
+
+```text
+verify=deployed-alpha-floor-0efd657e-{pose}
+```
+
+Artifacts:
+
+- `tmp/browser-screenshots/reimu-deployed-alpha-floor-0efd657e-p.png`
+- `tmp/browser-screenshots/reimu-deployed-alpha-floor-0efd657e-t.png`
+- `tmp/browser-screenshots/reimu-deployed-alpha-floor-0efd657e-y.png`
+- `tmp/browser-screenshots/reimu-deployed-alpha-floor-0efd657e-summary.json`
+
+Runtime checks in the deployed summary:
+
+| Pose | Active Frame | Images | Loaded | Visible Reimu Images | Broken | Console Errors |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `p` | `pl_01/r2c2.webp` | 225 | 225 | 1 | 0 | 0 |
+| `t` | `pt_01/r2c2.webp` | 225 | 225 | 1 | 0 | 0 |
+| `y` | `py_01/r2c2.webp` | 225 | 225 | 1 | 0 | 0 |
+
+The deployed `py_01/r2c2.webp` asset hash also matched the local committed file, proving GitHub Pages was serving the updated Reimu WebP output rather than a stale asset.
 
 ## Current Local Preview Evidence
 

@@ -1526,6 +1526,42 @@ function addSleevePatchEdgeSupport(patch, width, height) {
   }
 }
 
+function addReimuYSleeveContourSupport(patch, width, height) {
+  const alphaMask = new Uint8Array(width * height);
+  const inkMask = new Uint8Array(width * height);
+
+  for (let index = 0; index < alphaMask.length; index += 1) {
+    if (patch[index * 4 + 3] >= 16) alphaMask[index] = 1;
+    if (isPatchInkPixel(patch, index)) inkMask[index] = 1;
+  }
+
+  for (let index = 0; index < alphaMask.length; index += 1) {
+    if (!isPatchAlphaEdge(alphaMask, index, width, height)) continue;
+
+    const offset = index * 4;
+    const alpha = patch[offset + 3];
+    if (alpha < 56) continue;
+
+    const x = index % width;
+    const y = Math.floor(index / width);
+    const hasImmediateInk = hasPatchNearbyInk(inkMask, x, y, width, height, 1);
+    const red = patch[offset];
+    const green = patch[offset + 1];
+    const blue = patch[offset + 2];
+    const luma = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+    const alreadyStrong = alpha >= 220 && (luma < 132 || Math.max(red, green, blue) < 142);
+
+    if (alreadyStrong) continue;
+
+    const strength = hasImmediateInk ? 0.32 : 0.58;
+    patch[offset] = Math.round(red * (1 - strength) + 44 * strength);
+    patch[offset + 1] = Math.round(green * (1 - strength) + 40 * strength);
+    patch[offset + 2] = Math.round(blue * (1 - strength) + 40 * strength);
+    patch[offset + 3] = Math.max(alpha, hasImmediateInk ? 210 : 228);
+    inkMask[index] = 1;
+  }
+}
+
 function addReimuSleeveFrameEdgeSupport(data, width, height) {
   const bounds = alphaBounds(data, width, height);
   const centerX = (bounds.minX + bounds.maxX) / 2;
@@ -1701,6 +1737,9 @@ async function reshapeReimuPoseSleeves({
       targetHeight: outputHeight,
       targetWidth: outputWidth,
     });
+    if (poseKind === 'y') {
+      addReimuYSleeveContourSupport(resizedPatch, outputWidth, outputHeight);
+    }
     const left = side < 0
       ? Math.round(targetSleeve.maxX + sleeveStyle.innerOverlap - outputWidth + 1)
       : Math.round(targetSleeve.minX - sleeveStyle.innerOverlap);
